@@ -169,16 +169,18 @@ class BinFilePanel(QtGui.QGroupBox):
         if bin_path:
             return bin_path
         else:
-            self.browse_for_file()
-            return self.get_current_file()
+            if self.browse_for_file():
+                return self.get_current_file()
 
     def browse_for_file(self):
         start_dir = os.path.dirname('~/home/')
         file_path = QtGui.QFileDialog.getOpenFileName(self, 'Select bin file',
                                                 start_dir, "hex files (*.bin *.BIN)")
-        if file_path not in self.combo_box.getItems():
+        if os.path.isfile(file_path) and file_path not in self.combo_box.getItems():
             self.combo_box.insertItem(0, file_path)
             self.combo_box.setCurrentIndex(0)
+        elif not os.path.isfile(file_path):
+            return False
 
     def __del__(self):
         self.update_app_status_file()

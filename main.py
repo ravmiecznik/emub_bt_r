@@ -226,16 +226,17 @@ class MainWindow(QtGui.QMainWindow):
     def store_to_flash_button_slot(self):
         self.t0 = time.time()
         bin_path = self.bin_file_panel.get_current_file()
-        try:
-            self.bin_sender = BinSender(bin_path)
-            Message('rxflush', positive_signal=to_signal(self.send_data_packet.start),
-                    negative_signal=self.console_msg_factory("rxflush failed"))
-        except IOError as e:
-            self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
-            raise e
-        except BinSenderInvalidBinSize as e:
-            self.gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
-            raise e
+        if bin_path:
+            try:
+                self.bin_sender = BinSender(bin_path)
+                Message('rxflush', positive_signal=to_signal(self.send_data_packet.start),
+                        negative_signal=self.console_msg_factory("rxflush failed"))
+            except IOError as e:
+                self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
+                raise e
+            except BinSenderInvalidBinSize as e:
+                self.gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
+                raise e
 
     @thread_this_method(alias='write_flash_slot')
     def write_flash_slot(self):
