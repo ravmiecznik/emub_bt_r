@@ -51,7 +51,7 @@ class Message():
     default_negative_signal = lambda : None
 
     def __init__(self, raw_msg, resp_positive='ack', resp_negative='nak', resp_dtx='dtx', positive_signal=None,
-                 negative_signal=None, dtx_signal=None, create_header=True, timeout=1, max_retx=3, id=0):
+                 negative_signal=None, dtx_signal=None, create_header=True, timeout=1, max_retx=5, id=0):
         self.msg = create_message(id=id, body=raw_msg) if create_header else raw_msg
         self.raw_msg = raw_msg
         self.resp_positive = resp_positive
