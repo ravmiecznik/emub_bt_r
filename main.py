@@ -3,9 +3,17 @@
 author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
-from pygame.time import delay
+#from pygame.time import delay
 
-from main_logger import logger, info, debug, error, warn, EMU_BT_PATH
+
+import platform
+platform = platform.system()
+# print platform
+# if platform != 'Linux':
+#     import qdarkstyle
+
+import traceback
+from main_logger import logger, info, debug, error, warn, EMU_BT_PATH, ExceptionLogger
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
 from PyQt4 import QtCore, QtGui
@@ -84,6 +92,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
+
         #super(MainWindow, self).__init__()
         self.setWindowTitle("EMU BT")
         x_siz, y_siz = 500, 700
@@ -164,6 +173,10 @@ class MainWindow(QtGui.QMainWindow):
         self.resize(x_siz, y_siz)
         self.connect_button_slot()
 
+    def initUI(self):
+        QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
+        self.show()
+
     def get_raw_rx_buffer_slot(self):
         debug("raw_rx_buffer: {}".format(self.emulator.raw_buffer.read()))
 
@@ -220,11 +233,11 @@ class MainWindow(QtGui.QMainWindow):
 
     @thread_this_method(alias='write_flash_slot')
     def write_flash_slot(self):
-        Message('wr', positive_signal=to_signal(self.send_some_data.start),
-                          negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
+        Message('wr', positive_signal=to_signal(self.send_data_packet.start),
+                negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
 
     @thread_this_method()
-    def send_some_data(self):
+    def send_data_packet(self):
         positive_signal = to_signal(self.write_flash_slot.start) if self.bin_sender.packets_get != 15 else to_signal(self.get_writing_stats.start)
         Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal)
         self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
@@ -256,16 +269,18 @@ class MainWindow(QtGui.QMainWindow):
         self.emulator.rx_buffer.read()
         current_position_and_size = WindowGeometry(self)
         x_pos = current_position_and_size.get_position_to_the_right()
-        self.reflasher = Reflasher(self.app_status_file, self.emulator, signal_on_close=self.reflash_window_close_slot)
+        self.reflasher = Reflasher(self.app_status_file, self.emulator, signal_on_close=to_signal(self.reflash_window_close_slot))
         x_offset = 15
         y_offset = 100
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
         self.reflasher.show()
 
     def reflash_window_close_slot(self):
+        print "reflasher close signal"
         self.setEnabled(True)
         self.connection_thread.resume_all_threads()
-        Message('handshake')
+        #Message('disable_bootloader')
+        Message('handshake', positive_signal=to_signal(GuiThread(Message, args=('disable_bootloader',)).start))
 
     def update_config_file(self, kwargs):
         self.gui_communication_signal.emit("Updating:")
@@ -306,7 +321,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def create_threads(self):
         self.write_flash_slot()
-        self.send_some_data()
+        self.send_data_packet()
         self.get_writing_stats()
         self.blink_discovery_btn.on_terminate = self.control_panel.discover_button.set_default_style_sheet
 
@@ -348,7 +363,11 @@ class MainWindow(QtGui.QMainWindow):
             if not self.connection_thread.isRunning():
                 self.connection_thread.start()
             else:
-                self.help_text.setText("Already connecting")
+                pass
+                self.connection_thread.kill()
+                self.recevive_emulator_data_thread.kill()
+                self.emulator.disconnect()
+                self.set_connection_status()
         else:
             self.recevive_emulator_data_thread.kill()
             self.emulator.disconnect()
@@ -398,13 +417,24 @@ class MainWindow(QtGui.QMainWindow):
     def destroyEvent(self, event):
         print "destroy"
 
+def main():
 
-
-if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     myapp = MainWindow()
+    if platform == 'Windows':
+        app.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
+    #for i in QtGui.QStyleFactory.keys():
+    #    print i
     myapp.show()
     app.exec_()
-    # myapp.safe_close()
     sys.exit()
     sys.stdout = STDOUT
+
+if __name__ == "__main__":
+    exception_logger = ExceptionLogger()
+    try:
+        main()
+    except Exception as E:
+        print "Catched: {}".format(E)
+        traceback.print_exc(file=exception_logger)
+        raise E

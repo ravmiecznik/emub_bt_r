@@ -2,13 +2,14 @@
 author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
-
-from main_logger import logger, info, tstamp, error, warn
+import traceback
+from main_logger import logger, info, tstamp, error, warn, ExceptionLogger
 from collections import OrderedDict
 import time
 from PyQt4.QtCore import QThread
 from call_tracker import shallow_track_class_calls
 
+threads_exception_logger = ExceptionLogger("threads_exceptions")
 
 def thread_this_method(**thread_kwargs):
     """
@@ -235,7 +236,11 @@ class GuiThread(QThread):
         if not self.period:
             self.start_tstamp = tstamp()
             info("Thread started: {} args: {}".format(self.process.__name__, self.args))
-            self.returned_from_thread = self.process(*self.args, **self.kwargs)
+            try:
+                self.returned_from_thread = self.process(*self.args, **self.kwargs)
+            except Exception as E:
+                traceback.print_exc(file=threads_exception_logger)
+                raise E
         else:
             while True:
                 if not self.hard_supended:

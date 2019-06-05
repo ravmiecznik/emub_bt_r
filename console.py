@@ -48,7 +48,10 @@ class Console(QtGui.QGroupBox):
 
         #self.console_text_browser = myTextBrowser(self, scroll_pressed_slot, console_select_text_slot)
         self.console_text_browser = MyTextBrowser(self, self.scroll_pressed_slot, self.console_select_text_slot)
-        self.console_text_browser.setFontPointSize(9)
+        #self.console_text_browser.setFontPointSize(8)
+        font = QtGui.QFont('Courier New', 8)
+        self.console_text_browser.setFont(font)
+        self.command_line.setFont(font)
         self.event_handler = event_handler
         console_frame_FraneGrid.addWidget(self.console_text_browser, 0, 0, 4, 20)
         console_frame_FraneGrid.addWidget(self.command_line, 5, 0, 1, 16)
