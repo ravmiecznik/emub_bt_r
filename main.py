@@ -123,6 +123,7 @@ class MainWindow(QtGui.QMainWindow):
         self.event_handler.add_event(to_signal(self.discover_emu_bt_slot))
         self.event_handler.add_event(to_signal(self.lost_connection_slot))
         self.event_handler.add_event(to_signal(self.config_button_slot))
+        self.event_handler.add_event(to_signal(self.digidiag_on_slot))
         self.event_handler.add_event(to_signal(self.store_to_flash_button_slot))
         #self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
         self.event_handler.add_event(to_signal(self.get_raw_rx_buffer_slot))
@@ -181,6 +182,9 @@ class MainWindow(QtGui.QMainWindow):
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
         self.show()
+
+    def digidiag_on_slot(self):
+        Message('digidiag_on')
 
     def get_raw_rx_buffer_slot(self):
         debug("raw_rx_buffer: {}".format(self.emulator.raw_buffer.read()))
@@ -366,6 +370,7 @@ class MainWindow(QtGui.QMainWindow):
         self.blink_connect_btn.kill()
         if self.emulator.get_connection_status() == True:
             self.set_connected()
+            Message('digidiag_off')
         else:
             self.set_disconnected()
 

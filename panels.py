@@ -103,6 +103,7 @@ class EmulationPanel(QtGui.QGroupBox):
         self.setLayout(emulation_frame_FrameGrid)
 
         self.store_to_flash_button.clicked.connect(event_handler.store_to_flash_button_slot)
+        self.emulate_button.clicked.connect(event_handler.digidiag_on_slot)
 
 
 LCD_WEAR_DISPLAY_TIP        = "Bank wear counter. Will increase if any of 256bytes page of given bank was rewritten in given bank slot.\n" \
