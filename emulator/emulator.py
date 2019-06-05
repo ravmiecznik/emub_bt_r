@@ -101,8 +101,8 @@ class Emulator():
             debug("Received data amount: {}".format(len(rcv)))
             debug("rcv: {}".format(rcv))
             return rcv
-        except bluetooth.btcommon.BluetoothError:
-            #debug("bluetooth.btcommon.BluetoothError: return None")
+        except (bluetooth.btcommon.BluetoothError, IOError):
+            #Linux and Windows support different exceptions here
             return None
 
     def receive_data(self):
