@@ -79,6 +79,9 @@ class QLabel(QLabel):
                 warn("{} exceeded max size {}, will be cut".format(string, max_size))
         return textwrap.fill(string, self._max_line_len)
 
+def dupa(*args):
+    print args
+    print 'dupa'
 
 @method_call_track
 class MainWindow(QtGui.QMainWindow):
@@ -92,7 +95,6 @@ class MainWindow(QtGui.QMainWindow):
 
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
-
         #super(MainWindow, self).__init__()
         self.setWindowTitle("EMU BT")
         x_siz, y_siz = 500, 700
@@ -170,6 +172,9 @@ class MainWindow(QtGui.QMainWindow):
         mainGrid.addWidget(self.help_text,      13, 0, 1, 6)
         self.centralwidget.setLayout(mainGrid)
 
+        Message.default_negative_signal = self.console_msg_factory("command failed")
+        #Message.default_negative_signal = dupa
+
         self.resize(x_siz, y_siz)
         self.connect_button_slot()
 
@@ -189,7 +194,8 @@ class MainWindow(QtGui.QMainWindow):
         self.message_handler.send(str(command))
 
     def send_help_cmd_slot(self):
-        self.message_handler.send('help')
+        Message('help')
+        #self.message_handler.send('help')
 
     def send_resetemu_slot(self):
         self.message_handler.send('resetemu')
@@ -222,7 +228,7 @@ class MainWindow(QtGui.QMainWindow):
         bin_path = self.bin_file_panel.get_current_file()
         try:
             self.bin_sender = BinSender(bin_path)
-            Message('rxflush', positive_signal=to_signal(self.write_flash_slot.start),
+            Message('rxflush', positive_signal=to_signal(self.send_data_packet.start),
                     negative_signal=self.console_msg_factory("rxflush failed"))
         except IOError as e:
             self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
@@ -233,13 +239,20 @@ class MainWindow(QtGui.QMainWindow):
 
     @thread_this_method(alias='write_flash_slot')
     def write_flash_slot(self):
-        Message('wr', positive_signal=to_signal(self.send_data_packet.start),
-                negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
+        positive_signal = to_signal(self.write_flash_slot.start) if self.bin_sender.packets_get != 15 else to_signal(
+            self.get_writing_stats.start)
+
+        Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
+
+        #Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
+        self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
+        #Message('wr', positive_signal=to_signal(self.send_data_packet.start),
+        #        negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
 
     @thread_this_method()
     def send_data_packet(self):
-        positive_signal = to_signal(self.write_flash_slot.start) if self.bin_sender.packets_get != 15 else to_signal(self.get_writing_stats.start)
-        Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal)
+        positive_signal = to_signal(self.send_data_packet.start) if self.bin_sender.packets_get != 15 else to_signal(self.get_writing_stats.start)
+        Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")), id=1)
         self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
 
     @thread_this_method()
@@ -248,7 +261,7 @@ class MainWindow(QtGui.QMainWindow):
         Message("writingtime")
 
     def console_msg_factory(self, msg):
-        def wrapper():
+        def wrapper(*args):
             self.gui_communication_signal.emit(msg)
         return wrapper
 ###Make another object from this
@@ -432,9 +445,10 @@ def main():
 
 if __name__ == "__main__":
     exception_logger = ExceptionLogger()
-    try:
-        main()
-    except Exception as E:
-        print "Catched: {}".format(E)
-        traceback.print_exc(file=exception_logger)
-        raise E
+    main()
+    # try:
+    #     main()
+    # except Exception as E:
+    #     print "Catched: {}".format(E)
+    #     traceback.print_exc(file=exception_logger)
+    #     raise E

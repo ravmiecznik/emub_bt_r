@@ -48,10 +48,11 @@ class Message():
         return default_abstract_method_exception(Message, Message.default_ack_handler)()
 
     lock = False
+    default_negative_signal = lambda : None
 
     def __init__(self, raw_msg, resp_positive='ack', resp_negative='nak', resp_dtx='dtx', positive_signal=None,
-                 negative_signal=lambda: None, dtx_signal=None, create_header=True, timeout=1000, max_retx=3):
-        self.msg = create_message(id=1, body=raw_msg) if create_header else raw_msg
+                 negative_signal=None, dtx_signal=None, create_header=True, timeout=1, max_retx=3, id=0):
+        self.msg = create_message(id=id, body=raw_msg) if create_header else raw_msg
         self.raw_msg = raw_msg
         self.resp_positive = resp_positive
         self.resp_negative = resp_negative
@@ -61,7 +62,7 @@ class Message():
         self.max_retx = max_retx
         self.resp = 'NO RESP'
         self.catch_response_thrd = self.catch_response()
-        self.negative_signal = negative_signal
+        self.negative_signal = Message.default_negative_signal if negative_signal is None else negative_signal
 
         self.positive_handler = positive_signal if positive_signal else Message.default_ack_handler
         self.negative_handler = self.default_ack_handler
@@ -73,13 +74,16 @@ class Message():
             self.resp_dtx: self.default_nak_dtx_handler
         }
         #if not Message.lock:
-        self.__wait_for_unlock()
-        self.__send()
+        #self.__wait_for_unlock()
+        if not Message.lock:
+            self.__send()
         #else:
         #    warn("Previous job not finished, can't send new msg.")
 
     def __wait_for_unlock(self):
         t0 = time.time()
+        if Message.lock:
+            debug("wait for message sender unlock")
         while Message.lock:
             time.sleep(0.001)
             if time.time() - t0 > self.timeout:
@@ -92,13 +96,16 @@ class Message():
         """
         Message.flush_rx_buffer()
         if self.max_retx:
-            time.sleep(0.5)
+            #time.sleep(0.5)
             warn("'{resp}' received on reg: '{req}...' Trying retx {retx}...".format(resp=self.resp, req=self.raw_msg[0:40], retx=self.max_retx))
             self.__send()
             self.max_retx -= 1
         else:
             error("{req}... !!! send failed !!!".format(req=self.raw_msg[0:40]))
-            self.negative_signal()
+            try:
+                self.negative_signal(self)
+            except TypeError:
+                self.negative_signal()
 
     def unlock_msg_send(self):
         Message.lock = False
@@ -109,9 +116,17 @@ class Message():
         self.catch_response().start()
         debug("Send msg {}".format(self.raw_msg[0:20]))
         Message.send(self.msg)
+        # i = 0
+        # split = 10
+        # tmp = self.msg[i:i+split]
+        # while tmp:
+        #     Message.send(tmp)
+        #     i += split
+        #     tmp = self.msg[i:i + split]
+        #     #time.sleep(0.001)
 
     def unrecognized_resp_handler(self):
-        error("Unhandable resp: '{}' on req: '{}...' Flushing rx buffer".format(self.resp, self.raw_msg[0:40]))
+        error("Unhandable resp: '{}' on req: '{}...' Flushing rx buffer".format(self.resp + Message.rx_buffer.read(), self.raw_msg[0:40]))
         error(Message.rx_buffer.read())
         Message.flush_rx_buffer()
         self.dtx_handler()

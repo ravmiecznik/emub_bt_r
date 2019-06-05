@@ -128,16 +128,18 @@ class Reflasher(QtGui.QWidget):
 
 
     def close(self):
+        QtGui.QWidget.close(self)
+
+
+    def __close(self):
         if not self.flash_succeeded:
             self.send('run_main_app')
         self.emulator.rx_buffer.read()
         self.emulator.set_event_handler(self.old_event_handler)
         self.signal_on_close()
-        QtGui.QWidget.close(self)
-
 
     def closeEvent(self, event):
-        #self.close()
+        self.__close()
         event.accept()
 
     def get_last_hex_file_path(self):

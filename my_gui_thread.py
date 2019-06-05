@@ -236,11 +236,12 @@ class GuiThread(QThread):
         if not self.period:
             self.start_tstamp = tstamp()
             info("Thread started: {} args: {}".format(self.process.__name__, self.args))
-            try:
-                self.returned_from_thread = self.process(*self.args, **self.kwargs)
-            except Exception as E:
-                traceback.print_exc(file=threads_exception_logger)
-                raise E
+            self.returned_from_thread = self.process(*self.args, **self.kwargs)
+            # try:
+            #     self.returned_from_thread = self.process(*self.args, **self.kwargs)
+            # except Exception as E:
+            #     traceback.print_exc(file=threads_exception_logger)
+            #     raise E
         else:
             while True:
                 if not self.hard_supended:
