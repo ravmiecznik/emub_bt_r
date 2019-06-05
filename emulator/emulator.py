@@ -131,6 +131,7 @@ class Emulator():
         if not self.__lock:
             if self.bt_connection:
                 try:
+                    #print "len of data", len(data)
                     self.bt_connection.send(data)
                 except bluetooth.btcommon.BluetoothError:
                     error("LOST BT CONNECTION")

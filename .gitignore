@@ -3,3 +3,4 @@
 *.log
 *.cnf
 htmlcov
+.idea
