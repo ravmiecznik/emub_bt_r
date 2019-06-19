@@ -14,22 +14,30 @@ class BinSenderFileNotPresent(Exception):
 class BinSenderInvalidBinSize(Exception):
     pass
 
-class BinSender(BytesIO):
+#class BinSender(BytesIO):
+class BinSender(file):
     """
     BinHanlder: handle binary file sending (storing)
     """
     def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, init_from_buffer=False, crc_attach = False):
-        if not init_from_buffer:
-            with open(bin_file, 'rb') as f:
-                BytesIO.__init__(self, f.read())
-        elif init_from_buffer:
-            BytesIO.__init__(self, bin_file)
+#        if not init_from_buffer:
+#            with open(bin_file, 'rb') as f:
+#                BytesIO.__init__(self, f.read())
+#        elif init_from_buffer:
+#            BytesIO.__init__(self, bin_file)
+        file.__init__(self, bin_file, 'rb')
         self.col_size = 16
         self.packet_size = packet_size
         self.crc_attach = crc_attach
         self.packets_get = 0
         if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
             raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
+
+    def dump(self):
+        with open('dump.bin', 'w') as f:
+            self.seek(0)
+            f.write(self.read())
+            self.seek(0)
 
 
     def __len__(self):
@@ -44,11 +52,21 @@ class BinSender(BytesIO):
         return self
 
     def next(self):
+        s = 16
         packet = self.read(self.packet_size)
         if packet:
             self.packets_get += 1
-            return packet + crc(packet) if self.crc_attach else packet
+            ret = packet + crc(packet) if self.crc_attach else packet
+            #
+            # for i, j in enumerate(ret):
+            #     if not (i % s):
+            #         print
+            #     print '{:2X} '.format(ord(j)),
+            # print
+            return ret
         else:
+            print "dump"
+            self.dump()
             raise StopIteration
 
     def __repr__(self):
