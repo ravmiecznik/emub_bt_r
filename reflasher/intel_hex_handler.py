@@ -3,6 +3,12 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
+import platform
+platform = platform.system()
+# print platform
+# if platform != 'Linux':
+#     import qdarkstyle
+
 def local_print(msg):
     print "{}: {}".format(__file__, msg)
 
@@ -44,7 +50,8 @@ def intel_hex_parser(hex_string_lines, info=local_print):
     data_index = 8
     line_num = 0
     for hex_line in hex_string_lines:
-        hex_line = hex_line + '\n'
+        if platform != 'Linux':
+            hex_line = hex_line + '\n'
         hex_line = hex_line[1:-4]   # no crc, no first colon
         num_of_data = int(hex_line[num_of_data_index:num_of_data_index_end], 16)
         record_type = hex_line[record_type_index:record_type_index_end]

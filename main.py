@@ -79,9 +79,7 @@ class QLabel(QLabel):
                 warn("{} exceeded max size {}, will be cut".format(string, max_size))
         return textwrap.fill(string, self._max_line_len)
 
-def dupa(*args):
-    print args
-    print 'dupa'
+
 
 @method_call_track
 class MainWindow(QtGui.QMainWindow):
@@ -174,7 +172,6 @@ class MainWindow(QtGui.QMainWindow):
         self.centralwidget.setLayout(mainGrid)
 
         Message.default_negative_signal = self.console_msg_factory("command failed")
-        #Message.default_negative_signal = dupa
 
         self.resize(x_siz, y_siz)
         self.connect_button_slot()
