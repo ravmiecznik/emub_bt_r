@@ -187,7 +187,18 @@ class MainWindow(QtGui.QMainWindow):
         Message('digidiag_on')
 
     def get_raw_rx_buffer_slot(self):
+        self.emulator_event_handler()
         debug("raw_rx_buffer: {}".format(self.emulator.raw_buffer.read()))
+
+
+    def emulator_event_handler(self):
+        """
+        Handles random emulator output
+        :return:
+        """
+        welcome_msg = 'BT EEPROM EMULATOR R'
+        if welcome_msg in self.emulator.raw_buffer:
+            Message('digidiag_off', positive_signal=lambda :None)
 
     def lost_connection_slot(self):
         self.gui_communication_signal.emit("LOST BT CONNECTION")
@@ -203,6 +214,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def send_resetemu_slot(self):
         self.message_handler.send('resetemu')
+        #GuiThread(Message, args=('digidiag_off',), delay=0.5).start()
+        #Message('digidiag_off', resp_positive='digidiag 0')
 
     def read_emubt_config(self):
         config = configparser.ConfigParser()
@@ -382,7 +395,7 @@ class MainWindow(QtGui.QMainWindow):
             if not self.connection_thread.isRunning():
                 self.connection_thread.start()
             else:
-                pass
+                print 'stop connecting'
                 self.connection_thread.kill()
                 self.recevive_emulator_data_thread.kill()
                 self.emulator.disconnect()
