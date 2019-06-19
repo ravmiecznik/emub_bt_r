@@ -86,7 +86,7 @@ class Emulator():
                 self.event_handler.message("connected to emu device")
                 self.connected = True
                 return
-            except bluetooth.btcommon.BluetoothError as err:
+            except (bluetooth.btcommon.BluetoothError, IOError) as err:
                 try_num += 1
                 self.event_handler.message(err)
                 self.event_handler.message("Connection fail. Try: {}".format(try_num))
