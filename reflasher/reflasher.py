@@ -124,6 +124,7 @@ class Reflasher(QtGui.QWidget):
         self.old_event_handler = self.emulator.event_handler
         self.reflasher_event_handler = EventHandler()
         self.reflasher_event_handler.add_event(to_signal(lambda:None), "get_emu_rx_buffer_slot")
+        self.reflasher_event_handler.add_event(to_signal(lambda: None), "get_raw_rx_buffer_slot")
         self.emulator.set_event_handler(self.reflasher_event_handler)
 
 
@@ -132,8 +133,8 @@ class Reflasher(QtGui.QWidget):
 
 
     def __close(self):
-        if not self.flash_succeeded:
-            self.send('run_main_app')
+        #if not self.flash_succeeded:
+        #    self.send('run_main_app')
         self.emulator.rx_buffer.read()
         self.emulator.set_event_handler(self.old_event_handler)
         self.signal_on_close()
@@ -181,7 +182,7 @@ class Reflasher(QtGui.QWidget):
         if self.wait_for_resp("ready"):
            self.send_bin_image_thread.start()
 
-    def wait_for_resp(self, resp, nresp='nack', timeout=2):
+    def wait_for_resp(self, resp, nresp='nak', timeout=2):
         t0 = time.time()
         while time.time() - t0 < timeout:
             _resp = self.rx_buffer.peek().strip()
@@ -233,6 +234,7 @@ class Reflasher(QtGui.QWidget):
             max_retx = 5
             packet = bin_image.read(self.packetsize)
             num_of_packets -= 1
+        self.send('run_main_app')
         self.text_browser.append("DONE")
         self.verify_version()
 
@@ -243,16 +245,21 @@ class Reflasher(QtGui.QWidget):
 
     def verify_version(self):
         self.text_browser.append("Check if reflash suceeded")
+        time.sleep(1)
+        self.rx_buffer.flush()
+        Message(id=Message.ID.rxflush, positive_signal=to_signal(self.get_version))
+
+    def get_version(self):
         Message('version')
         if self.wait_for_resp(self.expected_version, timeout=1):
             self.text_browser.append("Found installed version: {}".format(self.expected_version))
-            self.text_browser.append("Reflashing OK, disabling bootloader")
+            self.text_browser.append("Reflashing OK")
             self.text_browser.append("You can close Reflasher window")
             self.flash_succeeded = True
             self._prepare_to_quit()
-            Message('disable_bootloader')
         else:
             self.text_browser.append("Reflash FAIL, bootloader will remain active after reset")
+
 
     def _find_version_of_hex_to_reflash(self, bin_file):
         str_len = len("Version:R0.00")
