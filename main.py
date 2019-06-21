@@ -5,7 +5,6 @@ contact: ravmiecznk@gmail.com
 """
 #from pygame.time import delay
 
-
 import platform
 platform = platform.system()
 # print platform
@@ -252,7 +251,30 @@ class MainWindow(QtGui.QMainWindow):
 
     def command_line_slot(self, command):
         self.console.command_line.clear()
-        self.message_handler.send(str(command))
+        cmd = str(command)
+        if cmd[0:2] == 'E:':
+            self.handle_E_command(cmd.split('E:')[1])
+        else:
+            self.message_handler.send(cmd)
+
+    def handle_E_command(self, cmd):
+        cnt = 0
+        tot_mem = 0
+        if cmd == 'gui threads':
+            for thread in GuiThread.threads_dict:
+                for thread_id in thread:
+                    self.gui_communication_signal.emit("{}  {} id {}".format(GuiThread.__name__, thread, thread_id))
+                    tot_mem += sys.getsizeof(thread_id)
+                    cnt += 1
+            self.gui_communication_signal.emit("Total threads: {}".format(cnt))
+            self.gui_communication_signal.emit("Total mem: {}".format(tot_mem))
+            self.gui_communication_signal.emit("Total dict mem: {}".format(sys.getsizeof(GuiThread.threads_dict)))
+        if cmd == 'kill threads':
+            GuiThread.kill_all_threads()
+            self.recevive_emulator_data_thread.start()
+            self.console.console_text_browser.clear()
+        else:
+            self.gui_communication_signal.emit("unsuported command")
 
     def send_help_cmd_slot(self):
         Message('help')
@@ -280,9 +302,16 @@ class MainWindow(QtGui.QMainWindow):
             return None, None
 
     def reflash_button_slot(self):
+        debug("Check if bootloader already active")
+        self.emulator.rx_buffer.flush()
+        Message('run_bootloader\n', create_header=False, resp_positive='BOOTLOADER',
+                positive_signal=to_signal(self.reflash_app_slot),
+                negative_signal=to_signal(self.activate_bootloader), timeout=0.2, max_retx=2)
+
+    def activate_bootloader(self):
         debug("Try to enable bootloader in default mode")
         Message('run_bootloader', positive_signal=to_signal(self.reflash_app_slot),
-                negative_signal=to_signal(self.check_if_bootloader_already_active), timeout=0.5)
+                negative_signal=to_signal(self.bootloader_activation_fail), timeout=0.5)
 
 
 ###Make another object from this
@@ -302,27 +331,29 @@ class MainWindow(QtGui.QMainWindow):
                 self.gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
                 raise e
 
-    @thread_this_method(alias='write_flash_slot')
-    def write_flash_slot(self):
-        positive_signal = to_signal(self.write_flash_slot.start) if self.bin_sender.packets_get != 15 else to_signal(
-            self.get_writing_stats.start)
-
-        Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
-
-        #Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
-        self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
-        #Message('wr', positive_signal=to_signal(self.send_data_packet.start),
-        #        negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
+    # @thread_this_method(alias='write_flash_slot')
+    # def write_flash_slot(self):
+    #     positive_signal = to_signal(self.write_flash_slot.start) if self.bin_sender.packets_get != 15 else to_signal(
+    #         self.get_writing_stats.start)
+    #
+    #     Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
+    #
+    #     #Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
+    #     self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
+    #     #Message('wr', positive_signal=to_signal(self.send_data_packet.start),
+    #     #        negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
 
     @thread_this_method()
     def send_data_packet(self):
-        positive_signal = to_signal(self.send_data_packet_on_ack) if self.bin_sender.packets_get != 15 else to_signal(self.get_writing_stats.start)
-        next_packet = next(self.bin_sender)
+
+        try:
+            next_packet = next(self.bin_sender)
+        except StopIteration:
+            self.get_writing_stats.start()
+            return
         #self._tmp_file.write(next_packet)
-        print 'packets get', self.bin_sender.packets_get
         Message(struct.pack('H', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page,
-                positive_signal=positive_signal, negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")),
-                fail_crc=False)
+                positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
 
     def send_data_packet_on_ack(self):
         self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
@@ -352,8 +383,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def reflash_app_slot(self):
         self.setEnabled(False)
-        self.connection_thread.suspend_all_threads()
-        self.recevive_emulator_data_thread.resume()
+        GuiThread.kill_all_threads()
+        self.recevive_emulator_data_thread.start()
         self.emulator.rx_buffer.read()
         current_position_and_size = WindowGeometry(self)
         x_pos = current_position_and_size.get_position_to_the_right()
@@ -364,11 +395,9 @@ class MainWindow(QtGui.QMainWindow):
         self.reflasher.show()
 
     def reflash_window_close_slot(self):
-        print "reflasher close signal"
         self.setEnabled(True)
-        self.connection_thread.resume_all_threads()
-        #Message('disable_bootloader')
-        Message('handshake', positive_signal=to_signal(GuiThread(Message, args=('disable_bootloader',)).start))
+        GuiThread.resume_all_threads()
+        Message('disable_bootloader')
 
     def update_config_file(self, kwargs):
         self.gui_communication_signal.emit("Updating:")
@@ -408,7 +437,7 @@ class MainWindow(QtGui.QMainWindow):
         to_signal(self.control_panel.connect_button.blink)()
 
     def create_threads(self):
-        self.write_flash_slot()
+        #self.write_flash_slot()
         self.send_data_packet()
         self.get_writing_stats()
         self.blink_discovery_btn.on_terminate = self.control_panel.discover_button.set_default_style_sheet
@@ -441,7 +470,7 @@ class MainWindow(QtGui.QMainWindow):
         self.blink_connect_btn.kill()
         if self.emulator.get_connection_status() == True:
             self.set_connected()
-            Message('digidiag_off')
+            GuiThread(Message, args=('digidiag_off',), delay=0.5).start()
         else:
             self.set_disconnected()
 
