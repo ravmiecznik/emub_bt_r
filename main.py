@@ -314,6 +314,16 @@ class MainWindow(QtGui.QMainWindow):
                 negative_signal=to_signal(self.bootloader_activation_fail), timeout=0.5)
 
 
+    def disable_objects_for_transmission(self):
+        self.emulation_panel.setDisabled(True)
+        self.banks_panel.setDisabled(True)
+        self.control_panel.reflash_button.setDisabled(True)
+
+    def enable_objects_after_transmission(self):
+        self.emulation_panel.setDisabled(False)
+        self.banks_panel.setDisabled(False)
+        self.control_panel.reflash_button.setDisabled(False)
+
 ###Make another object from this
     def store_to_flash_button_slot(self):
         self.t0 = time.time()
@@ -331,21 +341,11 @@ class MainWindow(QtGui.QMainWindow):
                 self.gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
                 raise e
 
-    # @thread_this_method(alias='write_flash_slot')
-    # def write_flash_slot(self):
-    #     positive_signal = to_signal(self.write_flash_slot.start) if self.bin_sender.packets_get != 15 else to_signal(
-    #         self.get_writing_stats.start)
-    #
-    #     Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
-    #
-    #     #Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, id=1)
-    #     self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
-    #     #Message('wr', positive_signal=to_signal(self.send_data_packet.start),
-    #     #        negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
-
     @thread_this_method()
     def send_data_packet(self):
-
+        if not self.blink_save_btn.isRunning():
+            self.blink_save_btn.start()
+        self.disable_objects_for_transmission()
         try:
             next_packet = next(self.bin_sender)
         except StopIteration:
@@ -353,14 +353,21 @@ class MainWindow(QtGui.QMainWindow):
             return
         #self._tmp_file.write(next_packet)
         Message(struct.pack('H', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page,
-                positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
+                positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.send_data_packet_teardown_on_fail))
 
     def send_data_packet_on_ack(self):
         self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
         self.send_data_packet.start()
 
+    def send_data_packet_teardown_on_fail(self):
+        self.blink_save_btn.kill()
+        self.gui_communication_signal.emit("SAVE operation failed. Check error log")
+        self.enable_objects_after_transmission()
+
     @thread_this_method()
     def get_writing_stats(self):
+        self.enable_objects_after_transmission()
+        self.blink_save_btn.kill()
         self.gui_communication_signal.emit("DONE in time {}".format(time.time() - self.t0))
         Message("writingtime")
         #self._tmp_file.close()
@@ -436,6 +443,10 @@ class MainWindow(QtGui.QMainWindow):
     def blink_connect_btn(self):
         to_signal(self.control_panel.connect_button.blink)()
 
+    @thread_this_method(period=0.4)
+    def blink_save_btn(self):
+        to_signal(self.emulation_panel.store_to_flash_button.blink)()
+
     def create_threads(self):
         #self.write_flash_slot()
         self.send_data_packet()
@@ -443,6 +454,8 @@ class MainWindow(QtGui.QMainWindow):
         self.blink_discovery_btn.on_terminate = self.control_panel.discover_button.set_default_style_sheet
 
         self.blink_connect_btn()
+        self.blink_save_btn()
+        self.blink_save_btn.on_terminate = self.emulation_panel.store_to_flash_button.set_default_style_sheet
         #self.blink_connect_btn.on_terminate = self.control_panel.connect_button.set_default_style_sheet
         #self.discovery_thread_teardown()
 
@@ -460,7 +473,7 @@ class MainWindow(QtGui.QMainWindow):
         #self.reflash_button_slot()
 
     def set_disconnected(self):
-        self.blink_connect_btn.kill_all_threads()
+        GuiThread.kill_all_threads()
         #self.recevive_emulator_data_thread.kill()
         self.connect_button.setText("Connect")
         self.connect_button.set_default_style_sheet()
