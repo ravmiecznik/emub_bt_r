@@ -1,3 +1,9 @@
 *.pyc 
 *tmp.py
+*.cnf
+*.log
+*.sts
+*.dat
+*.bin
 .idea/
+htmlcov/
