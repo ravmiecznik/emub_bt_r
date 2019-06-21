@@ -1,6 +1,3 @@
-*.pyc
-*.sts
-*.log
-*.cnf
-htmlcov
-.idea
+*.pyc 
+*tmp.py
+.idea/
