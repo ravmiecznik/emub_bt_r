@@ -59,7 +59,6 @@ class Emulator():
             self._connect()
         else:
             self.event_handler.message("Already connected")
-            print self.bt_connection.fileno()
 
     def disconnect(self):
         try:
