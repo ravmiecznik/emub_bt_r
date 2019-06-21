@@ -319,7 +319,8 @@ class MainWindow(QtGui.QMainWindow):
         positive_signal = to_signal(self.send_data_packet.start) if self.bin_sender.packets_get != 15 else to_signal(self.get_writing_stats.start)
         next_packet = next(self.bin_sender)
         #self._tmp_file.write(next_packet)
-        Message(struct.pack('H', self.bin_sender.packets_get) + next_packet, id=Message.ID.write_to_page, positive_signal=positive_signal, negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
+        print 'packets get', self.bin_sender.packets_get
+        Message(struct.pack('H', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page, positive_signal=positive_signal, negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
         self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
 
     @thread_this_method()
