@@ -11,6 +11,7 @@ from main_logger import info, debug, error, warn
 import time
 import abc
 from event_handler import to_signal
+from random import randrange
 
 class MsgLockTimeout(Exception):
     pass
@@ -36,6 +37,7 @@ class Message():
     class ID:
         txt_message = 0
         write_to_page = 1
+        rxflush = 2
     @staticmethod
     def send(msg):
         raise Exception("{}: static method '{}' not implemented".format(Message, Message.send.__name__))
@@ -55,10 +57,13 @@ class Message():
     lock = False
     default_negative_signal = lambda : None
 
-    def __init__(self, raw_msg, resp_positive='ack', resp_negative='nak', resp_dtx='dtx', positive_signal=None,
-                 negative_signal=None, dtx_signal=None, create_header=True, timeout=2, max_retx=5, id=0, fail_crc=False):
-        self.msg = create_message(id=id, body=raw_msg, fail_crc=fail_crc) if create_header else raw_msg
+    def __init__(self, raw_msg='', resp_positive='ack', resp_negative='nak', resp_dtx='dtx', positive_signal=None,
+                 negative_signal=None, create_header=True, timeout=2, max_retx=5, id=0, fail_crc_factor=None):
+        #self.msg = create_message(id=id, body=raw_msg, fail_crc_factor=fail_crc_factor) if create_header else raw_msg
+        self.create_header = create_header
+        self.fail_crc_factor = fail_crc_factor
         self.raw_msg = raw_msg
+        self.id = id
         self.resp_positive = resp_positive
         self.resp_negative = resp_negative
         self.resp_dtx = resp_dtx
@@ -69,21 +74,23 @@ class Message():
         self.catch_response_thrd = self.catch_response()
         self.negative_signal = Message.default_negative_signal if negative_signal is None else negative_signal
 
-        self.positive_handler = positive_signal if positive_signal else Message.default_ack_handler
-        self.negative_handler = self.default_nak_dtx_handler
-        self.dtx_handler = dtx_signal if dtx_signal else self.default_nak_dtx_handler
+        #self.positive_handler = positive_signal if positive_signal else Message.default_ack_handler
+        #self.negative_handler = self.default_nak_dtx_handler
+        self.__positive_signal = positive_signal
 
         self.actions = {
             self.resp_positive: self.positive_handler,
-            self.resp_negative: self.default_nak_dtx_handler,
-            self.resp_dtx: self.default_nak_dtx_handler
+            self.resp_negative: self.nak_dtx_handler,
+            self.resp_dtx: self.nak_dtx_handler
         }
-        #if not Message.lock:
-        #self.__wait_for_unlock()
-        if not Message.lock:
-            self.__send()
-        #else:
-        #    warn("Previous job not finished, can't send new msg.")
+        self.__send()
+
+    def positive_handler(self):
+        Message.lock = False
+        if self.__positive_signal:
+            self.__positive_signal()
+        else:
+            self.default_ack_handler()
 
     def __wait_for_unlock(self):
         t0 = time.time()
@@ -94,69 +101,93 @@ class Message():
             if time.time() - t0 > self.timeout:
                 raise MsgLockTimeout("Timeout in msg lock")
 
-    def default_nak_dtx_handler(self):
+    def nak_dtx_handler(self):
         """
         implement retx protocol here
         :return:
         """
         Message.flush_rx_buffer()
         if self.max_retx:
-            #time.sleep(0.5)
             warn("'{resp}' received on reg: '{req}...' Trying retx {retx}...".format(resp=self.resp, req=self.raw_msg[0:40], retx=self.max_retx))
-            self.__send()
+            self.__resend()
             self.max_retx -= 1
         else:
-            self.unlock_msg_send()
+            Message.lock = False
             error("{req}... !!! send failed !!!".format(req=self.raw_msg[0:40]))
             try:
-                self.negative_signal(self)
-            except TypeError:
                 self.negative_signal()
+            except TypeError:
+                self.negative_signal(self)
 
-    def unlock_msg_send(self):
-        Message.lock = False
 
     def __send(self):
         try:
             self.__wait_for_unlock()
         except MsgLockTimeout as e:
+            error("Timeout for: {}".format(self.raw_msg[0:40]))
+            print "Timeout for: {}".format(self.raw_msg[0:40])
+
             error(e.message)
-            self.negative_signal()
+            try:
+                self.negative_signal(self)
+            except TypeError:
+                self.negative_signal()
+                return False
         Message.lock = True
         Message.flush_rx_buffer()
         self.catch_response().start()
         debug("Send msg {}".format(self.raw_msg[0:20]))
-        Message.send(self.msg)
-        # i = 0
-        # split = 10
-        # tmp = self.msg[i:i+split]
-        # while tmp:
-        #     Message.send(tmp)
-        #     i += split
-        #     tmp = self.msg[i:i + split]
-        #     #time.sleep(0.001)
+        msg = create_message(id=self.id, body=self.raw_msg,
+                             fail_crc_factor=self.fail_crc_factor) if self.create_header else self.raw_msg
+        Message.send(msg)
+
+    def __resend(self):
+        Message.flush_rx_buffer()
+        self.catch_response().start()
+        debug("resend msg {}".format(self.raw_msg[0:20]))
+        msg = create_message(id=self.id, body=self.raw_msg,
+                             fail_crc_factor=self.fail_crc_factor) if self.create_header else self.raw_msg
+        Message.send(msg)
 
     def unrecognized_resp_handler(self):
         error("Unhandable resp: '{}' on req: '{}...' Flushing rx buffer".format(self.resp + Message.rx_buffer.read(), self.raw_msg[0:40]))
         error(Message.rx_buffer.read())
         Message.flush_rx_buffer()
-        self.unlock_msg_send()
-        self.dtx_handler()
+        self.nak_dtx_handler()
+
+    def handle_resp(self):
+        try:
+            action = self.actions[self.resp]
+            action()
+        except KeyError:
+            self.unrecognized_resp_handler()
 
     def catch_response(self):
-        def wait_for_msg():
-            t0 = time.time()
-            while Message.rx_buffer.available() < self.expected_resp_len:
-                time.sleep(0.001)
-                if time.time() - t0 > self.timeout:
-                    self.dtx_handler()
-                    return False
-            self.resp = Message.rx_buffer.read(self.expected_resp_len)
-            try:
-                self.actions[self.resp]()
-            except KeyError:
-                self.unrecognized_resp_handler()
-        return GuiThread(wait_for_msg, action_when_done=to_signal(self.unlock_msg_send))
+            def wait_for_msg():
+                t0 = time.time()
+                while Message.rx_buffer.available() < self.expected_resp_len:
+                    time.sleep(0.001)
+                    if time.time() - t0 > self.timeout:
+                        self.resp ='dtx'
+                        return False
+                self.resp = Message.rx_buffer.read(self.expected_resp_len)
+            return GuiThread(wait_for_msg, action_when_done=to_signal(self.handle_resp), alias=self.raw_msg[0:20])
+
+    # def catch_response(self):
+    #     def wait_for_msg():
+    #         t0 = time.time()
+    #         while Message.rx_buffer.available() < self.expected_resp_len:
+    #             time.sleep(0.001)
+    #             if time.time() - t0 > self.timeout:
+    #                 self.dtx_handler()
+    #                 return False
+    #         self.resp = Message.rx_buffer.read(self.expected_resp_len)
+    #         try:
+    #             print "call action on resp for id {}: {}".format(self.id, self.resp)
+    #             self.actions[self.resp]()
+    #         except KeyError:
+    #             self.unrecognized_resp_handler()
+    #     return GuiThread(wait_for_msg, action_when_done=to_signal(self.unlock_msg_send))
 
 
 class MessageHandler():
@@ -213,10 +244,10 @@ class MessageHandler():
                                      'get_emu_rx_buffer_slot')  # stop reading rx_buffer on signal
 
 
-def create_message(id, body,max_packet_size=256*8 + 20, fail_crc=False):
+def create_message(id, body,max_packet_size=256*8 + 20, fail_crc_factor=None):
     """
     Create message with name, body_len, crc, id
-
+    fail_crc_factor: propability factor to fail crc, value 4 means that 1 of 4 transmissions will fail crc, overwrites fail_crc
     :param name:
     :param body:
     :param max_packet_size:
@@ -229,10 +260,11 @@ def create_message(id, body,max_packet_size=256*8 + 20, fail_crc=False):
     body_len = struct.pack('I', body_len)
     id = struct.pack('H', id)                       #two bytes
     c = crc(body)                         #two bytes field
-    if fail_crc:
-        c1 = c[0]
-        c2 = chr(ord(c[1]) + 1) if ord(c[1]) < 256 else chr(ord(c[1]) - 1)
-        c = c1 + c2
+    if fail_crc_factor:
+        if randrange(0, fail_crc_factor) == 0:
+            c1 = c[0]
+            c2 = chr(ord(c[1]) + 1) if ord(c[1]) < 256 else chr(ord(c[1]) - 1)
+            c = c1 + c2
     return '>{id}{body_len}{crc}<{body}'.format(body_len=body_len, body=body, crc=c, id=id)
 
 if __name__ == "__main__":
