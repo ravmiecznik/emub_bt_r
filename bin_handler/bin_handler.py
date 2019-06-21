@@ -33,12 +33,6 @@ class BinSender(file):
         if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
             raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
 
-    def dump(self):
-        with open('dump.bin', 'w') as f:
-            self.seek(0)
-            f.write(self.read())
-            self.seek(0)
-
 
     def __len__(self):
         tell = self.tell()
@@ -52,21 +46,12 @@ class BinSender(file):
         return self
 
     def next(self):
-        s = 16
         packet = self.read(self.packet_size)
         if packet:
             self.packets_get += 1
             ret = packet + crc(packet) if self.crc_attach else packet
-            #
-            # for i, j in enumerate(ret):
-            #     if not (i % s):
-            #         print
-            #     print '{:2X} '.format(ord(j)),
-            # print
             return ret
         else:
-            print "dump"
-            self.dump()
             raise StopIteration
 
     def __repr__(self):
