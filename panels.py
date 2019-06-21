@@ -141,6 +141,15 @@ class BanksPanel(QtGui.QGroupBox):
         frame_grid.addWidget(self.auto_download_checkbox, 4, 0)
         self.setLayout(frame_grid)
 
+        self.bank1pushButton.clicked.connect(event_handler.bank1set_slot)
+        self.bank2pushButton.clicked.connect(event_handler.bank2set_slot)
+        self.bank3pushButton.clicked.connect(event_handler.bank3set_slot)
+
+    def set_default_style_sheet_for_buttons(self):
+        self.bank1pushButton.set_default_style_sheet()
+        self.bank2pushButton.set_default_style_sheet()
+        self.bank3pushButton.set_default_style_sheet()
+
 
 class BinFilePanel(QtGui.QGroupBox):
     def __init__(self, parent, app_status_file, event_handler=DummyEventHandler()):

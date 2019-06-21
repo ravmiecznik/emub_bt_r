@@ -57,6 +57,17 @@ class WindowGeometry(object):
         return self.pos_x, self.pos_y, self.width, self.height
 
 
+def compare_bin_files(file1, file2):
+    with open(file1, 'rb') as f1, open(file2, 'rb') as f2:
+        cnt = 0
+        for a in f1.read():
+            b = f2.read(1)
+            if a != b:
+                print "DIFF at {:X}: {:2X} - {:2X}".format(cnt, ord(a), ord(b))
+                raw_input('any key')
+            else:
+                print "{:2X} - {:2X}".format(ord(a), ord(b))
+            cnt += 1
 
 class QLabel(QLabel):
     """
@@ -127,6 +138,9 @@ class MainWindow(QtGui.QMainWindow):
         self.event_handler.add_event(to_signal(self.get_raw_rx_buffer_slot))
         self.event_handler.add_event(to_signal(self.send_help_cmd_slot))
         self.event_handler.add_event(to_signal(self.send_resetemu_slot))
+        self.event_handler.add_event(to_signal(self.bank1set_slot))
+        self.event_handler.add_event(to_signal(self.bank2set_slot))
+        self.event_handler.add_event(to_signal(self.bank3set_slot))
 
         self.__config_path = SETTINGS_PATH
         self.config_file_path = os.path.join(self.__config_path, 'emubt.cnf')
@@ -185,8 +199,43 @@ class MainWindow(QtGui.QMainWindow):
 
     def get_raw_rx_buffer_slot(self):
         self.emulator_event_handler()
-        debug("raw_rx_buffer: {}".format(self.emulator.raw_buffer.read()))
+        raw_data = self.emulator.raw_buffer.read()
+        debug("raw_rx_buffer: {}".format(raw_data))
 
+
+    def bank1set_slot(self):
+        self.banks_panel.set_default_style_sheet_for_buttons()
+        Message('bank1set',
+                positive_signal=to_signal(lambda : self.banks_panel.bank1pushButton.set_green_style_sheet()),
+                negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
+
+    def bank2set_slot(self):
+        self.banks_panel.set_default_style_sheet_for_buttons()
+        Message('bank2set',
+                positive_signal=to_signal(lambda: self.banks_panel.bank2pushButton.set_green_style_sheet()),
+                negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
+
+    def bank3set_slot(self):
+        self.banks_panel.set_default_style_sheet_for_buttons()
+        Message('bank3set',
+                positive_signal=to_signal(lambda: self.banks_panel.bank3pushButton.set_green_style_sheet()),
+                negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
+
+    def get_bank_in_use(self):
+        Message('bankinuse', positive_signal=to_signal(self.read_bank_in_use))
+
+    def read_bank_in_use(self):
+        raw_buffer = self.emulator.raw_buffer.read()
+        if 'bank1set' in raw_buffer:
+            self.banks_panel.set_default_style_sheet_for_buttons()
+            self.banks_panel.bank1pushButton.set_green_style_sheet()
+        elif 'bank2set' in raw_buffer:
+            self.banks_panel.set_default_style_sheet_for_buttons()
+            self.banks_panel.bank2pushButton.set_green_style_sheet()
+        elif 'bank3set' in raw_buffer:
+            self.banks_panel.set_default_style_sheet_for_buttons()
+            self.banks_panel.bank3pushButton.set_green_style_sheet()
+        print raw_buffer
 
     def emulator_event_handler(self):
         """
@@ -243,6 +292,7 @@ class MainWindow(QtGui.QMainWindow):
         if bin_path:
             try:
                 self.bin_sender = BinSender(bin_path)
+                #self._tmp_file = open(os.path.join(EMU_BT_PATH, 'tmp.bin'), 'wb')
                 Message('rxflush', positive_signal=to_signal(self.send_data_packet.start),
                         negative_signal=self.console_msg_factory("rxflush failed"))
             except IOError as e:
@@ -267,13 +317,17 @@ class MainWindow(QtGui.QMainWindow):
     @thread_this_method()
     def send_data_packet(self):
         positive_signal = to_signal(self.send_data_packet.start) if self.bin_sender.packets_get != 15 else to_signal(self.get_writing_stats.start)
-        Message(struct.pack('H', self.bin_sender.packets_get) + next(self.bin_sender), positive_signal=positive_signal, negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")), id=1)
+        next_packet = next(self.bin_sender)
+        #self._tmp_file.write(next_packet)
+        Message(struct.pack('H', self.bin_sender.packets_get) + next_packet, id=Message.ID.write_to_page, positive_signal=positive_signal, negative_signal=to_signal(self.console_msg_factory("SAVE operation failed. Check error log")))
         self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
 
     @thread_this_method()
     def get_writing_stats(self):
         self.gui_communication_signal.emit("DONE in time {}".format(time.time() - self.t0))
         Message("writingtime")
+        #self._tmp_file.close()
+        #compare_bin_files(os.path.join(EMU_BT_PATH, 'tmp.bin'), self.bin_file_panel.get_current_file())
 
     def console_msg_factory(self, msg):
         def wrapper(*args):
@@ -366,6 +420,7 @@ class MainWindow(QtGui.QMainWindow):
         self.connect_button.setText("disconnect")
         self.connect_button.set_green_style_sheet()
         self.recevive_emulator_data_thread.start()
+        self.get_bank_in_use()
         #TODO tmp
         #self.reflash_button_slot()
 

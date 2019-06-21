@@ -31,6 +31,9 @@ def default_abstract_method_exception(cls, method, method_type='static'):
     return raise_exception
 
 class Message():
+    class ID:
+        txt_message = 0
+        write_to_page = 1
     @staticmethod
     def send(msg):
         raise Exception("{}: static method '{}' not implemented".format(Message, Message.send.__name__))
