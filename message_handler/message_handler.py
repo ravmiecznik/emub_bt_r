@@ -12,6 +12,8 @@ import time
 import abc
 from event_handler import to_signal
 
+class MsgLockTimeout(Exception):
+    pass
 
 def default_handler(resp, req):
     def log():
@@ -54,8 +56,8 @@ class Message():
     default_negative_signal = lambda : None
 
     def __init__(self, raw_msg, resp_positive='ack', resp_negative='nak', resp_dtx='dtx', positive_signal=None,
-                 negative_signal=None, dtx_signal=None, create_header=True, timeout=1, max_retx=5, id=0):
-        self.msg = create_message(id=id, body=raw_msg) if create_header else raw_msg
+                 negative_signal=None, dtx_signal=None, create_header=True, timeout=2, max_retx=5, id=0, fail_crc=False):
+        self.msg = create_message(id=id, body=raw_msg, fail_crc=fail_crc) if create_header else raw_msg
         self.raw_msg = raw_msg
         self.resp_positive = resp_positive
         self.resp_negative = resp_negative
@@ -68,7 +70,7 @@ class Message():
         self.negative_signal = Message.default_negative_signal if negative_signal is None else negative_signal
 
         self.positive_handler = positive_signal if positive_signal else Message.default_ack_handler
-        self.negative_handler = self.default_ack_handler
+        self.negative_handler = self.default_nak_dtx_handler
         self.dtx_handler = dtx_signal if dtx_signal else self.default_nak_dtx_handler
 
         self.actions = {
@@ -90,7 +92,7 @@ class Message():
         while Message.lock:
             time.sleep(0.001)
             if time.time() - t0 > self.timeout:
-                raise Exception("Timeout")
+                raise MsgLockTimeout("Timeout in msg lock")
 
     def default_nak_dtx_handler(self):
         """
@@ -104,6 +106,7 @@ class Message():
             self.__send()
             self.max_retx -= 1
         else:
+            self.unlock_msg_send()
             error("{req}... !!! send failed !!!".format(req=self.raw_msg[0:40]))
             try:
                 self.negative_signal(self)
@@ -114,6 +117,11 @@ class Message():
         Message.lock = False
 
     def __send(self):
+        try:
+            self.__wait_for_unlock()
+        except MsgLockTimeout as e:
+            error(e.message)
+            self.negative_signal()
         Message.lock = True
         Message.flush_rx_buffer()
         self.catch_response().start()
@@ -132,6 +140,7 @@ class Message():
         error("Unhandable resp: '{}' on req: '{}...' Flushing rx buffer".format(self.resp + Message.rx_buffer.read(), self.raw_msg[0:40]))
         error(Message.rx_buffer.read())
         Message.flush_rx_buffer()
+        self.unlock_msg_send()
         self.dtx_handler()
 
     def catch_response(self):
@@ -204,7 +213,7 @@ class MessageHandler():
                                      'get_emu_rx_buffer_slot')  # stop reading rx_buffer on signal
 
 
-def create_message(id, body,max_packet_size=256*8 + 20):
+def create_message(id, body,max_packet_size=256*8 + 20, fail_crc=False):
     """
     Create message with name, body_len, crc, id
 
@@ -220,6 +229,10 @@ def create_message(id, body,max_packet_size=256*8 + 20):
     body_len = struct.pack('I', body_len)
     id = struct.pack('H', id)                       #two bytes
     c = crc(body)                         #two bytes field
+    if fail_crc:
+        c1 = c[0]
+        c2 = chr(ord(c[1]) + 1) if ord(c[1]) < 256 else chr(ord(c[1]) - 1)
+        c = c1 + c2
     return '>{id}{body_len}{crc}<{body}'.format(body_len=body_len, body=body, crc=c, id=id)
 
 if __name__ == "__main__":
