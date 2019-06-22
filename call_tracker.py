@@ -124,6 +124,9 @@ def getattribute(obj, item):
         return wrapper
     if typ is types.FunctionType:
         setattr(obj, item, call_track(object.__getattribute__(obj, item)))
+    # if typ is types.MethodType:
+    #     print 'get', typ, typ is types.MethodType
+
 
     #elif callable(object.__getattribute__(obj, item)):
     #    info("Other type: {}:{}".format(item, object.__getattribute__(obj, item).__name__))

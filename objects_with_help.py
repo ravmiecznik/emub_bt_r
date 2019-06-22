@@ -3,10 +3,7 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
-from PyQt4 import QtCore
 from PyQt4 import QtCore, QtGui
-import my_gui_thread as MThread
-import time
 
 BACKGROUND = "background-color: rgb({},{},{})"
 GREEN_STYLE_SHEET = BACKGROUND.format(154,252,41)

@@ -345,33 +345,35 @@ class MainWindow(QtGui.QMainWindow):
     def send_data_packet(self):
         if not self.blink_save_btn.isRunning():
             self.blink_save_btn.start()
-        self.disable_objects_for_transmission()
+        to_signal(self.disable_objects_for_transmission)()
         try:
             next_packet = next(self.bin_sender)
         except StopIteration:
             self.get_writing_stats.start()
             return
-        #self._tmp_file.write(next_packet)
         Message(struct.pack('H', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page,
                 positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.send_data_packet_teardown_on_fail))
 
     def send_data_packet_on_ack(self):
-        self.gui_communication_signal.emit("MSG sent: {}".format(self.bin_sender.packets_get))
+        try:
+            progress = 100*self.bin_sender.packets_get/self.bin_sender.tot_packests
+        except ZeroDivisionError:
+            progress = 0
+        to_signal(self.console.console_text_browser.clear)()
+        self.gui_communication_signal.emit("\n\nUpdating: {}%".format(progress))
         self.send_data_packet.start()
 
     def send_data_packet_teardown_on_fail(self):
         self.blink_save_btn.kill()
         self.gui_communication_signal.emit("SAVE operation failed. Check error log")
-        self.enable_objects_after_transmission()
+        to_signal(self.enable_objects_after_transmission)()
 
     @thread_this_method()
     def get_writing_stats(self):
-        self.enable_objects_after_transmission()
+        to_signal(self.enable_objects_after_transmission)()
         self.blink_save_btn.kill()
         self.gui_communication_signal.emit("DONE in time {}".format(time.time() - self.t0))
         Message("writingtime")
-        #self._tmp_file.close()
-        #compare_bin_files(os.path.join(EMU_BT_PATH, 'tmp.bin'), self.bin_file_panel.get_current_file())
 
     def console_msg_factory(self, msg):
         def wrapper(*args):
@@ -451,11 +453,13 @@ class MainWindow(QtGui.QMainWindow):
         #self.write_flash_slot()
         self.send_data_packet()
         self.get_writing_stats()
-        self.blink_discovery_btn.on_terminate = self.control_panel.discover_button.set_default_style_sheet
+        self.blink_discovery_btn.on_terminate = to_signal(self.control_panel.discover_button.set_default_style_sheet)
 
         self.blink_connect_btn()
+
         self.blink_save_btn()
-        self.blink_save_btn.on_terminate = self.emulation_panel.store_to_flash_button.set_default_style_sheet
+        self.blink_save_btn.on_terminate = to_signal(self.emulation_panel.store_to_flash_button.set_default_style_sheet)
+
         #self.blink_connect_btn.on_terminate = self.control_panel.connect_button.set_default_style_sheet
         #self.discovery_thread_teardown()
 
@@ -480,6 +484,7 @@ class MainWindow(QtGui.QMainWindow):
         self.emulator.disconnect()
 
     def set_connection_status(self):
+        #self.blink_connect_btn.kill()
         self.blink_connect_btn.kill()
         if self.emulator.get_connection_status() == True:
             self.set_connected()

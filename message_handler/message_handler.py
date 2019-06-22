@@ -125,7 +125,6 @@ class Message():
             self.__wait_for_unlock()
         except MsgLockTimeout as e:
             error("Timeout for: {}".format(self.raw_msg[0:40]))
-            print "Timeout for: {}".format(self.raw_msg[0:40])
 
             error(e.message)
             try:

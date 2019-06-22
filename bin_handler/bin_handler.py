@@ -30,6 +30,7 @@ class BinSender(file):
         self.packet_size = packet_size
         self.crc_attach = crc_attach
         self.packets_get = 0
+        self.tot_packests = len(self)
         if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
             raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
 
