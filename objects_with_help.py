@@ -99,5 +99,15 @@ class LcdDisplay(QtGui.QLCDNumber, HelpTip):
 class LineEdit(QtGui.QLineEdit, HelpTip):
     def __init__(self, *args, **kwargs):
         tip_msg = kwargs.pop('tip_msg')
+        self.focus_event = kwargs.pop('focus_event')
+        self.focus_out_event = kwargs.pop('focus_out_event')
         QtGui.QLineEdit.__init__(self, *args, **kwargs)
         HelpTip.__init__(self, tip_msg)
+
+    def focusInEvent(self, event):
+        QtGui.QLineEdit.focusInEvent(self, event)
+        self.focus_event()
+
+    def focusOutEvent(self, event):
+        QtGui.QLineEdit.focusOutEvent(self, event)
+        self.focus_out_event()

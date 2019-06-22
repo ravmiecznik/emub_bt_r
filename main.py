@@ -140,6 +140,9 @@ class MainWindow(QtGui.QMainWindow):
         self.event_handler.add_event(to_signal(self.bank1set_slot))
         self.event_handler.add_event(to_signal(self.bank2set_slot))
         self.event_handler.add_event(to_signal(self.bank3set_slot))
+        self.event_handler.add_event(to_signal(self.set_bank_name))
+        self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
+        self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
 
         self.__config_path = SETTINGS_PATH
         self.config_file_path = os.path.join(self.__config_path, 'emubt.cnf')
@@ -201,23 +204,63 @@ class MainWindow(QtGui.QMainWindow):
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {}".format(raw_data))
 
+    @thread_this_method()
+    def read_bank_info(self):
+        timeout = 1
+        t0 = time.time()
+        raw_buff = ''
+        to_signal(self.disable_objects_for_transmission)()
+        while '<' not in raw_buff:
+            raw_buff = self.emulator.raw_buffer.read().split('\n')[-1]
+            print raw_buff
+            time.sleep(0.001)
+            if time.time() - t0 > timeout:
+                def set_fail():
+                    self.banks_panel.bank_name_line_edit.setTest("!!FAIL!!")
+                to_signal(set_fail)()
+                to_signal(self.enable_objects_after_transmission)()
+                return False
+        bank_name = raw_buff.split('|')[0][1:]
+        def set_text():
+            self.banks_panel.bank_name_line_edit.setText(bank_name)
+        to_signal(set_text)()
+        to_signal(self.enable_objects_after_transmission)()
+
+
+    def bank_name_line_focus_out_event(self):
+        self.enable_objects_after_transmission()
+        to_signal(self.get_bank_in_use)()
+
+    def bank_name_line_edit_event(self):
+        self.emulation_panel.setDisabled(True)
+        self.banks_panel.bank1pushButton.setDisabled(True)
+        self.banks_panel.bank2pushButton.setDisabled(True)
+        self.banks_panel.bank3pushButton.setDisabled(True)
+        self.control_panel.reflash_button.setDisabled(True)
+
+    def set_green_style_get_bank_info(self, bank_button):
+        def wrapper():
+            to_signal(bank_button.set_green_style_sheet)()
+            Message(id=Message.ID.get_bank_info, positive_signal=to_signal(self.read_bank_info.start))
+        return GuiThread(wrapper).start
 
     def bank1set_slot(self):
         self.banks_panel.set_default_style_sheet_for_buttons()
         Message('bank1set',
-                positive_signal=to_signal(lambda : self.banks_panel.bank1pushButton.set_green_style_sheet()),
+                positive_signal=to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank1pushButton)),
                 negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
 
     def bank2set_slot(self):
         self.banks_panel.set_default_style_sheet_for_buttons()
         Message('bank2set',
-                positive_signal=to_signal(lambda: self.banks_panel.bank2pushButton.set_green_style_sheet()),
+                positive_signal=to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank2pushButton)),
                 negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
+
 
     def bank3set_slot(self):
         self.banks_panel.set_default_style_sheet_for_buttons()
         Message('bank3set',
-                positive_signal=to_signal(lambda: self.banks_panel.bank3pushButton.set_green_style_sheet()),
+                positive_signal=to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank3pushButton)),
                 negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
 
     def get_bank_in_use(self):
@@ -225,16 +268,23 @@ class MainWindow(QtGui.QMainWindow):
 
     def read_bank_in_use(self):
         raw_buffer = self.emulator.raw_buffer.read()
-        if 'bank1set' in raw_buffer:
-            self.banks_panel.set_default_style_sheet_for_buttons()
-            self.banks_panel.bank1pushButton.set_green_style_sheet()
-        elif 'bank2set' in raw_buffer:
-            self.banks_panel.set_default_style_sheet_for_buttons()
-            self.banks_panel.bank2pushButton.set_green_style_sheet()
-        elif 'bank3set' in raw_buffer:
-            self.banks_panel.set_default_style_sheet_for_buttons()
-            self.banks_panel.bank3pushButton.set_green_style_sheet()
+        to_signal(self.banks_panel.set_default_style_sheet_for_buttons)()
         print raw_buffer
+        if 'bank1set' in raw_buffer:
+            to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank1pushButton))()
+        elif 'bank2set' in raw_buffer:
+            to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank2pushButton))()
+        elif 'bank3set' in raw_buffer:
+            to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank3pushButton))()
+
+    def set_bank_name(self):
+        new_bank_name = str(self.banks_panel.bank_name_line_edit.text())
+        to_signal(self.disable_objects_for_transmission)
+        def enable_objects_after_transmission_update_banks_status():
+            self.enable_objects_after_transmission
+            to_signal(self.get_bank_in_use)()
+        Message(new_bank_name, id=Message.ID.setbankname, positive_signal=to_signal(enable_objects_after_transmission_update_banks_status),
+                                                          negative_signal=to_signal(self.enable_objects_after_transmission))
 
     def emulator_event_handler(self):
         """
@@ -323,6 +373,9 @@ class MainWindow(QtGui.QMainWindow):
         self.emulation_panel.setDisabled(False)
         self.banks_panel.setDisabled(False)
         self.control_panel.reflash_button.setDisabled(False)
+        self.banks_panel.bank1pushButton.setDisabled(False)
+        self.banks_panel.bank2pushButton.setDisabled(False)
+        self.banks_panel.bank3pushButton.setDisabled(False)
 
 ###Make another object from this
     def store_to_flash_button_slot(self):
@@ -459,6 +512,8 @@ class MainWindow(QtGui.QMainWindow):
 
         self.blink_save_btn()
         self.blink_save_btn.on_terminate = to_signal(self.emulation_panel.store_to_flash_button.set_default_style_sheet)
+
+        self.read_bank_info()
 
         #self.blink_connect_btn.on_terminate = self.control_panel.connect_button.set_default_style_sheet
         #self.discovery_thread_teardown()

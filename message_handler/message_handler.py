@@ -35,9 +35,11 @@ def default_abstract_method_exception(cls, method, method_type='static'):
 
 class Message():
     class ID:
-        txt_message = 0
-        write_to_page = 1
-        rxflush = 2
+        txt_message     = 0
+        write_to_page   = 1
+        rxflush         = 2
+        setbankname     = 3
+        get_bank_info   = 4
     @staticmethod
     def send(msg):
         raise Exception("{}: static method '{}' not implemented".format(Message, Message.send.__name__))
@@ -108,7 +110,7 @@ class Message():
         """
         Message.flush_rx_buffer()
         if self.max_retx:
-            warn("'{resp}' received on reg: '{req}...' Trying retx {retx}...".format(resp=self.resp, req=self.raw_msg[0:40], retx=self.max_retx))
+            warn("'{resp}' received on reg: '{req} id: {id}...' Trying retx {retx}...".format(resp=self.resp, req=self.raw_msg[0:40], id=self.id, retx=self.max_retx))
             self.__resend()
             self.max_retx -= 1
         else:

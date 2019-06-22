@@ -10,6 +10,7 @@ from call_tracker import method_call_track
 import os
 import configparser
 from main_logger import debug
+from event_handler import to_signal
 
 CONNECT_BTN_HELP = "Connect or Disconnect from EMU_BT"
 REFLASH_BTN_HELP = "Upload new firmware to EMU_BT"
@@ -118,6 +119,9 @@ class BanksPanel(QtGui.QGroupBox):
         super(BanksPanel, self).__init__(parent)
         frame_grid = QtGui.QGridLayout()
         frame_grid.setSpacing(1)
+
+        self.event_handler = event_handler
+
         self.setTitle("Banks")
         self.bank1_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
         self.bank2_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
@@ -129,7 +133,9 @@ class BanksPanel(QtGui.QGroupBox):
         self.bank2pushButton = PushButton("bank 2", tip_msg=BANK_TIP)
         self.bank3pushButton = PushButton("bank 3", tip_msg=BANK_TIP)
 
-        self.bank_name_line_edit = LineEdit(tip_msg="Provide new bank name. ENTER accepts")
+        self.bank_name_line_edit = LineEdit(tip_msg="Provide new bank name. ENTER accepts",
+                                            focus_event=event_handler.bank_name_line_edit_event,
+                                            focus_out_event = event_handler.bank_name_line_focus_out_event)
 
         frame_grid.addWidget(self.bank1pushButton, 0, 0)
         frame_grid.addWidget(self.bank2pushButton, 1, 0)
@@ -145,10 +151,22 @@ class BanksPanel(QtGui.QGroupBox):
         self.bank2pushButton.clicked.connect(event_handler.bank2set_slot)
         self.bank3pushButton.clicked.connect(event_handler.bank3set_slot)
 
+        #self.bank_name_line_edit.editingFinished.connect(self.bank_name_line_edit_slot)
+        self.bank_name_line_edit.returnPressed.connect(self.bank_name_line_edit_slot)
+
     def set_default_style_sheet_for_buttons(self):
         self.bank1pushButton.set_default_style_sheet()
         self.bank2pushButton.set_default_style_sheet()
         self.bank3pushButton.set_default_style_sheet()
+
+    def bank_name_line_edit_slot(self):
+        bank_name = self.bank_name_line_edit.text()[0:25]
+        self.bank_name_line_edit.setText(bank_name)
+        self.event_handler.set_bank_name()
+        self.bank_name_line_edit.clearFocus()
+
+    # def bank_name_line_edit_return_pressed_slot(self):
+    #     self.bank_name_line_edit.clearFocus()
 
 
 class BinFilePanel(QtGui.QGroupBox):
