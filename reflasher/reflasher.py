@@ -44,7 +44,9 @@ class Reflasher(QtGui.QWidget):
         self.cancel_button = QtGui.QPushButton("Cancel")
         self.browse_button.setMaximumSize(25, 25)
         self.text_browser = TextBrowserInSubWindow()
-        self.text_browser.setFontPointSize(9)
+        font = QtGui.QFont('Courier New', 8)
+        self.text_browser.setFont(font)
+        #self.text_browser.setFontPointSize(9)
         self.hex_file_path_tag = 'FLASH_HEX_FILE'
         self.browse_button.clicked.connect(to_signal(self.select_file))
         self.reflash_button.clicked.connect(to_signal(self.reflash))
