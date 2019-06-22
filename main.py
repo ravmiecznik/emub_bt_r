@@ -211,16 +211,17 @@ class MainWindow(QtGui.QMainWindow):
         raw_buff = ''
         to_signal(self.disable_objects_for_transmission)()
         while '<' not in raw_buff:
-            raw_buff = self.emulator.raw_buffer.read().split('\n')[-1]
+            raw_buff = self.emulator.raw_buffer.read().split('>')[1]
+            #raw_buff = self.emulator.raw_buffer.read()
             print raw_buff
             time.sleep(0.001)
             if time.time() - t0 > timeout:
                 def set_fail():
-                    self.banks_panel.bank_name_line_edit.setTest("!!FAIL!!")
+                    self.banks_panel.bank_name_line_edit.setText("!!FAIL!!")
                 to_signal(set_fail)()
                 to_signal(self.enable_objects_after_transmission)()
                 return False
-        bank_name = raw_buff.split('|')[0][1:]
+        bank_name = raw_buff.split('|')[0]
         def set_text():
             self.banks_panel.bank_name_line_edit.setText(bank_name)
         to_signal(set_text)()
@@ -241,6 +242,7 @@ class MainWindow(QtGui.QMainWindow):
     def set_green_style_get_bank_info(self, bank_button):
         def wrapper():
             to_signal(bank_button.set_green_style_sheet)()
+            self.emulator.raw_buffer.flush()
             Message(id=Message.ID.get_bank_info, positive_signal=to_signal(self.read_bank_info.start))
         return GuiThread(wrapper).start
 
