@@ -210,14 +210,17 @@ class MainWindow(QtGui.QMainWindow):
         t0 = time.time()
         raw_buff = ''
         to_signal(self.disable_objects_for_transmission)()
+        def set_fail():
+            self.banks_panel.bank_name_line_edit.setText("!!FAIL!!")
+            to_signal(self.enable_objects_after_transmission)()
         while '<' not in raw_buff:
-            raw_buff = self.emulator.raw_buffer.read().split('>')[1]
-            #raw_buff = self.emulator.raw_buffer.read()
+            try:
+                raw_buff = self.emulator.raw_buffer.read().split('>')[1]
+            except IndexError:
+                set_fail()
             print raw_buff
             time.sleep(0.001)
             if time.time() - t0 > timeout:
-                def set_fail():
-                    self.banks_panel.bank_name_line_edit.setText("!!FAIL!!")
                 to_signal(set_fail)()
                 to_signal(self.enable_objects_after_transmission)()
                 return False
@@ -333,7 +336,8 @@ class MainWindow(QtGui.QMainWindow):
         #self.message_handler.send('help')
 
     def send_resetemu_slot(self):
-        self.message_handler.send('resetemu')
+        Message('resetemu')
+        GuiThread(to_signal(self.get_bank_in_use), delay=1).start()
         #GuiThread(Message, args=('digidiag_off',), delay=0.5).start()
         #Message('digidiag_off', resp_positive='digidiag 0')
 
