@@ -2,7 +2,8 @@
 author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
-
+import platform
+platform = platform.system()
 from PyQt4 import QtCore, QtGui
 from dummy_event_handler import DummyEventHandler
 from objects_with_help import PushButton, CheckBox, LcdDisplay, LineEdit, ComboBox
@@ -204,6 +205,8 @@ class BinFilePanel(QtGui.QGroupBox):
         start_dir = os.path.dirname('~/home/')
         file_path = QtGui.QFileDialog.getOpenFileName(self, 'Select bin file',
                                                 start_dir, "hex files (*.bin *.BIN)")
+        if platform != 'Linux':
+            file_path = file_path.replace('/', '\\')
         if os.path.isfile(file_path) and file_path not in self.combo_box.getItems():
             self.combo_box.insertItem(0, file_path)
             self.combo_box.setCurrentIndex(0)
