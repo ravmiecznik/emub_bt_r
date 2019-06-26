@@ -29,7 +29,7 @@ from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow
 from bin_handler import BinSender, BinSenderInvalidBinSize
-from porcedures import BanksProcedures, StoreToFlashProcedure
+from procedures import BanksProcedures, StoreToFlashProcedure
 
 
 import struct

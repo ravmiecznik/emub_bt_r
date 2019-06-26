@@ -129,9 +129,10 @@ class StoreToFlashProcedure():
 
     @thread_this_method()
     def send_data_packet(self):
-        to_signal(self.progress_bar.display)()
         if not self.blink_save_btn.isRunning():
             self.blink_save_btn.start()
+            self.progress_bar.set_title("sending...")
+            to_signal(self.progress_bar.display)()
         to_signal(self.disable_objects_for_transmission)()
         try:
             next_packet = next(self.bin_sender)
@@ -139,7 +140,16 @@ class StoreToFlashProcedure():
             self.get_writing_stats.start()
             return
         Message(struct.pack('H', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page,
-                positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.send_data_packet_teardown_on_fail))
+                positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.send_data_packet_teardown_on_fail),
+                extra_action_on_ack=to_signal(self.set_blue_status_for_progress_bar),
+                extra_action_on_nack=to_signal(self.set_red_status_for_progress_bar)
+                )
+
+    def set_blue_status_for_progress_bar(self):
+        self.progress_bar.set_blue_style()
+
+    def set_red_status_for_progress_bar(self):
+        self.progress_bar.set_red_style()
 
     def send_data_packet_on_ack(self):
         try:
@@ -148,12 +158,14 @@ class StoreToFlashProcedure():
             progress = 0
         to_signal(self.console.console_text_browser.clear)()
         self.gui_communication_signal.emit("\n\nUpdating: {}%".format(progress))
+        self.progress_bar.setValue(progress)
         self.send_data_packet.start()
 
     def send_data_packet_teardown_on_fail(self):
         self.blink_save_btn.kill()
         self.gui_communication_signal.emit("SAVE operation failed. Check error log")
         to_signal(self.enable_objects_after_transmission)()
+        self.progress_bar.hide()
 
     @thread_this_method()
     def get_writing_stats(self):
@@ -161,6 +173,7 @@ class StoreToFlashProcedure():
         self.blink_save_btn.kill()
         self.gui_communication_signal.emit("DONE in time {}".format(time.time() - self.t0))
         Message("writingtime")
+        self.progress_bar.hide()
 
 
 

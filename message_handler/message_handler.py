@@ -60,7 +60,8 @@ class Message():
     default_negative_signal = lambda : None
 
     def __init__(self, raw_msg='', resp_positive='ack', resp_negative='nak', resp_dtx='dtx', positive_signal=None,
-                 negative_signal=None, create_header=True, timeout=2, max_retx=5, id=0, fail_crc_factor=None):
+                 negative_signal=None, create_header=True, timeout=2, max_retx=5, id=0, fail_crc_factor=None,
+                 extra_action_on_nack=lambda: None, extra_action_on_ack=lambda: None):
         #self.msg = create_message(id=id, body=raw_msg, fail_crc_factor=fail_crc_factor) if create_header else raw_msg
         self.create_header = create_header
         self.fail_crc_factor = fail_crc_factor
@@ -74,6 +75,9 @@ class Message():
         self.max_retx = max_retx
         self.resp = 'NO RESP'
         self.catch_response_thrd = self.catch_response()
+        self.extra_action_on_nack = extra_action_on_nack
+        self.extra_action_on_ack = extra_action_on_ack
+        #negative signal called when max_retx exceeded
         self.negative_signal = Message.default_negative_signal if negative_signal is None else negative_signal
 
         #self.positive_handler = positive_signal if positive_signal else Message.default_ack_handler
@@ -89,6 +93,7 @@ class Message():
 
     def positive_handler(self):
         Message.lock = False
+        self.extra_action_on_ack()
         if self.__positive_signal:
             self.__positive_signal()
         else:
@@ -108,6 +113,7 @@ class Message():
         implement retx protocol here
         :return:
         """
+        self.extra_action_on_nack()
         Message.flush_rx_buffer()
         if self.max_retx:
             warn("'{resp}' received on reg: '{req} id: {id}...' Trying retx {retx}...".format(resp=self.resp, req=self.raw_msg[0:40], id=self.id, retx=self.max_retx))

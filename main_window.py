@@ -69,12 +69,12 @@ AUTO_OPEN_CHECK_BOX_TIP     = "If checked it will automatically open a saved fil
 OVERWRITE_CHECK_BOX_TIP     = "If checked it will overwrte current file without asking\n"
 
 class WindowGeometry(object):
-    def __init__(self, QtGuiobject, parent):
-        self.parent = parent
-        self.pos_x = QtGuiobject.x(parent)
-        self.pos_y = QtGuiobject.y(parent)
-        self.height = QtGuiobject.height(parent)
-        self.width = QtGuiobject.width(parent)
+    def __init__(self, QtGuiobject):
+        #self.parent = parent
+        self.pos_x = QtGuiobject.x()
+        self.pos_y = QtGuiobject.y()
+        self.height = QtGuiobject.height()
+        self.width = QtGuiobject.width()
 
     def get_position_to_the_right(self):
         pos_x = self.width + self.pos_x
@@ -95,13 +95,21 @@ class ColorProgressBar(QtGui.QProgressBar):
     def set_blue_style(self):
         self.setStyleSheet(BLUE_STYLE)
 
-    def display(self, title="progress bar", width=400, height=50, x_offset=15, y_offset=100):
-        self.setValue(0)
+    def set_title(self, title):
         self.setWindowTitle(title)
+
+    def display(self, width=400, height=50, x_offset=15, y_offset=100):
+        self.setValue(0)
         current_position_and_size = WindowGeometry(self.parent)
         x_pos = current_position_and_size.get_position_to_the_right()
         self.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, width, height)
         self.show()
+
+    def set_red_style(self):
+        self.setStyleSheet(RED_STYLE)
+
+    def set_blue_style(self):
+        self.setStyleSheet(BLUE_STYLE)
 
     # def setValue(self, value):
     #     QtGui.QProgressBar.setValue(self, value)
