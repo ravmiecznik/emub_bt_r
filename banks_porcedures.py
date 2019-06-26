@@ -11,6 +11,7 @@ from my_gui_thread import GuiThread, thread_this_method
 class BanksProcedures():
         """
         Dedicated Class to seperate Banks related procedures
+        Must be inherited in MainWindow
         """
         @thread_this_method()
         def read_bank_info(self):
