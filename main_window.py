@@ -1,12 +1,6 @@
 import time
 
 from PyQt4 import QtCore, QtGui
-#import main
-from PyQt4.QtCore import pyqtSignal
-from matplotlib.backends.backend_qt5 import MainWindow
-
-from PyQt4.QtCore import QEvent
-from PyQt4.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
