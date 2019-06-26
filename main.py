@@ -197,6 +197,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         Message.default_negative_signal = self.console_msg_factory("command failed")
 
         self.resize(x_siz, y_siz)
+        self.disable_objects_for_transmission()
         self.connect_button_slot()
 
     def initUI(self):
@@ -409,6 +410,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.connect_button.set_green_style_sheet()
         self.recevive_emulator_data_thread.start()
         self.get_bank_in_use()
+        self.enable_objects_after_transmission()
         #TODO tmp
         #self.reflash_button_slot()
 
