@@ -18,6 +18,7 @@ from emulator import Emulator
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
+from main_window import ColorProgressBar
 from objects_with_help import HelpTip
 from my_gui_thread import GuiThread, thread_this_method
 from bt_discover import bt_search
@@ -28,7 +29,8 @@ from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow
 from bin_handler import BinSender, BinSenderInvalidBinSize
-from banks_porcedures import BanksProcedures
+from porcedures import BanksProcedures, StoreToFlashProcedure
+
 
 import struct
 
@@ -94,7 +96,7 @@ class QLabel(QLabel):
 
 
 @method_call_track
-class MainWindow(QtGui.QMainWindow, BanksProcedures):
+class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
@@ -188,6 +190,9 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures):
         mainGrid.addWidget(self.console,         6, 0, 6, 6)
         mainGrid.addWidget(self.help_text,      13, 0, 1, 6)
         self.centralwidget.setLayout(mainGrid)
+
+        self.progress_bar = ColorProgressBar(parent=self)
+        self.progress_bar.hide()
 
         Message.default_negative_signal = self.console_msg_factory("command failed")
 
@@ -301,55 +306,8 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures):
         self.banks_panel.bank3pushButton.setDisabled(False)
 
 ###Make another object from this
-    def store_to_flash_button_slot(self):
-        self.t0 = time.time()
-        bin_path = self.bin_file_panel.get_current_file()
-        if bin_path:
-            try:
-                self.bin_sender = BinSender(bin_path)
-                #self._tmp_file = open(os.path.join(EMU_BT_PATH, 'tmp.bin'), 'wb')
-                Message('rxflush', positive_signal=to_signal(self.send_data_packet.start),
-                        negative_signal=self.console_msg_factory("rxflush failed"))
-            except IOError as e:
-                self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
-                raise e
-            except BinSenderInvalidBinSize as e:
-                self.gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
-                raise e
 
-    @thread_this_method()
-    def send_data_packet(self):
-        if not self.blink_save_btn.isRunning():
-            self.blink_save_btn.start()
-        to_signal(self.disable_objects_for_transmission)()
-        try:
-            next_packet = next(self.bin_sender)
-        except StopIteration:
-            self.get_writing_stats.start()
-            return
-        Message(struct.pack('H', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page,
-                positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.send_data_packet_teardown_on_fail))
 
-    def send_data_packet_on_ack(self):
-        try:
-            progress = 100*self.bin_sender.packets_get/self.bin_sender.tot_packests
-        except ZeroDivisionError:
-            progress = 0
-        to_signal(self.console.console_text_browser.clear)()
-        self.gui_communication_signal.emit("\n\nUpdating: {}%".format(progress))
-        self.send_data_packet.start()
-
-    def send_data_packet_teardown_on_fail(self):
-        self.blink_save_btn.kill()
-        self.gui_communication_signal.emit("SAVE operation failed. Check error log")
-        to_signal(self.enable_objects_after_transmission)()
-
-    @thread_this_method()
-    def get_writing_stats(self):
-        to_signal(self.enable_objects_after_transmission)()
-        self.blink_save_btn.kill()
-        self.gui_communication_signal.emit("DONE in time {}".format(time.time() - self.t0))
-        Message("writingtime")
 
     def console_msg_factory(self, msg):
         def wrapper(*args):
