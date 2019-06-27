@@ -147,6 +147,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.event_handler.add_event(to_signal(self.set_bank_name))
         self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
+        self.event_handler.add_event(to_signal(self.read_sram_button_slot))
 
         self.__config_path = SETTINGS_PATH
         self.config_file_path = os.path.join(self.__config_path, 'emubt.cnf')
@@ -212,7 +213,8 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {}".format(raw_data))
 
-
+    def read_sram_button_slot(self):
+        Message(struct.pack('B', 1), id=Message.ID.get_sram_packet)
 
     def emulator_event_handler(self):
         """
