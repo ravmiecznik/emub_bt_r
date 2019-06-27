@@ -40,6 +40,7 @@ class Message():
         rxflush         = 2
         setbankname     = 3
         get_bank_info   = 4
+        get_sram_packet = 5
     @staticmethod
     def send(msg):
         raise Exception("{}: static method '{}' not implemented".format(Message, Message.send.__name__))

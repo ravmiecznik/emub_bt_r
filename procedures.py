@@ -139,7 +139,7 @@ class StoreToFlashProcedure():
         except StopIteration:
             self.get_writing_stats.start()
             return
-        Message(struct.pack('H', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page,
+        Message(struct.pack('B', self.bin_sender.packets_get - 1) + next_packet, id=Message.ID.write_to_page,
                 positive_signal=to_signal(self.send_data_packet_on_ack), negative_signal=to_signal(self.send_data_packet_teardown_on_fail),
                 extra_action_on_ack=to_signal(self.set_blue_status_for_progress_bar),
                 extra_action_on_nack=to_signal(self.set_red_status_for_progress_bar)
