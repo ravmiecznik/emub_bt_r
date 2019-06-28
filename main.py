@@ -28,7 +28,7 @@ from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow
-from bin_handler import BinSender, BinSenderInvalidBinSize
+from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, BinReceiver, CrcFail, PacketReceptionTimeout
 from procedures import BanksProcedures, StoreToFlashProcedure
 
 
@@ -179,6 +179,8 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
 
         self.message_handler = MessageHandler(self.emulator, self.event_handler,)
 
+        self.bin_receiver = BinReceiver(self.emulator.rx_buffer, file_name='tmp.bin', timeout=1)
+
         self.create_threads()
         self.connect_button = self.control_panel.connect_button
 
@@ -213,8 +215,24 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {}".format(raw_data))
 
+
     def read_sram_button_slot(self):
-        Message(struct.pack('B', 1), id=Message.ID.get_sram_packet)
+        self.read_sram_thread.start()
+
+    @thread_this_method()
+    def read_sram_thread(self):
+        self.progress_bar.set_title("receiving...")
+        to_signal(self.progress_bar.display)()
+        self.disable_objects_for_transmission()
+        self.emulator.rx_buffer.flush()
+        cnt = 0
+        Message(struct.pack('B', cnt), id=Message.ID.get_sram_packet)
+        for _ in self.bin_receiver:
+            self.progress_bar.setValue((cnt+1) * 100/16)
+            cnt += 1
+            Message(struct.pack('B', cnt), id=Message.ID.get_sram_packet)
+        to_signal(self.progress_bar.hide)()
+        self.enable_objects_after_transmission()
 
     def emulator_event_handler(self):
         """
@@ -388,6 +406,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
 
     def create_threads(self):
         #self.write_flash_slot()
+        self.read_sram_thread()
         self.send_data_packet()
         self.get_writing_stats()
         self.blink_discovery_btn.on_terminate = to_signal(self.control_panel.discover_button.set_default_style_sheet)

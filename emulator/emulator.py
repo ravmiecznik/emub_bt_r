@@ -20,7 +20,7 @@ class Emulator():
         self.port = port
         self.address = address
         self.rx_buffer = CircIoBuffer(byte_size=256*16)
-        self.raw_buffer = CircIoBuffer(byte_size=256)
+        self.raw_buffer = CircIoBuffer(byte_size=256 * 8 + 2)
 
     def lock(self):
         #get remaining data first
