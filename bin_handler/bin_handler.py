@@ -80,7 +80,7 @@ class BinReceiver(bytearray):
     """
     rx_buffer must have size at least 0x8000/SPMPAGESIZE/8
     """
-    def __init__(self, rx_buffer, file_name, timeout=1):
+    def __init__(self, rx_buffer, file_name, timeout=2):
         bytearray.__init__(self)
         self.__rx_buffer = rx_buffer
         self.__file_name = file_name
@@ -90,9 +90,50 @@ class BinReceiver(bytearray):
         self.__timeout = 1
         self.__packet_size = 256 * 8 + 2 #plus CRC
 
+    def wait_for_packet(self):
+        t0 = time.time()
+        while self.__rx_buffer.available() < self.__packet_size:
+            time.sleep(0.0001)
+            if time.time() - t0 > self.__timeout:
+                self.__rx_buffer.flush()
+                return False
+        return True
+
+    def receive_packet(self):
+        if self.wait_for_packet():
+            data_received = self.__rx_buffer.read()
+            _crc = data_received[-2:]
+            data_received = data_received[0:-2]
+
+            if not _crc == crc(data_received):
+                raise CrcFail
+            else:
+                self += data_received
+                if len(self) >= self.__expected_data_amount:
+                    return False
+            return True
+        else:
+            raise PacketReceptionTimeout
+
+    def __str__(self):
+        template = 4 * "{:02X} "
+        template = "{}  ".format(template)
+        template = 4 * template
+        index = 0
+        _str = ''
+        line = self[index: index + 16]
+        while line:
+            _str += "{:04X} ".format(index) + template.format(*list(line))
+            _str += '\t' + line.replace('\n', ' ').replace('\r', ' ') + '\n'
+            index += 16
+            line = self[index: index + 16]
+        return str(_str)
+
+    def reset(self):
+        self.__init__(self.__rx_buffer, self.__file_name, self.__timeout)
 
     def __iter__(self):
-        self.__init__(self.__rx_buffer, self.__file_name, self.__timeout)
+        self.reset()
         print 100*'#'
         print 10*'\n'
         print 100 * '#'
@@ -100,25 +141,5 @@ class BinReceiver(bytearray):
 
 
     def next(self):
-        t0 = time.time()
-        while self.__rx_buffer.available() < self.__packet_size:
-            time.sleep(0.001)
-            if time.time() - t0 > self.__timeout:
-                raise PacketReceptionTimeout
-        data_received = self.__rx_buffer.read()
-        _crc = data_received[-2:]
-        data_received = data_received[0:-2]
-        print 'crc', _crc == crc(data_received)
-        self += data_received
-        if len(self) >= self.__expected_data_amount:
-            template = 4 * "{:02X} "
-            template = "{}  ".format(template)
-            template = 4 * template
-            index = 0
-            line = self[index: index + 16]
-            while line:
-                print template.format(*list(line)),
-                print '\t', line.replace('\n', ' ').replace('\r', ' ')
-                index += 16
-                line = self[index: index + 16]
+        if not self.receive_packet():
             raise StopIteration

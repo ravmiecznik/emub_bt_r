@@ -179,7 +179,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
 
         self.message_handler = MessageHandler(self.emulator, self.event_handler,)
 
-        self.bin_receiver = BinReceiver(self.emulator.rx_buffer, file_name='tmp.bin', timeout=1)
+        self.bin_receiver = BinReceiver(self.emulator.rx_buffer, file_name='tmp.bin')
 
         self.create_threads()
         self.connect_button = self.control_panel.connect_button
@@ -221,18 +221,50 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
 
     @thread_this_method()
     def read_sram_thread(self):
+        t0 = time.time()
+        self.bin_receiver.reset()
+        self.gui_communication_signal.emit("{:X}".format(len(self.bin_receiver)))
         self.progress_bar.set_title("receiving...")
         to_signal(self.progress_bar.display)()
         self.disable_objects_for_transmission()
-        self.emulator.rx_buffer.flush()
+
+        def tear_down():
+            to_signal(self.progress_bar.hide)()
+            self.enable_objects_after_transmission()
+
+        def get_packet(cnt, max_retx=5):
+            try:
+                Message(struct.pack('B', cnt), id=Message.ID.get_sram_packet, positive_signal=lambda: None)
+                self.bin_receiver.receive_packet()
+                return True
+            except (PacketReceptionTimeout, CrcFail) as e:
+                self.gui_communication_signal.emit("CrcFail or timoeut: {}".format(max_retx))
+                if max_retx <= 0:
+                    self.gui_communication_signal.emit("Reception failed")
+                    tear_down()
+                    raise Exception("Reception failed")
+                time.sleep(0.5)
+                get_packet(cnt, max_retx-1)
+
         cnt = 0
-        Message(struct.pack('B', cnt), id=Message.ID.get_sram_packet)
-        for _ in self.bin_receiver:
-            self.progress_bar.setValue((cnt+1) * 100/16)
-            cnt += 1
-            Message(struct.pack('B', cnt), id=Message.ID.get_sram_packet)
-        to_signal(self.progress_bar.hide)()
-        self.enable_objects_after_transmission()
+        self.emulator.rx_buffer.flush()
+        while True:
+            if get_packet(cnt):
+                cnt += 1
+                break
+
+        while len(self.bin_receiver) < 0x8000:
+            assert cnt < 16
+            self.progress_bar.set_title("receiving...")
+            to_signal(self.progress_bar.show)()
+            if get_packet(cnt):
+                cnt += 1
+                self.progress_bar.setValue(cnt * 100 / 16)
+        self.gui_communication_signal.emit("SRAM read done in {:.2f}".format(time.time() - t0))
+        self.gui_communication_signal.emit("{:X}".format(len(self.bin_receiver)))
+        print self.bin_receiver
+        tear_down()
+
 
     def emulator_event_handler(self):
         """
