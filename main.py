@@ -143,9 +143,9 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         self.event_handler.add_event(to_signal(self.read_sram_button_slot))
 
-        self.__config_path = SETTINGS_PATH
-        self.config_file_path = os.path.join(self.__config_path, 'emubt.cnf')
-        self.app_status_file = os.path.join(self.__config_path, 'app_status.sts')
+        self.config_path = SETTINGS_PATH
+        self.config_file_path = os.path.join(self.config_path, 'emubt.cnf')
+        self.app_status_file = os.path.join(self.config_path, 'app_status.sts')
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
         self.emulation_panel = EmulationPanel(self.centralwidget, self.event_handler)

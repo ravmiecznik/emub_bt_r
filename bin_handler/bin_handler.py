@@ -123,6 +123,14 @@ class BinReceiver(bytearray):
             line = self[index: index + 16]
         return str(_str)
 
+    def save_bin(self, file_path):
+        with open(file_path, 'wb') as f:
+            f.write(self)
+
+    def save_hex(self, file_path):
+        with open(file_path, 'wb') as f:
+            f.write(str(self))
+
     def reset(self):
         self.__init__(self.__rx_buffer, self.__timeout)
 

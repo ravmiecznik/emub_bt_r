@@ -3,7 +3,7 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
-import time
+import time, os
 import struct
 from event_handler import to_signal
 from message_handler import Message
@@ -250,7 +250,6 @@ class ReadSramProcedure(RetxCount):
         def tear_down():
             to_signal(self.progress_bar.hide)()
             to_signal(self.enable_objects_after_transmission)()
-            print self.bin_receiver
 
         def get_packet(packet_count, max_retx=self.max_retx):
             """
@@ -287,4 +286,7 @@ class ReadSramProcedure(RetxCount):
                 self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
         self.gui_communication_signal.emit("SRAM read done in {:.2f}".format(time.time() - t0))
         self.disp_retx_count()
+        self.bin_receiver.save_bin(file_path=os.path.join(self.config_path, 'received.bin'))
+        self.bin_receiver.save_hex(file_path=os.path.join(self.config_path, 'received.hex'))
         tear_down()
+
