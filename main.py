@@ -28,8 +28,7 @@ from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow
-from procedures import BanksProcedures, ReadSramProcedure
-from procedures import StoreToFlashProcedureV2 as StoreToFlashProcedure
+from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure
 
 
 
@@ -206,10 +205,6 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.emulator_event_handler()
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {}".format(raw_data))
-
-
-    def read_sram_button_slot(self):
-        self.read_sram_thread.start()
 
 
     def emulator_event_handler(self):
