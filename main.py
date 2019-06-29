@@ -28,11 +28,10 @@ from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow
-from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, BinReceiver, CrcFail, PacketReceptionTimeout
-from procedures import BanksProcedures, StoreToFlashProcedure
+from procedures import BanksProcedures, ReadSramProcedure
+from procedures import StoreToFlashProcedureV2 as StoreToFlashProcedure
 
 
-import struct
 
 import sys, os
 import configparser
@@ -96,7 +95,7 @@ class QLabel(QLabel):
 
 
 @method_call_track
-class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
+class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, ReadSramProcedure):
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
@@ -115,15 +114,12 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.centralwidget = QtGui.QWidget(self)
         self.event_handler = EventHandler()
         general_signal_factory.signal = self.general_signal
-        #self.set_connection_status_signal = general_signal_factory(self.set_connection_status)
-
 
         self.setCentralWidget(self.centralwidget)
 
         self.help_text = QLabel(self.centralwidget, max_text_size=(x_siz/4.8, 4))
         self.help_text.raise_()
         self.connect_signals()
-
 
         self.update_config_file_signal.connect(self.update_config_file)
         self.event_handler.message = self.gui_communication_signal.emit
@@ -137,7 +133,6 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.event_handler.add_event(to_signal(self.config_button_slot))
         self.event_handler.add_event(to_signal(self.digidiag_on_slot))
         self.event_handler.add_event(to_signal(self.store_to_flash_button_slot))
-        #self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
         self.event_handler.add_event(to_signal(self.get_raw_rx_buffer_slot))
         self.event_handler.add_event(to_signal(self.send_help_cmd_slot))
         self.event_handler.add_event(to_signal(self.send_resetemu_slot))
@@ -158,10 +153,6 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.banks_panel = BanksPanel(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
-        # self.console = Console(self.centralwidget, scroll_pressed_slot=self.scroll_pressed_slot,
-        #                        console_select_text_slot=self.console_select_text_slot, event_handler=self.event_handler)
-        # self.command_line = self.console.command_line
-        # self.console_text_browser = self.console.console_text_browser
         # CONSOLE--------------------------------------------------------------------------------
         self.bin_file_panel = BinFilePanel(self.centralwidget, event_handler=self.event_handler, app_status_file=self.app_status_file)
 
@@ -179,7 +170,9 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
 
         self.message_handler = MessageHandler(self.emulator, self.event_handler,)
 
-        self.bin_receiver = BinReceiver(self.emulator.rx_buffer, file_name='tmp.bin')
+        #init procedures
+        ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
+        StoreToFlashProcedure.__init__(self)
 
         self.create_threads()
         self.connect_button = self.control_panel.connect_button
@@ -195,7 +188,6 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.centralwidget.setLayout(mainGrid)
 
         self.progress_bar = ColorProgressBar(parent=self)
-        self.progress_bar.hide()
 
         Message.default_negative_signal = self.console_msg_factory("command failed")
 
@@ -218,52 +210,6 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
 
     def read_sram_button_slot(self):
         self.read_sram_thread.start()
-
-    @thread_this_method()
-    def read_sram_thread(self):
-        t0 = time.time()
-        self.bin_receiver.reset()
-        self.gui_communication_signal.emit("{:X}".format(len(self.bin_receiver)))
-        self.progress_bar.set_title("receiving...")
-        to_signal(self.progress_bar.display)()
-        self.disable_objects_for_transmission()
-
-        def tear_down():
-            to_signal(self.progress_bar.hide)()
-            self.enable_objects_after_transmission()
-
-        def get_packet(cnt, max_retx=5):
-            try:
-                Message(struct.pack('B', cnt), id=Message.ID.get_sram_packet, positive_signal=lambda: None)
-                self.bin_receiver.receive_packet()
-                return True
-            except (PacketReceptionTimeout, CrcFail) as e:
-                self.gui_communication_signal.emit("CrcFail or timoeut: {}".format(max_retx))
-                if max_retx <= 0:
-                    self.gui_communication_signal.emit("Reception failed")
-                    tear_down()
-                    raise Exception("Reception failed")
-                time.sleep(0.5)
-                get_packet(cnt, max_retx-1)
-
-        cnt = 0
-        self.emulator.rx_buffer.flush()
-        while True:
-            if get_packet(cnt):
-                cnt += 1
-                break
-
-        while len(self.bin_receiver) < 0x8000:
-            assert cnt < 16
-            self.progress_bar.set_title("receiving...")
-            to_signal(self.progress_bar.show)()
-            if get_packet(cnt):
-                cnt += 1
-                self.progress_bar.setValue(cnt * 100 / 16)
-        self.gui_communication_signal.emit("SRAM read done in {:.2f}".format(time.time() - t0))
-        self.gui_communication_signal.emit("{:X}".format(len(self.bin_receiver)))
-        print self.bin_receiver
-        tear_down()
 
 
     def emulator_event_handler(self):
@@ -308,13 +254,12 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
 
     def send_help_cmd_slot(self):
         Message('help')
-        #self.message_handler.send('help')
+
 
     def send_resetemu_slot(self):
         Message('resetemu')
         GuiThread(to_signal(self.get_bank_in_use), delay=1).start()
-        #GuiThread(Message, args=('digidiag_off',), delay=0.5).start()
-        #Message('digidiag_off', resp_positive='digidiag 0')
+
 
     def read_emubt_config(self):
         config = configparser.ConfigParser()
@@ -358,15 +303,12 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.banks_panel.bank2pushButton.setDisabled(False)
         self.banks_panel.bank3pushButton.setDisabled(False)
 
-###Make another object from this
-
-
 
     def console_msg_factory(self, msg):
         def wrapper(*args):
             self.gui_communication_signal.emit(msg)
         return wrapper
-###Make another object from this
+
 
     def check_if_bootloader_already_active(self):
         debug("Check if bootloader already active")
@@ -374,10 +316,16 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         Message('run_bootloader\n', create_header=False, resp_positive='BOOTLOADER', positive_signal=to_signal(self.reflash_app_slot),
                 negative_signal=to_signal(self.bootloader_activation_fail), timeout=0.5)
 
+
     def bootloader_activation_fail(self):
         self.gui_communication_signal.emit("Bootloader activation failed")
 
+
     def reflash_app_slot(self):
+        """
+        Will call and display new reflasher window
+        :return:
+        """
         self.setEnabled(False)
         GuiThread.kill_all_threads()
         self.recevive_emulator_data_thread.start()
@@ -390,10 +338,12 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
         self.reflasher.show()
 
+
     def reflash_window_close_slot(self):
         self.setEnabled(True)
         GuiThread.resume_all_threads()
         Message('disable_bootloader')
+
 
     def update_config_file(self, kwargs):
         self.gui_communication_signal.emit("Updating:")
@@ -402,10 +352,12 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         ConfigWindow(self.config_file_path).update_config_file(**kwargs)
         self.port, self.address = self.read_emubt_config()
 
+
     def connect_signals(self):
         self.help_tip_signal.connect(self.help_text.setText)
         self.gui_communication_signal.connect(self.console_communication_pipe_slot)
         self.general_signal.connect(self.general_signal_slot)
+
 
     def general_signal_slot(self, object):
         object()
@@ -415,48 +367,49 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         except TypeError:
             error("{}:{} cant be executed in {}".format(type(object), object.__name__,  self.general_signal_slot.__name__))
 
+
     def console_communication_pipe_slot(self, msg):
         self.console.communication_pipe_slot(msg)
+
 
     @thread_this_method()
     def connection_thread(self):
         self.blink_connect_btn.start()
         self.emulator.connect(self.port, self.address)
 
+
     @thread_this_method(period=0.5)
     def blink_discovery_btn(self):
         to_signal(self.control_panel.discover_button.blink)()
         #self.control_panel.discover_button.blink()
 
+
     @thread_this_method(period=0.5)
     def blink_connect_btn(self):
         to_signal(self.control_panel.connect_button.blink)()
+
 
     @thread_this_method(period=0.4)
     def blink_save_btn(self):
         to_signal(self.emulation_panel.store_to_flash_button.blink)()
 
+
     def create_threads(self):
-        #self.write_flash_slot()
-        self.read_sram_thread()
-        self.send_data_packet()
-        self.get_writing_stats()
+        """
+        By calling all methods decorated by "thread_this_method" the GuiThread constructor is called.
+        "thread_this_method" returns wrapped GuiThread class object so it needs to be called to return
+        a GuiThread instance. It is here where method becomes a thread.
+        :return:
+        """
         self.blink_discovery_btn.on_terminate = to_signal(self.control_panel.discover_button.set_default_style_sheet)
-
         self.blink_connect_btn()
-
         self.blink_save_btn()
         self.blink_save_btn.on_terminate = to_signal(self.emulation_panel.store_to_flash_button.set_default_style_sheet)
-
         self.read_bank_info()
-
-        #self.blink_connect_btn.on_terminate = self.control_panel.connect_button.set_default_style_sheet
-        #self.discovery_thread_teardown()
-
         self.connection_thread()
         self.connection_thread.action_when_done = to_signal(self.set_connection_status)
-
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.001)
+
 
     def set_connected(self):
         self.connect_button.setText("disconnect")
@@ -464,8 +417,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.recevive_emulator_data_thread.start()
         self.get_bank_in_use()
         self.enable_objects_after_transmission()
-        #TODO tmp
-        #self.reflash_button_slot()
+
 
     def set_disconnected(self):
         GuiThread.kill_all_threads()
@@ -474,14 +426,15 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.connect_button.set_default_style_sheet()
         self.emulator.disconnect()
 
+
     def set_connection_status(self):
-        #self.blink_connect_btn.kill()
         self.blink_connect_btn.kill()
         if self.emulator.get_connection_status() == True:
             self.set_connected()
             GuiThread(Message, args=('digidiag_off',), delay=0.5).start()
         else:
             self.set_disconnected()
+
 
     def connect_button_slot(self):
         if self.port is None and self.address is None:
@@ -501,6 +454,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
             self.emulator.disconnect()
             self.set_connection_status()
 
+
     def config_button_slot(self):
         self.config_window = ConfigWindow(self.config_file_path)
         x_offset = 15
@@ -510,14 +464,10 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
         self.config_window.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.config_window.x_siz, self.config_window.y_siz)
         self.config_window.show()
 
-    def positive_resp(self):
-        self.gui_communication_signal.emit("HURRA")
-
-    def negative_signal(self):
-        self.gui_communication_signal.emit("SHIT")
 
     def discovery_thread_teardown(self):
         self.blink_discovery_btn.kill()
+
 
     def discover_emu_bt_slot(self):
         try:
@@ -534,13 +484,13 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure):
             self.discovery_thread.start()
 
 
-    def tear_down(self):
+    def tear_down_main_app(self):
         print "tear down"
         self.bin_file_panel.update_app_status_file()
 
     def closeEvent(self, event):
         if event.type() == QEvent.Close:
-            self.tear_down()
+            self.tear_down_main_app()
 
     def destroyEvent(self, event):
         print "destroy"
