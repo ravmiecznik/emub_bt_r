@@ -27,11 +27,6 @@ class BinSender(file):
     BinHanlder: handle binary file sending (storing)
     """
     def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, init_from_buffer=False, crc_attach = False):
-#        if not init_from_buffer:
-#            with open(bin_file, 'rb') as f:
-#                BytesIO.__init__(self, f.read())
-#        elif init_from_buffer:
-#            BytesIO.__init__(self, bin_file)
         file.__init__(self, bin_file, 'rb')
         self.col_size = 16
         self.packet_size = packet_size
@@ -80,10 +75,9 @@ class BinReceiver(bytearray):
     """
     rx_buffer must have size at least 0x8000/SPMPAGESIZE/8
     """
-    def __init__(self, rx_buffer, file_name, timeout=2):
+    def __init__(self, rx_buffer, timeout=2):
         bytearray.__init__(self)
         self.__rx_buffer = rx_buffer
-        self.__file_name = file_name
         self.__timeout = timeout
         self.__expected_data_amount = 0x8000
         self.__is_image_complete = False
@@ -123,23 +117,12 @@ class BinReceiver(bytearray):
         _str = ''
         line = self[index: index + 16]
         while line:
-            _str += "{:04X} ".format(index) + template.format(*list(line))
+            _str += "{:04X}:  ".format(index) + template.format(*list(line))
             _str += '\t' + line.replace('\n', ' ').replace('\r', ' ') + '\n'
             index += 16
             line = self[index: index + 16]
         return str(_str)
 
     def reset(self):
-        self.__init__(self.__rx_buffer, self.__file_name, self.__timeout)
+        self.__init__(self.__rx_buffer, self.__timeout)
 
-    def __iter__(self):
-        self.reset()
-        print 100*'#'
-        print 10*'\n'
-        print 100 * '#'
-        return self
-
-
-    def next(self):
-        if not self.receive_packet():
-            raise StopIteration
