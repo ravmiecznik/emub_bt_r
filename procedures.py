@@ -245,7 +245,7 @@ class ReadSramProcedure(RetxCount):
         self.progress_bar.set_title("receiving...")
         to_signal(self.progress_bar.display)()
         to_signal(self.disable_objects_for_transmission)()
-        self.__retx_sum = 0
+        RetxCount.__init__(self)
 
         def tear_down():
             to_signal(self.progress_bar.hide)()
@@ -270,6 +270,7 @@ class ReadSramProcedure(RetxCount):
                     raise Exception("Reception failed")
                 time.sleep(0.5)
 
+                self.add_retx_sum()
                 #recursive call until max_retx not reached
                 get_packet(packet_count, max_retx - 1)
 
