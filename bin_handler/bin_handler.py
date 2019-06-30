@@ -9,17 +9,22 @@ from main_logger import error, warn, info, debug
 from message_handler.crc import crc
 import time, struct
 
+
 class BinSenderFileNotPresent(Exception):
     pass
+
 
 class BinSenderInvalidBinSize(Exception):
     pass
 
+
 class PacketReceptionTimeout(Exception):
     pass
 
-class CrcFail(Exception):
+
+class ReceptionFail(Exception):
     pass
+
 
 #class BinSender(BytesIO):
 class BinSender(file):
@@ -75,7 +80,7 @@ class BinReceiver(bytearray):
     """
     rx_buffer must have size at least 0x8000/SPMPAGESIZE/8
     """
-    def __init__(self, rx_buffer, timeout=2):
+    def __init__(self, rx_buffer, timeout=1):
         bytearray.__init__(self)
         self.__rx_buffer = rx_buffer
         self.__timeout = timeout
@@ -95,19 +100,24 @@ class BinReceiver(bytearray):
 
     def receive_packet(self):
         if self.wait_for_packet():
-            data_received = self.__rx_buffer.read()
+            data_received = self.__rx_buffer.read(self.__packet_size)
             _crc = data_received[-2:]
             data_received = data_received[0:-2]
-
-            if not _crc == crc(data_received):
-                raise CrcFail
+            crc_result = _crc == crc(data_received)
+            if not crc_result:
+                debug("CRC check fail")
+                self.__append = False
+                raise ReceptionFail
             else:
                 self += data_received
                 if len(self) >= self.__expected_data_amount:
                     return False
-            return True
+                return True
         else:
-            raise PacketReceptionTimeout
+            debug("Wait for packet timeout")
+            raise ReceptionFail
+        self.__rx_buffer.flush()
+
 
     def __str__(self):
         template = 4 * "{:02X} "

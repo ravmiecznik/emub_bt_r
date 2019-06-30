@@ -4,10 +4,13 @@ contact: ravmiecznk@gmail.com
 """
 
 import configparser
-from main_logger import info, warn, debug, error
+from main_logger import info, warn, debug, error, create_logger
 import bluetooth
 from circ_io_buffer import CircIoBuffer
 import time
+
+rx_logger = create_logger('rx_data')
+rx_debug = rx_logger.debug
 
 class Emulator():
     def __init__(self, port, address, event_handler=None, timeout=1):
@@ -97,8 +100,8 @@ class Emulator():
     def __try_get_data(self):
         try:
             rcv = self.bt_connection.recv(100)
-            debug("Received data amount: {}".format(len(rcv)))
-            debug("rcv: {}".format(rcv))
+            rx_debug("Received data amount: {}".format(len(rcv)))
+            rx_debug("rcv: {} ..".format(rcv[0:50]))
             return rcv
         except (bluetooth.btcommon.BluetoothError, IOError):
             #Linux and Windows support different exceptions here

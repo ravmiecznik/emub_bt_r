@@ -23,7 +23,7 @@ def tstamp():
 
 log_format = '[%(asctime)s %(filename)s:%(lineno)d in func:%(funcName)s thr:%(threadName)s]: %(levelname)s %(message)s'
 
-def create_logger(name, format, log_level=logging.DEBUG, log_to_file=True):
+def create_logger(name, format=log_format, log_level=logging.DEBUG, log_to_file=True):
     log_formatter = logging.Formatter(format)
     if log_to_file:
         log_file = '{}.log'.format(name)

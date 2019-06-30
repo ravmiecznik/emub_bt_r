@@ -204,7 +204,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
     def get_raw_rx_buffer_slot(self):
         self.emulator_event_handler()
         raw_data = self.emulator.raw_buffer.read()
-        debug("raw_rx_buffer: {}".format(raw_data))
+        debug("raw_rx_buffer: {} ..".format(raw_data[0:10]))
 
 
     def emulator_event_handler(self):

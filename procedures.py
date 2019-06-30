@@ -8,7 +8,8 @@ import struct
 from event_handler import to_signal
 from message_handler import Message
 from my_gui_thread import GuiThread, thread_this_method
-from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, CrcFail, PacketReceptionTimeout, BinReceiver
+from main_logger import warn, error, info, debug
+from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, ReceptionFail, PacketReceptionTimeout, BinReceiver
 
 EEPROM_SIZE = 0x8000
 PACKET_SIZE = 256 * 8
@@ -169,6 +170,7 @@ class StoreToFlashProcedure(RetxCount):
 
     @thread_this_method()
     def send_data(self):
+        debug("started {}".format(self.send_data.__name__))
         RetxCount.__init__(self)
         self.__try += 1
         self.blink_save_btn.start()
@@ -179,6 +181,7 @@ class StoreToFlashProcedure(RetxCount):
 
         for packet_no, packet in enumerate(self.bin_sender):
             if packet_no < PACKETS_NUM:
+                debug("Call write to page message. Packet num: {}".format(packet_no))
                 self.__set_nack()
                 Message(struct.pack('B', packet_no) + packet, id=Message.ID.write_to_page,
                         positive_signal=to_signal(self.__set_ack),
@@ -196,6 +199,7 @@ class StoreToFlashProcedure(RetxCount):
 
     #@thread_this_method()
     def get_writing_stats(self):
+        debug("..executing")
         to_signal(self.enable_objects_after_transmission)()
         self.blink_save_btn.kill()
         self.gui_communication_signal.emit("Done in time {:.2f}".format(time.time() - self.t0))
@@ -233,12 +237,14 @@ class ReadSramProcedure(RetxCount):
 
 
     def read_sram_button_slot(self):
+        debug("..executing")
         RetxCount.__init__(self)
         self.read_sram_thread.start()
 
 
     @thread_this_method()
     def read_sram_thread(self):
+        debug("..executing")
         t0 = time.time()
         self.bin_receiver.reset()
         self.gui_communication_signal.emit("{:X}".format(len(self.bin_receiver)))
@@ -248,6 +254,7 @@ class ReadSramProcedure(RetxCount):
         RetxCount.__init__(self)
 
         def tear_down():
+            debug("..executing")
             to_signal(self.progress_bar.hide)()
             to_signal(self.enable_objects_after_transmission)()
 
@@ -258,20 +265,23 @@ class ReadSramProcedure(RetxCount):
             :param max_retx:
             :return:
             """
+
             try:
                 Message(struct.pack('B', packet_count), id=Message.ID.get_sram_packet, positive_signal=lambda: None)
                 self.bin_receiver.receive_packet()
+                debug("try statmentent returns True")
                 return True
-            except (PacketReceptionTimeout, CrcFail) as e:
+            except ReceptionFail as e:
+                debug("..handling exception: {}".format(ReceptionFail))
                 if max_retx <= 0:
                     self.gui_communication_signal.emit("Reception failed")
                     tear_down()
+                    debug("raise final exception")
                     raise Exception("Reception failed")
-                time.sleep(0.5)
-
+                time.sleep(0.1)
                 self.add_retx_sum()
                 #recursive call until max_retx not reached
-                get_packet(packet_count, max_retx - 1)
+                return get_packet(packet_count, max_retx - 1)
 
         packet_count = 0
         self.emulator.rx_buffer.flush()
