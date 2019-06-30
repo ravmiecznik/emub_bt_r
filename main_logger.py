@@ -8,8 +8,8 @@ import logging
 import os
 
 EMU_BT_PATH = '/home/rafal/EMU_BTR_FILES'
-os.chdir(EMU_BT_PATH)
-print os.getcwd()
+# os.chdir(EMU_BT_PATH)
+# print os.getcwd()
 
 if not os.path.exists(EMU_BT_PATH):
     print("Create emu bt directory: {}".format(EMU_BT_PATH))
