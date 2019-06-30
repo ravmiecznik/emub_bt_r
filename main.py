@@ -104,6 +104,10 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
 
 
     def __init__(self):
+        self.config_path = SETTINGS_PATH
+        if not os.path.isdir(self.config_path):
+            print "mkdir {}".format(self.config_path)
+            os.mkdir(self.config_path)
         QtGui.QMainWindow.__init__(self)
         #super(MainWindow, self).__init__()
         self.setWindowTitle("EMU BT")
@@ -143,10 +147,6 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         self.event_handler.add_event(to_signal(self.read_sram_button_slot))
 
-        self.config_path = SETTINGS_PATH
-        if not os.path.isdir(self.config_path):
-            print "mkdir {}".format(self.config_path)
-            os.mkdir(self.config_path)
         self.config_file_path = os.path.join(self.config_path, 'emubt.cnf')
         self.app_status_file = os.path.join(self.config_path, 'app_status.sts')
 
