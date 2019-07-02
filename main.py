@@ -5,11 +5,7 @@ contact: ravmiecznk@gmail.com
 """
 #from pygame.time import delay
 
-import platform
-platform = platform.system()
-# print platform
-# if platform != 'Linux':
-#     import qdarkstyle
+
 
 import traceback
 from main_logger import logger, info, debug, error, warn, EMU_BT_PATH, ExceptionLogger
@@ -36,6 +32,7 @@ import sys, os
 import configparser
 import time
 import textwrap
+import platform
 
 BACKGROUND = "background-color: rgb({},{},{})"
 GREEN_STYLE_SHEET = BACKGROUND.format(154,252,41)
@@ -105,6 +102,8 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
 
     def __init__(self):
         self.config_path = SETTINGS_PATH
+        if platform != 'Linux':
+            self.config_path = self.config_path.replace('/', '\\')
         if not os.path.isdir(self.config_path):
             print "mkdir {}".format(self.config_path)
             os.mkdir(self.config_path)
