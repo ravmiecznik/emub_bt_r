@@ -28,7 +28,7 @@ from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow
-from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure
+from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure, ReadBankProcedure
 
 
 
@@ -94,7 +94,7 @@ class QLabel(QLabel):
 
 
 @method_call_track
-class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, ReadSramProcedure):
+class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, ReadSramProcedure, ReadBankProcedure):
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
@@ -146,6 +146,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         self.event_handler.add_event(to_signal(self.read_sram_button_slot))
+        self.event_handler.add_event(to_signal(self.read_bank_button_slot))
 
         self.config_file_path = os.path.join(self.config_path, 'emubt.cnf')
         self.app_status_file = os.path.join(self.config_path, 'app_status.sts')
@@ -175,6 +176,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         #init procedures
         ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
         StoreToFlashProcedure.__init__(self)
+        ReadBankProcedure.__init__(self, self.emulator.rx_buffer)
 
         self.create_threads()
         self.connect_button = self.control_panel.connect_button

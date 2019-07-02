@@ -41,6 +41,8 @@ class Message():
         setbankname     = 3
         get_bank_info   = 4
         get_sram_packet = 5
+        get_bank_packet = 6
+        enable_sram     = 7
     @staticmethod
     def send(msg):
         raise Exception("{}: static method '{}' not implemented".format(Message, Message.send.__name__))

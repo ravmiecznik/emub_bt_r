@@ -148,7 +148,7 @@ def next_call_tracker(class_obj):
 
 #shallow_track_class_calls = CallTrack
 #shallow_track_class_calls = track_all_class_methods_calls_generic(lambda obj: getattr(obj, '__dict__'))
-shallow_track_class_calls = next_call_tracker
+shallow_track_class_calls = track_all_class_methods_calls_generic(lambda obj: getattr(obj, '__dict__'))
 method_call_track = next_call_tracker
 #deep_track_class_calls = track_all_class_methods_calls_generic(lambda obj: dir(obj))
 

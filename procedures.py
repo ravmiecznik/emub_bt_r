@@ -223,7 +223,8 @@ class StoreToFlashProcedure(RetxCount):
             raise Exception("Save fail")
 
 
-class ReadSramProcedure(RetxCount):
+
+class ReadBinDataFromEmu(RetxCount):
     """
     This class is isolated from MainWindow but it is a part of it.
     It is iherited in MainWindow so all objects are shared between this class and MainWindow
@@ -232,18 +233,8 @@ class ReadSramProcedure(RetxCount):
         self.bin_receiver = BinReceiver(rx_buffer, timeout=2)
         self.max_retx = max_retx
 
-        #convert method to thread by calling it
-        self.read_sram_thread()
 
-
-    def read_sram_button_slot(self):
-        debug("..executing")
-        RetxCount.__init__(self)
-        self.read_sram_thread.start()
-
-
-    @thread_this_method()
-    def read_sram_thread(self):
+    def read_data_thread(self):
         debug("..executing")
         t0 = time.time()
         self.bin_receiver.reset()
@@ -267,7 +258,7 @@ class ReadSramProcedure(RetxCount):
             """
 
             try:
-                Message(struct.pack('B', packet_count), id=Message.ID.get_sram_packet, positive_signal=lambda: None)
+                Message(struct.pack('B', packet_count), id=self.msg_id, positive_signal=lambda: None)
                 self.bin_receiver.receive_packet()
                 debug("try statmentent returns True")
                 return True
@@ -294,9 +285,50 @@ class ReadSramProcedure(RetxCount):
             if get_packet(packet_count):
                 packet_count += 1
                 self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
-        self.gui_communication_signal.emit("SRAM read done in {:.2f}".format(time.time() - t0))
+
         self.disp_retx_count()
-        self.bin_receiver.save_bin(file_path=os.path.join(self.config_path, 'received.bin'))
-        self.bin_receiver.save_hex(file_path=os.path.join(self.config_path, 'received.hex'))
+        f_path_bin = os.path.join(self.config_path, '{}.bin'.format(self.file_name))
+        f_path_hex = os.path.join(self.config_path, '{}.hex'.format(self.file_name))
+        self.bin_receiver.save_bin(file_path=f_path_bin)
+        self.bin_receiver.save_hex(file_path=f_path_hex)
+        self.gui_communication_signal.emit("Read done in {:.2f}".format(time.time() - t0))
+        self.gui_communication_signal.emit("Saved as:")
+        self.gui_communication_signal.emit(f_path_hex)
+        self.gui_communication_signal.emit(f_path_bin)
+
         tear_down()
+
+class ReadSramProcedure(ReadBinDataFromEmu):
+
+
+    def __init__(self, *args, **kwargs):
+        ReadBinDataFromEmu.__init__(self, *args, **kwargs)
+        self.read_bin_data = GuiThread(self.read_data_thread)
+
+
+    def read_sram_button_slot(self):
+        self.msg_id = Message.ID.get_sram_packet
+        self.file_name = 'received_sram'
+        debug("..executing")
+        RetxCount.__init__(self)
+        self.read_bin_data.start()
+
+
+
+class ReadBankProcedure(ReadBinDataFromEmu):
+
+
+    def __init__(self, *args, **kwargs):
+        ReadBinDataFromEmu.__init__(self, *args, **kwargs)
+        self.read_bin_data = GuiThread(self.read_data_thread)
+
+
+    def read_bank_button_slot(self):
+        self.msg_id = Message.ID.get_bank_packet
+        self.file_name = "reveived_{}".format(self.banks_panel.bank_name_line_edit.text())
+        debug("..executing")
+        RetxCount.__init__(self)
+        self.read_bin_data.start()
+
+
 
