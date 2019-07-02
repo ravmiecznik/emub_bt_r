@@ -12,6 +12,7 @@ import os
 import configparser
 from main_logger import debug
 from event_handler import to_signal
+from message_box import message_box
 
 CONNECT_BTN_HELP = "Connect or Disconnect from EMU_BT"
 REFLASH_BTN_HELP = "Upload new firmware to EMU_BT"
@@ -182,6 +183,8 @@ class BinFilePanel(QtGui.QGroupBox):
         self.browse_btn = PushButton("...", tip_msg="browse for file")
         self.app_status_file = app_status_file
 
+        self.last_browse_location = ''
+
         frame_grid.addWidget(self.combo_box,  0, 0, 1, 6)
         frame_grid.addWidget(self.browse_btn, 0, 7, 1, 1)
         self.setTitle("BIN FILE")
@@ -193,36 +196,53 @@ class BinFilePanel(QtGui.QGroupBox):
         self.combo_box.setEditable(True)
 
         self.last_bin_files_tag = "LAST BIN FILES"
-        self.load_last_files()
+        self.load_last_status()
+        self.event_handler = event_handler
 
     def get_current_file(self):
         bin_path = str(self.combo_box.currentText())
-        if bin_path:
+        if os.path.exists(bin_path):
+            self.combo_box.moveOnTop(bin_path)
             return bin_path
         else:
-            if self.browse_for_file():
-                return self.get_current_file()
+            message_box("no such file: {}\n".format(bin_path))
+            self.combo_box.removeByStr(bin_path)
+            # if self.browse_for_file():
+            #     return self.get_current_file()
 
     def browse_for_file(self):
-        start_dir = os.path.dirname('~/home/')
+        start_dir = self.last_browse_location
         file_path = QtGui.QFileDialog.getOpenFileName(self, 'Select bin file',
                                                 start_dir, "hex files (*.bin *.BIN)")
         if platform != 'Linux':
             file_path = file_path.replace('/', '\\')
-        if os.path.isfile(file_path) and file_path not in self.combo_box.getItems():
+        if os.path.isfile(file_path) and file_path not in self.combo_box.getItems() and self.check_bin_size(file_path):
             self.combo_box.insertItem(0, file_path)
             self.combo_box.setCurrentIndex(0)
+            self.last_browse_location = os.path.dirname(str(file_path))
         elif not os.path.isfile(file_path):
             return False
+
+
+    def check_bin_size(self, bin_path):
+        size = 0
+        with open(bin_path, 'rb') as f:
+            size = len(f.read())
+        if size != 0x8000:
+            message_box("This is not valid 27c256 chip image.\nSize not match 0x{:X}!=0x{:X}".format(size, 0x8000))
+            return False
+        return True
+
 
     def __del__(self):
         self.update_app_status_file()
 
-    def load_last_files(self):
+    def load_last_status(self):
         config = configparser.ConfigParser()
         config.read(self.app_status_file)
         try:
             last_files = eval(config[self.last_bin_files_tag]['files'])
+            self.last_browse_location = config[self.last_bin_files_tag]['browse_hist']
             self.combo_box.insertItems(0, last_files)
         except KeyError:
             pass
@@ -232,7 +252,8 @@ class BinFilePanel(QtGui.QGroupBox):
         last_files_list = self.combo_box.getItems()
         config = configparser.ConfigParser()
         config.read(self.app_status_file)
-        config[self.last_bin_files_tag] = {'files': last_files_list}
+        config[self.last_bin_files_tag] = {'files': last_files_list,
+                                           'browse_hist': self.last_browse_location}
         with open(self.app_status_file, 'w') as cf:
            config.write(cf)
 

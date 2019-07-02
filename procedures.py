@@ -10,6 +10,7 @@ from message_handler import Message
 from my_gui_thread import GuiThread, thread_this_method
 from main_logger import warn, error, info, debug
 from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, ReceptionFail, PacketReceptionTimeout, BinReceiver
+from message_box import message_box
 
 EEPROM_SIZE = 0x8000
 PACKET_SIZE = 256 * 8
@@ -165,6 +166,9 @@ class StoreToFlashProcedure(RetxCount):
                 raise e
             except BinSenderInvalidBinSize as e:
                 self.gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
+                self.bin_file_panel.combo_box.removeByStr(bin_path)
+                self.bin_file_panel.update_app_status_file()
+                message_box("This is not 27c256 bin image: {}".format(bin_path))
                 raise e
 
 
@@ -287,14 +291,15 @@ class ReadBinDataFromEmu(RetxCount):
                 self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
 
         self.disp_retx_count()
-        f_path_bin = os.path.join(self.config_path, '{}.bin'.format(self.file_name))
-        f_path_hex = os.path.join(self.config_path, '{}.hex'.format(self.file_name))
+        f_path_bin = os.path.join(self.config_path, '{}.bin'.format(self.file_name)).replace(' ', '_')
+        f_path_hex = os.path.join(self.config_path, '{}.hex'.format(self.file_name)).replace(' ', '_')
         self.bin_receiver.save_bin(file_path=f_path_bin)
         self.bin_receiver.save_hex(file_path=f_path_hex)
         self.gui_communication_signal.emit("Read done in {:.2f}".format(time.time() - t0))
         self.gui_communication_signal.emit("Saved as:")
         self.gui_communication_signal.emit(f_path_hex)
         self.gui_communication_signal.emit(f_path_bin)
+        self.bin_file_panel.combo_box.moveOnTop(f_path_bin)
 
         tear_down()
 

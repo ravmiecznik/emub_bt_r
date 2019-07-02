@@ -89,6 +89,37 @@ class ComboBox(QtGui.QComboBox, HelpTip):
     def getItems(self):
         return [str(self.itemText(i)) for i in range(self.count())]
 
+
+    def moveOnTop(self, item):
+        """
+        Move item on top of list view
+        :param item:
+        :return:
+        """
+        items = self.getItems()
+        try:
+            items.remove(item)
+        except ValueError:
+            pass
+        self.clear()
+        self.addItems(items)
+        self.insertItem(0, item)
+        self.setCurrentIndex(0)
+
+    def removeByStr(self, string):
+        """
+        Remove item by string and update view
+        :param string:
+        :return:
+        """
+        items = self.getItems()
+        try:
+            items.remove(string)
+            self.clear()
+            self.addItems(items)
+        except ValueError:
+            pass
+
 class LcdDisplay(QtGui.QLCDNumber, HelpTip):
     def __init__(self, *args, **kwargs):
         tip_msg = kwargs.pop('tip_msg')
