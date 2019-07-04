@@ -39,6 +39,8 @@ def general_signal_factory(slot):
         except AttributeError:
             raise Exception("{factory}: missing signal attribute. Set it up with {factory}.signal=some_signal".format(factory=general_signal_factory.__name__))
     wrapper.__name__ = slot.__name__
+    wrapper.emit = wrapper.__call__
     return wrapper
+
 
 to_signal = general_signal_factory

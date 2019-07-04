@@ -4,6 +4,7 @@ contact: ravmiecznk@gmail.com
 """
 
 from PyQt4 import QtCore, QtGui
+from event_handler import to_signal
 
 BACKGROUND = "background-color: rgb({},{},{})"
 GREEN_STYLE_SHEET = BACKGROUND.format(154,252,41)
@@ -80,15 +81,29 @@ class CheckBox(QtGui.QCheckBox, HelpTip):
         QtGui.QPushButton.__init__(self, *args, **kwargs)
         HelpTip.__init__(self, tip_msg)
 
+
 class ComboBox(QtGui.QComboBox, HelpTip):
     def __init__(self, *args, **kwargs):
         tip_msg = kwargs.pop('tip_msg')
         QtGui.QComboBox.__init__(self, *args, **kwargs)
         HelpTip.__init__(self, tip_msg)
+        self.setAcceptDrops(False)
+
+    def editTextChanged_with_delay_connect_to_signal(self, ext_signal):
+        self.edit_text_changed_signal = ext_signal
+        self.editTextChanged.connect(to_signal(self.edit_text_changed_timer))
+
+    def edit_text_changed_timer(self):
+        self.timer = QtCore.QTimer()
+        self.timer.connect(self.timer, QtCore.SIGNAL("timeout()"), self.edit_text_timeout)
+        self.timer.start(500)
+
+    def edit_text_timeout(self):
+        self.edit_text_changed_signal.emit()
+        self.timer.stop()
 
     def getItems(self):
         return [str(self.itemText(i)) for i in range(self.count())]
-
 
     def moveOnTop(self, item):
         """
@@ -119,6 +134,8 @@ class ComboBox(QtGui.QComboBox, HelpTip):
             self.addItems(items)
         except ValueError:
             pass
+
+
 
 class LcdDisplay(QtGui.QLCDNumber, HelpTip):
     def __init__(self, *args, **kwargs):

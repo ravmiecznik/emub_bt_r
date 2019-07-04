@@ -180,6 +180,7 @@ class BinFilePanel(QtGui.QGroupBox):
         frame_grid.setSpacing(1)
 
         self.combo_box = ComboBox(self, tip_msg="???")
+
         self.browse_btn = PushButton("...", tip_msg="browse for file")
         self.app_status_file = app_status_file
 
@@ -194,10 +195,43 @@ class BinFilePanel(QtGui.QGroupBox):
         self.combo_box.setDuplicatesEnabled(False)
         self.combo_box.setMaxCount(10)
         self.combo_box.setEditable(True)
+        #self.combo_box.dragEnterEvent = self.dragEnterEvent
+        #self.combo_box.dropEvent = self.dropEvent
 
         self.last_bin_files_tag = "LAST BIN FILES"
         self.load_last_status()
         self.event_handler = event_handler
+        self.setAcceptDrops(True)
+        self.combo_box.dragEnterEvent = self.dragEnterEvent
+        self.combo_box.dropEvent = self.dropEvent
+        #self.combo_box.editTextChanged_with_delay_connect_to_signal(to_signal(self.edit_text_changed_slot))
+        if platform == 'Linux':
+            self.prepare_f_path_on_dragdropevt = self.prepare_path_for_linux
+
+
+    # def edit_text_changed_slot(self):
+    #     print 'test'
+    #     current_text = self.combo_box.currentText()
+    #     if not self.insert_new_file(current_text):
+    #         self.combo_box.clearEditText()
+
+    def prepare_path_for_linux(self, path):
+        return path[len('file://'):]
+
+    def dragEnterEvent(self, event):
+        mimeData_text = event.mimeData().text()
+        mimeData_urls = event.mimeData().urls()
+        debug("mimeData:text".format(mimeData_text))
+        debug("mimeData:urls".format(mimeData_urls))
+        file_path = self.prepare_f_path_on_dragdropevt(mimeData_text)
+        if os.path.isfile(file_path):
+            debug('drop drag accepted: {}'.format(mimeData_text))
+            event.accept()
+
+    def dropEvent(self, event):
+        bin_path = event.mimeData().text()
+        bin_path = self.prepare_f_path_on_dragdropevt(bin_path)
+        self.insert_new_file(bin_path)
 
     def get_current_file(self):
         bin_path = str(self.combo_box.currentText())
@@ -206,9 +240,8 @@ class BinFilePanel(QtGui.QGroupBox):
             return bin_path
         else:
             message_box("no such file: {}\n".format(bin_path))
+            self.combo_box.setEditText(self.combo_box.itemText(0))
             self.combo_box.removeByStr(bin_path)
-            # if self.browse_for_file():
-            #     return self.get_current_file()
 
     def browse_for_file(self):
         start_dir = self.last_browse_location
@@ -216,16 +249,20 @@ class BinFilePanel(QtGui.QGroupBox):
                                                 start_dir, "hex files (*.bin *.BIN)")
         if platform != 'Linux':
             file_path = file_path.replace('/', '\\')
+        return self.insert_new_file(file_path)
+
+    def insert_new_file(self, file_path):
         if os.path.isfile(file_path) and file_path not in self.combo_box.getItems() and self.check_bin_size(file_path):
             self.combo_box.insertItem(0, file_path)
             self.combo_box.setCurrentIndex(0)
             self.last_browse_location = os.path.dirname(str(file_path))
+        elif file_path in self.combo_box.getItems():
+            self.combo_box.moveOnTop(file_path)
         elif not os.path.isfile(file_path):
             return False
 
 
     def check_bin_size(self, bin_path):
-        size = 0
         with open(bin_path, 'rb') as f:
             size = len(f.read())
         if size != 0x8000:

@@ -472,19 +472,26 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
 
 
     def discover_emu_bt_slot(self):
+        """
+        It covers two cases:
+        -when discovery is triggered by button
+        -when discovery is triggered when there is no BT config available
+        why there is try except clause and if/else inside it
+        :return:
+        """
+        def start_discovery():
+            self.discovery_thread.start()
+            self.blink_discovery_btn.start()
         try:
             if self.emulator.get_connection_status() == False:
                 if not self.discovery_thread.isRunning():
-                    self.discovery_thread.start()
-                    self.blink_discovery_btn.start()
+                    start_discovery()
                 else:
                     self.help_text.setText("Discovery process already running")
             else:
                 self.help_text.setText("Can't do it when connected")
-        except:
-            self.blink_discovery_btn.start()
-            self.discovery_thread.start()
-
+        except AttributeError:
+            start_discovery()
 
     def tear_down_main_app(self):
         print "tear down"
