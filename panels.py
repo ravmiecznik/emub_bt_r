@@ -205,8 +205,8 @@ class BinFilePanel(QtGui.QGroupBox):
         self.combo_box.dragEnterEvent = self.dragEnterEvent
         self.combo_box.dropEvent = self.dropEvent
         #self.combo_box.editTextChanged_with_delay_connect_to_signal(to_signal(self.edit_text_changed_slot))
-        if platform == 'Linux':
-            self.prepare_f_path_on_dragdropevt = self.prepare_path_for_linux
+        #if platform == 'Linux':
+        #    self.prepare_f_path_on_dragdropevt = self.prepare_path_for_linux
 
 
     # def edit_text_changed_slot(self):
@@ -219,18 +219,12 @@ class BinFilePanel(QtGui.QGroupBox):
         return path[len('file://'):]
 
     def dragEnterEvent(self, event):
-        mimeData_text = event.mimeData().text()
-        mimeData_urls = event.mimeData().urls()
-        debug("mimeData:text".format(mimeData_text))
-        debug("mimeData:urls".format(mimeData_urls))
-        file_path = self.prepare_f_path_on_dragdropevt(mimeData_text)
+        file_path = event.mimeData().urls()[0].path()
         if os.path.isfile(file_path):
-            debug('drop drag accepted: {}'.format(mimeData_text))
             event.accept()
 
     def dropEvent(self, event):
-        bin_path = event.mimeData().text()
-        bin_path = self.prepare_f_path_on_dragdropevt(bin_path)
+        bin_path = event.mimeData().urls()[0].path()
         self.insert_new_file(bin_path)
 
     def get_current_file(self):
