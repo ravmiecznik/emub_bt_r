@@ -14,6 +14,14 @@ from main_logger import debug
 from event_handler import to_signal
 from message_box import message_box
 
+
+def prepare_file_path_for_platform(fpath):
+    if platform != 'Linux':
+        if fpath[0] == '/':
+            fpath = fpath[1:]
+        fpath = fpath.replace('/', '\\')
+    return fpath
+
 CONNECT_BTN_HELP = "Connect or Disconnect from EMU_BT"
 REFLASH_BTN_HELP = "Upload new firmware to EMU_BT"
 DISCOVER_BTN_HELP = "Discover EMU_BT among bluetooth devices and store result"
@@ -215,16 +223,17 @@ class BinFilePanel(QtGui.QGroupBox):
     #     if not self.insert_new_file(current_text):
     #         self.combo_box.clearEditText()
 
-    def prepare_path_for_linux(self, path):
-        return path[len('file://'):]
 
     def dragEnterEvent(self, event):
         file_path = event.mimeData().urls()[0].path()
+
+        file_path = prepare_file_path_for_platform(file_path)
         if os.path.isfile(file_path):
             event.accept()
 
     def dropEvent(self, event):
         bin_path = event.mimeData().urls()[0].path()
+        bin_path = prepare_file_path_for_platform(bin_path)
         self.insert_new_file(bin_path)
 
     def get_current_file(self):
