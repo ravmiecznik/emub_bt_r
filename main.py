@@ -29,6 +29,7 @@ from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow
 from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure, ReadBankProcedure
+from bin_tracker import BinTracker
 
 
 
@@ -136,7 +137,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.event_handler.add_event(to_signal(self.discover_emu_bt_slot))
         self.event_handler.add_event(to_signal(self.lost_connection_slot))
         self.event_handler.add_event(to_signal(self.config_button_slot))
-        self.event_handler.add_event(to_signal(self.digidiag_on_slot))
+        self.event_handler.add_event(to_signal(self.emulate_button_slot))
         self.event_handler.add_event(to_signal(self.store_to_flash_button_slot))
         self.event_handler.add_event(to_signal(self.get_raw_rx_buffer_slot))
         self.event_handler.add_event(to_signal(self.send_help_cmd_slot))
@@ -212,6 +213,11 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.emulator_event_handler()
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {} ..".format(raw_data[0:10]))
+
+    def emulate_button_slot(self):
+        bin_path = self.bin_file_panel.get_current_file()
+        self.bin_tracker = BinTracker(bin_path)
+        print self.bin_tracker
 
 
     def emulator_event_handler(self):

@@ -26,6 +26,30 @@ class ReceptionFail(Exception):
     pass
 
 
+def bin_repr(file_obj):
+    """
+    :param file_obj: file like object
+    :return: string representation
+    """
+    tell = file_obj.tell()
+    file_obj.seek(0)
+    col_size = 16
+    repr = ''
+    cnt = 0
+    hex_line_template = col_size/4 * ( (4*' {:02X}') + '  ')
+    hex_line = file_obj.read(col_size)
+    while hex_line:
+        repr += '{:08X}: '.format(cnt)
+        repr += hex_line_template.format(*map(ord, hex_line))
+        #for h in hex_line:
+            #repr += ' {:02X}'.format(ord(h))
+        repr += '\n'
+        hex_line = file_obj.read(col_size)
+        cnt += col_size
+    file_obj.seek(tell)
+    return repr
+
+
 #class BinSender(BytesIO):
 class BinSender(file):
     """
@@ -33,7 +57,6 @@ class BinSender(file):
     """
     def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, init_from_buffer=False, crc_attach = False):
         file.__init__(self, bin_file, 'rb')
-        self.col_size = 16
         self.packet_size = packet_size
         self.crc_attach = crc_attach
         self.packets_get = 0
@@ -63,17 +86,7 @@ class BinSender(file):
             raise StopIteration
 
     def __repr__(self):
-        repr=''
-        cnt = 0
-        hex_line = self.read(self.col_size)
-        while hex_line:
-            repr += '{:08X}: '.format(cnt)
-            for h in hex_line:
-                repr += ' {:02X}'.format(ord(h))
-            repr += '\n'
-            hex_line = self.read(self.col_size)
-            cnt += self.col_size
-        return repr
+        return bin_repr(self)
 
 
 class BinReceiver(bytearray):

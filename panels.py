@@ -114,7 +114,7 @@ class EmulationPanel(QtGui.QGroupBox):
         self.setLayout(emulation_frame_FrameGrid)
 
         self.store_to_flash_button.clicked.connect(event_handler.store_to_flash_button_slot)
-        self.emulate_button.clicked.connect(event_handler.digidiag_on_slot)
+        self.emulate_button.clicked.connect(event_handler.emulate_button_slot)
         self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
         self.read_bank_button.clicked.connect(event_handler.read_bank_button_slot)
 
