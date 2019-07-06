@@ -41,8 +41,6 @@ def bin_repr(file_obj):
     while hex_line:
         repr += '{:08X}: '.format(cnt)
         repr += hex_line_template.format(*map(ord, hex_line))
-        #for h in hex_line:
-            #repr += ' {:02X}'.format(ord(h))
         repr += '\n'
         hex_line = file_obj.read(col_size)
         cnt += col_size
