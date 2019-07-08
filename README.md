@@ -3,6 +3,7 @@
 EMU_BT_R V1.0
 
 First working version features:
+
     Control:
     -autodiscovery of EMU_BT device
     -reflash procedure of EMU_BT device (with internal bootloader)
