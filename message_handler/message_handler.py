@@ -43,6 +43,8 @@ class Message():
         get_sram_packet = 5
         get_bank_packet = 6
         enable_sram     = 7
+        reload_sram     = 8
+        send_sram_bytes = 9
     @staticmethod
     def send(msg):
         raise Exception("{}: static method '{}' not implemented".format(Message, Message.send.__name__))
@@ -96,11 +98,11 @@ class Message():
 
     def positive_handler(self):
         Message.lock = False
-        self.extra_action_on_ack()
         if self.__positive_signal:
             self.__positive_signal()
         else:
             self.default_ack_handler()
+        self.extra_action_on_ack()
 
     def __wait_for_unlock(self):
         t0 = time.time()
@@ -116,7 +118,6 @@ class Message():
         implement retx protocol here
         :return:
         """
-        self.extra_action_on_nack()
         Message.flush_rx_buffer()
         if self.max_retx:
             warn("'{resp}' received on reg: '{req} id: {id}...' Trying retx {retx}...".format(resp=self.resp, req=self.raw_msg[0:40], id=self.id, retx=self.max_retx))
@@ -129,6 +130,7 @@ class Message():
                 self.negative_signal()
             except TypeError:
                 self.negative_signal(self)
+        self.extra_action_on_nack()
 
 
     def __send(self):
@@ -136,7 +138,6 @@ class Message():
             self.__wait_for_unlock()
         except MsgLockTimeout as e:
             error("Timeout for: {}".format(self.raw_msg[0:40]))
-
             error(e.message)
             try:
                 self.negative_signal(self)
