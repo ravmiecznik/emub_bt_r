@@ -33,10 +33,17 @@ class ConfigEntry(QtGui.QWidget):
         return str(self.line_edit.text())
 
 
+class ConfigSettings():
+    def __init__(self):
+        self.config_file_path = os.path.join(self.config_path, 'emubt.cnf')
+        self.app_status_file = os.path.join(self.config_path, 'app_status.sts')
+
 @method_call_track
 class ConfigWindow(QtGui.QWidget):
     def __init__(self, config_file):
         QtGui.QWidget.__init__(self)
+
+
         self.setWindowTitle("CONFIG")
         self.x_siz, self.y_siz = 400, 200
         self.mainGrid = QtGui.QGridLayout()
