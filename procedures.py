@@ -11,6 +11,7 @@ from my_gui_thread import GuiThread, thread_this_method
 from main_logger import warn, error, info, debug
 from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, ReceptionFail, PacketReceptionTimeout, BinReceiver
 from message_box import message_box
+from bin_tracker import BinTracker
 
 EEPROM_SIZE = 0x8000
 PACKET_SIZE = 256 * 8
@@ -202,6 +203,8 @@ class StoreToFlashProcedure(RetxCount):
         to_signal(self.enable_objects_after_transmission)()
         self.get_writing_stats()
         self.blink_save_btn.kill()
+        if self.emulation_panel.reload_sram_checkbox.isChecked():
+            Message(id=Message.ID.reload_sram)
 
     #@thread_this_method()
     def get_writing_stats(self):
@@ -306,11 +309,12 @@ class ReadBinDataFromEmu(RetxCount):
         self.gui_communication_signal.emit(f_path_hex)
         self.gui_communication_signal.emit(f_path_bin)
         self.bin_file_panel.combo_box.moveOnTop(f_path_bin)
+        if self.emulation_panel.auto_open_checkbox.isChecked():
+            self.event_handler.open_bin_file()
 
         tear_down()
 
 class ReadSramProcedure(ReadBinDataFromEmu):
-
 
     def __init__(self, *args, **kwargs):
         ReadBinDataFromEmu.__init__(self, *args, **kwargs)
@@ -328,7 +332,6 @@ class ReadSramProcedure(ReadBinDataFromEmu):
 
 class ReadBankProcedure(ReadBinDataFromEmu):
 
-
     def __init__(self, *args, **kwargs):
         ReadBinDataFromEmu.__init__(self, *args, **kwargs)
         self.read_bin_data = GuiThread(self.read_data_thread)
@@ -341,5 +344,40 @@ class ReadBankProcedure(ReadBinDataFromEmu):
         RetxCount.__init__(self)
         self.read_bin_data.start()
 
+
+class SyncFileToSramProcedure():
+
+    def emulate_button_slot(self):
+        try:
+            if self.bin_tracker.track_file.isRunning():
+                self.bin_tracker.track_file.kill()
+                self.emulation_panel.emulate_button.set_default_style_sheet()
+                return
+        except AttributeError:
+            pass
+        bin_path = self.bin_file_panel.get_current_file()
+        self.bin_tracker = BinTracker(bin_path, self.event_handler, to_signal(self.emulation_panel.emulate_button.blink))
+        self.bin_tracker.start()
+
+    def emulation_diffs_present_slot(self):
+        Message('rxflush', positive_signal=to_signal(self.send_sram_bytes),
+                negative_signal=to_signal(self.diffs_pattern_negative_slot), timeout=0.5)
+
+    def diffs_pattern_negative_slot(self):
+        time.sleep(0.5)
+        to_signal(self.bin_tracker.resume)()
+
+    def send_sram_bytes(self):
+        max_msg_len = 256 * 8   #single packet size
+        msg_body = ''
+        bytes_cnt = 0
+        while self.bin_tracker.diffs:
+            msg_body += self.bin_tracker.diffs.popitem()
+            bytes_cnt += 1
+            if len(msg_body) >= max_msg_len - 3:
+                break
+        Message(id=Message.ID.send_sram_bytes, raw_msg=msg_body, positive_signal=self.console_msg_factory("Updated sram of {} bytes\nRemaining: {} bytes".format(bytes_cnt, len(self.bin_tracker.diffs))),
+                extra_action_on_nack=to_signal(self.bin_tracker.resume),
+                extra_action_on_ack=to_signal(self.bin_tracker.resume))
 
 
