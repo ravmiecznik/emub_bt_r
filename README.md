@@ -38,3 +38,9 @@ First working version features:
     BLANK PANEL BELOW:
     -this panel displays some tips for actually pointed by mouse button/window/checkbox
 
+    
+    #TODO:
+    -additional testing on WINDOWS required, on Linux no big issues found
+    -GuiThread must be simplified
+    -Bin file viewer to be added to see commited changes by EMULATION procedure
+    -call tracker must be fixed: this is not big issue, just for debugging purposes
