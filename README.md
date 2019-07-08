@@ -44,3 +44,6 @@ First working version features:
     -GuiThread must be simplified
     -Bin file viewer to be added to see commited changes by EMULATION procedure
     -call tracker must be fixed: this is not big issue, just for debugging purposes
+
+    DEMO:
+    https://www.youtube.com/watch?v=0i5L0DQhbt8
