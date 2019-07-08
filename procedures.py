@@ -311,7 +311,6 @@ class ReadBinDataFromEmu(RetxCount):
         self.bin_file_panel.combo_box.moveOnTop(f_path_bin)
         if self.emulation_panel.auto_open_checkbox.isChecked():
             self.event_handler.open_bin_file()
-
         tear_down()
 
 class ReadSramProcedure(ReadBinDataFromEmu):

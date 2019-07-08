@@ -131,18 +131,7 @@ class BinReceiver(bytearray):
 
 
     def __str__(self):
-        template = 4 * "{:02X} "
-        template = "{}  ".format(template)
-        template = 4 * template
-        index = 0
-        _str = ''
-        line = self[index: index + 16]
-        while line:
-            _str += "{:04X}:  ".format(index) + template.format(*list(line))
-            _str += '\t' + line.replace('\n', ' ').replace('\r', ' ') + '\n'
-            index += 16
-            line = self[index: index + 16]
-        return str(_str)
+        return bin_repr(BytesIO(self))
 
     def save_bin(self, file_path):
         with open(file_path, 'wb') as f:
