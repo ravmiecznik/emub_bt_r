@@ -81,6 +81,7 @@ READ_SRAM_BTN_TIP           = "SRAM: this memory is visible to your ECU. This bu
 READ_BANK_BTN_TIP           = "Read and save to file content of currently selected bank, which is stored in internal flash"
 AUTO_OPEN_CHECK_BOX_TIP     = "If checked it will automatically open a saved file with new binary image downloaded from BT emulator\n"
 OVERWRITE_CHECK_BOX_TIP     = "If checked it will overwrte current file without asking\n"
+RELOAD_SRAM_CHECK_BOX_TIP   = "If checked it will reload FLASH bank to sram\n"
 
 class EmulationPanel(QtGui.QGroupBox):
     def __init__(self, parent, event_handler=DummyEventHandler()):
@@ -97,7 +98,7 @@ class EmulationPanel(QtGui.QGroupBox):
         self.read_bank_button = PushButton("READ BANK", tip_msg=READ_BANK_BTN_TIP)
         self.store_to_flash_button = PushButton("SAVE", tip_msg=STORE_FLASH_BANK_BTN_TIP)
         self.auto_open_checkbox = CheckBox("auto open", tip_msg=AUTO_OPEN_CHECK_BOX_TIP)
-        self.overwrite_checkbox = CheckBox("overwrite", tip_msg=OVERWRITE_CHECK_BOX_TIP)
+        self.reload_sram_checkbox = CheckBox("reload sram on save", tip_msg=RELOAD_SRAM_CHECK_BOX_TIP)
 
         self.read_sram_button.raise_()
         self.read_bank_button.raise_()
@@ -110,7 +111,7 @@ class EmulationPanel(QtGui.QGroupBox):
         emulation_frame_FrameGrid.addWidget(self.read_sram_button, 1, 1)
         emulation_frame_FrameGrid.addWidget(self.store_to_flash_button, 0, 1)
         emulation_frame_FrameGrid.addWidget(self.auto_open_checkbox, 3, 0, 1, 2)
-        emulation_frame_FrameGrid.addWidget(self.overwrite_checkbox, 4, 0, 1, 2)
+        emulation_frame_FrameGrid.addWidget(self.reload_sram_checkbox, 4, 0, 1, 2)
         self.setLayout(emulation_frame_FrameGrid)
 
         self.store_to_flash_button.clicked.connect(event_handler.store_to_flash_button_slot)
@@ -190,24 +191,27 @@ class BinFilePanel(QtGui.QGroupBox):
         self.combo_box = ComboBox(self, tip_msg="???")
 
         self.browse_btn = PushButton("...", tip_msg="browse for file")
+        self.open_btn = PushButton("open", tip_msg="open file in editor")
         self.app_status_file = app_status_file
 
         self.last_browse_location = ''
 
         frame_grid.addWidget(self.combo_box,  0, 0, 1, 6)
-        frame_grid.addWidget(self.browse_btn, 0, 7, 1, 1)
+        frame_grid.addWidget(self.open_btn,   0, 7, 1, 1)
+        frame_grid.addWidget(self.browse_btn, 0, 8, 1, 1)
         self.setTitle("BIN FILE")
         self.setLayout(frame_grid)
 
         self.browse_btn.clicked.connect(self.browse_for_file)
+        self.open_btn.clicked.connect(event_handler.open_bin_file)
         self.combo_box.setDuplicatesEnabled(False)
         self.combo_box.setMaxCount(10)
         self.combo_box.setEditable(True)
         #self.combo_box.dragEnterEvent = self.dragEnterEvent
         #self.combo_box.dropEvent = self.dropEvent
 
-        self.last_bin_files_tag = "LAST BIN FILES"
-        self.load_last_status()
+        # self.last_bin_files_tag = "LAST BIN FILES"
+        # self.load_last_status()
         self.event_handler = event_handler
         self.setAcceptDrops(True)
         self.combo_box.dragEnterEvent = self.dragEnterEvent
@@ -274,26 +278,26 @@ class BinFilePanel(QtGui.QGroupBox):
         return True
 
 
-    def __del__(self):
-        self.update_app_status_file()
+    # def __del__(self):
+    #     self.update_app_status_file()
 
-    def load_last_status(self):
-        config = configparser.ConfigParser()
-        config.read(self.app_status_file)
-        try:
-            last_files = eval(config[self.last_bin_files_tag]['files'])
-            self.last_browse_location = config[self.last_bin_files_tag]['browse_hist']
-            self.combo_box.insertItems(0, last_files)
-        except KeyError:
-            pass
-
-    def update_app_status_file(self):
-        debug("Updating latest files list")
-        last_files_list = self.combo_box.getItems()
-        config = configparser.ConfigParser()
-        config.read(self.app_status_file)
-        config[self.last_bin_files_tag] = {'files': last_files_list,
-                                           'browse_hist': self.last_browse_location}
-        with open(self.app_status_file, 'w') as cf:
-           config.write(cf)
+    # def load_last_status(self):
+    #     config = configparser.ConfigParser()
+    #     config.read(self.app_status_file)
+    #     try:
+    #         last_files = eval(config[self.last_bin_files_tag]['files'])
+    #         self.last_browse_location = config[self.last_bin_files_tag]['browse_hist']
+    #         self.combo_box.insertItems(0, last_files)
+    #     except KeyError:
+    #         pass
+    #
+    # def update_app_status_file(self):
+    #     debug("Updating latest files list")
+    #     last_files_list = self.combo_box.getItems()
+    #     config = configparser.ConfigParser()
+    #     config.read(self.app_status_file)
+    #     config[self.last_bin_files_tag] = {'files': last_files_list,
+    #                                        'browse_hist': self.last_browse_location}
+    #     with open(self.app_status_file, 'w') as cf:
+    #        config.write(cf)
 
