@@ -27,13 +27,15 @@ from call_tracker import method_call_track
 from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
-from config_window import ConfigWindow
-from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure, ReadBankProcedure
+from config_window import ConfigWindow, ConfigSettings
+from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure, \
+    ReadBankProcedure, SyncFileToSramProcedure
 from bin_tracker import BinTracker
 
 
 
-import sys, os
+
+import sys, os, subprocess
 import configparser
 import time
 import textwrap
@@ -95,7 +97,10 @@ class QLabel(QLabel):
 
 
 @method_call_track
-class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, ReadSramProcedure, ReadBankProcedure):
+class MainWindow(QtGui.QMainWindow,
+                 BanksProcedures, StoreToFlashProcedure,
+                 ReadSramProcedure, ReadBankProcedure,
+                 SyncFileToSramProcedure, ConfigSettings):
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
@@ -120,6 +125,9 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.centralwidget = QtGui.QWidget(self)
         self.event_handler = EventHandler()
         general_signal_factory.signal = self.general_signal
+
+        self.last_bin_files_tag = "LAST BIN FILES"
+        self.buttons_status_tag = "BUTTONS STATUS"
 
         self.setCentralWidget(self.centralwidget)
 
@@ -150,9 +158,8 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         self.event_handler.add_event(to_signal(self.read_sram_button_slot))
         self.event_handler.add_event(to_signal(self.read_bank_button_slot))
-
-        self.config_file_path = os.path.join(self.config_path, 'emubt.cnf')
-        self.app_status_file = os.path.join(self.config_path, 'app_status.sts')
+        self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
+        self.event_handler.add_event(to_signal(self.open_bin_file))
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
         self.emulation_panel = EmulationPanel(self.centralwidget, self.event_handler)
@@ -160,6 +167,8 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         # CONSOLE--------------------------------------------------------------------------------
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
+
+        ConfigSettings.__init__(self)
         self.bin_file_panel = BinFilePanel(self.centralwidget, event_handler=self.event_handler, app_status_file=self.app_status_file)
 
         #create discovery thread in init---------------------------------------------------------
@@ -171,7 +180,7 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
 
 
         self.port, self.address = self.read_emubt_config()
-        self.emulator = Emulator(self.port, self.address, timeout=0.1)
+        self.emulator = Emulator(self.port, self.address, timeout=0.2)
         self.emulator.set_event_handler(self.event_handler)
 
         self.message_handler = MessageHandler(self.emulator, self.event_handler,)
@@ -200,11 +209,23 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
 
         self.resize(x_siz, y_siz)
         self.disable_objects_for_transmission()
+        self.load_last_status()
         self.connect_button_slot()
+
 
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
         self.show()
+
+    def open_bin_file(self):
+        config = configparser.ConfigParser()
+        config.read(self.config_file_path)
+        editor = config['EDITORS']['bin_editor']
+        try:
+            self.editor_subrpocess.kill()
+        except AttributeError:
+            pass
+        self.editor_subrpocess = subprocess.Popen([editor, self.bin_file_panel.get_current_file()])
 
     def digidiag_on_slot(self):
         Message('digidiag_on')
@@ -213,12 +234,6 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
         self.emulator_event_handler()
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {} ..".format(raw_data[0:10]))
-
-    def emulate_button_slot(self):
-        bin_path = self.bin_file_panel.get_current_file()
-        self.bin_tracker = BinTracker(bin_path)
-        print self.bin_tracker
-
 
     def emulator_event_handler(self):
         """
@@ -501,7 +516,37 @@ class MainWindow(QtGui.QMainWindow, BanksProcedures, StoreToFlashProcedure, Read
 
     def tear_down_main_app(self):
         print "tear down"
-        self.bin_file_panel.update_app_status_file()
+        self.update_app_status_file()
+
+    def load_last_status(self):
+        config = configparser.ConfigParser()
+        config.read(self.app_status_file)
+        try:
+            last_files = eval(config[self.last_bin_files_tag]['files'])
+            self.last_browse_location = config[self.last_bin_files_tag]['browse_hist']
+            self.bin_file_panel.combo_box.insertItems(0, last_files)
+            if config[self.buttons_status_tag]['reload sram checkbox'] == 'True':
+                self.emulation_panel.reload_sram_checkbox.setChecked(True)
+            if config[self.buttons_status_tag]['auto open'] == 'True':
+                self.emulation_panel.auto_open_checkbox.setChecked(True)
+        except KeyError:
+            pass
+
+    def update_app_status_file(self):
+        debug("Updating latest files list")
+        last_files_list = self.bin_file_panel.combo_box.getItems()
+        config = configparser.ConfigParser()
+        config.read(self.app_status_file)
+        config[self.last_bin_files_tag] = {
+            'files': last_files_list,
+            'browse_hist': self.bin_file_panel.last_browse_location
+        }
+        config[self.buttons_status_tag] = {
+            'reload sram checkbox': self.emulation_panel.reload_sram_checkbox.isChecked(),
+            'auto open': self.emulation_panel.auto_open_checkbox.isChecked(),
+        }
+        with open(self.app_status_file, 'w') as cf:
+           config.write(cf)
 
     def closeEvent(self, event):
         if event.type() == QEvent.Close:
