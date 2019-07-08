@@ -2,6 +2,8 @@
 
 EMU_BT_R V1.0
 
+https://www.youtube.com/watch?v=0i5L0DQhbt8
+
 First working version features:
 
     Control:
@@ -45,5 +47,3 @@ First working version features:
     -Bin file viewer to be added to see commited changes by EMULATION procedure
     -call tracker must be fixed: this is not big issue, just for debugging purposes
 
-    DEMO:
-    https://www.youtube.com/watch?v=0i5L0DQhbt8
