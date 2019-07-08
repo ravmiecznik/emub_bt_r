@@ -134,9 +134,10 @@ class Emulator():
             if self.bt_connection:
                 try:
                     self.bt_connection.send(data)
-                except bluetooth.btcommon.BluetoothError:
+                except bluetooth.btcommon.BluetoothError as e:
                     error("LOST BT CONNECTION")
                     self.event_handler.lost_connection_slot()
+                    raise e
             else:
                 error("No bt_connection established")
         else:
