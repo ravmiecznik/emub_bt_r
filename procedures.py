@@ -206,7 +206,6 @@ class StoreToFlashProcedure(RetxCount):
         if self.emulation_panel.reload_sram_checkbox.isChecked():
             Message(id=Message.ID.reload_sram)
 
-    #@thread_this_method()
     def get_writing_stats(self):
         debug("..executing")
         to_signal(self.enable_objects_after_transmission)()
