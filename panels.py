@@ -178,8 +178,6 @@ class BanksPanel(QtGui.QGroupBox):
         self.event_handler.set_bank_name()
         self.bank_name_line_edit.clearFocus()
 
-    # def bank_name_line_edit_return_pressed_slot(self):
-    #     self.bank_name_line_edit.clearFocus()
 
 
 class BinFilePanel(QtGui.QGroupBox):
@@ -207,26 +205,12 @@ class BinFilePanel(QtGui.QGroupBox):
         self.combo_box.setDuplicatesEnabled(False)
         self.combo_box.setMaxCount(10)
         self.combo_box.setEditable(True)
-        #self.combo_box.dragEnterEvent = self.dragEnterEvent
-        #self.combo_box.dropEvent = self.dropEvent
 
-        # self.last_bin_files_tag = "LAST BIN FILES"
-        # self.load_last_status()
         self.event_handler = event_handler
         self.setAcceptDrops(True)
         self.combo_box.dragEnterEvent = self.dragEnterEvent
         self.combo_box.dropEvent = self.dropEvent
-        #self.combo_box.editTextChanged_with_delay_connect_to_signal(to_signal(self.edit_text_changed_slot))
-        #if platform == 'Linux':
-        #    self.prepare_f_path_on_dragdropevt = self.prepare_path_for_linux
-
-
-    # def edit_text_changed_slot(self):
-    #     print 'test'
-    #     current_text = self.combo_box.currentText()
-    #     if not self.insert_new_file(current_text):
-    #         self.combo_box.clearEditText()
-
+        
 
     def dragEnterEvent(self, event):
         file_path = event.mimeData().urls()[0].path()
@@ -277,27 +261,4 @@ class BinFilePanel(QtGui.QGroupBox):
             return False
         return True
 
-
-    # def __del__(self):
-    #     self.update_app_status_file()
-
-    # def load_last_status(self):
-    #     config = configparser.ConfigParser()
-    #     config.read(self.app_status_file)
-    #     try:
-    #         last_files = eval(config[self.last_bin_files_tag]['files'])
-    #         self.last_browse_location = config[self.last_bin_files_tag]['browse_hist']
-    #         self.combo_box.insertItems(0, last_files)
-    #     except KeyError:
-    #         pass
-    #
-    # def update_app_status_file(self):
-    #     debug("Updating latest files list")
-    #     last_files_list = self.combo_box.getItems()
-    #     config = configparser.ConfigParser()
-    #     config.read(self.app_status_file)
-    #     config[self.last_bin_files_tag] = {'files': last_files_list,
-    #                                        'browse_hist': self.last_browse_location}
-    #     with open(self.app_status_file, 'w') as cf:
-    #        config.write(cf)
 
