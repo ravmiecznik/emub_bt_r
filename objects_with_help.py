@@ -69,11 +69,6 @@ class PushButton(QtGui.QPushButton, HelpTip):
             self.set_green_style_sheet()
         self._active_style ^= True
 
-    #
-    # def blink_stop(self):
-    #     self.blink.stop()
-    #     self.set_default_style_sheet()
-
 
 class CheckBox(QtGui.QCheckBox, HelpTip):
     def __init__(self, *args, **kwargs):
@@ -101,10 +96,14 @@ class ComboBox(QtGui.QComboBox, HelpTip):
     def edit_text_timeout(self):
         self.edit_text_changed_signal.emit()
         self.timer.stop()
-
+    
+    #TODO:
+    #refactor this name for PEP8 compliant
     def getItems(self):
         return [str(self.itemText(i)) for i in range(self.count())]
 
+    #TODO:
+    #refactor this name for PEP8 compliant
     def moveOnTop(self, item):
         """
         Move item on top of list view
@@ -121,6 +120,8 @@ class ComboBox(QtGui.QComboBox, HelpTip):
         self.insertItem(0, item)
         self.setCurrentIndex(0)
 
+    #TODO:
+    #refactor this name for PEP8 compliant
     def removeByStr(self, string):
         """
         Remove item by string and update view
