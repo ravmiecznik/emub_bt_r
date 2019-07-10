@@ -10,7 +10,7 @@ from objects_with_help import PushButton, CheckBox, LcdDisplay, LineEdit, ComboB
 from call_tracker import method_call_track
 import os
 import configparser
-from main_logger import debug
+from setup_emubt import debug
 from event_handler import to_signal
 from message_box import message_box
 
@@ -28,7 +28,7 @@ DISCOVER_BTN_HELP = "Discover EMU_BT among bluetooth devices and store result"
 DBG_CHECKBOX_HELP = "Collect debug information to file"
 CONFIG_BTN_HELP = "Update config file"
 
-@method_call_track
+#@method_call_track
 class ControlPanel(QtGui.QGroupBox):
     def __init__(self, parent, event_handler=DummyEventHandler()):
         #super(ControlPanel, self).__init__(parent)

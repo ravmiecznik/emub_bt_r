@@ -6,14 +6,33 @@ contact: ravmiecznk@gmail.com
 import time, sys
 import logging
 import os
+from PyQt4 import QtGui
 
-EMU_BT_PATH = '/home/rafal/EMU_BTR_FILES'
-# os.chdir(EMU_BT_PATH)
-# print os.getcwd()
+setup_file = 'emu_bt.stp'
 
-if not os.path.exists(EMU_BT_PATH):
-    print("Create emu bt directory: {}".format(EMU_BT_PATH))
-    os.makedirs(EMU_BT_PATH)
+def browse_for_directory():
+    app = QtGui.QApplication(sys.argv)
+    emu_bt_path = QtGui.QFileDialog.getExistingDirectory(None, 'Select directory')
+    open(setup_file, 'w').write(str(emu_bt_path))
+    sys.exit(app.exec_())
+
+
+try:
+    EMU_BT_PATH = open(setup_file, 'r').read().strip()
+    if not os.path.isdir(EMU_BT_PATH):
+        browse_for_directory()
+except IOError:
+    print browse_for_directory()
+
+LOG_PATH = os.path.join(EMU_BT_PATH, 'DBG')
+BIN_PATH = os.path.join(EMU_BT_PATH, 'DOWNLOADED')
+
+
+if not os.path.exists(LOG_PATH):
+    os.makedirs(LOG_PATH)
+
+if not os.path.exists(BIN_PATH):
+    os.makedirs(BIN_PATH)
 
 def tstamp():
     ts = time.localtime()
@@ -27,7 +46,7 @@ def create_logger(name, format=log_format, log_level=logging.DEBUG, log_to_file=
     log_formatter = logging.Formatter(format)
     if log_to_file:
         log_file = '{}.log'.format(name)
-        log_file = os.path.join(EMU_BT_PATH, log_file)
+        log_file = os.path.join(LOG_PATH, log_file)
         with open(log_file, 'w') as lf:
             lf.write('')
         handler = logging.FileHandler(log_file)

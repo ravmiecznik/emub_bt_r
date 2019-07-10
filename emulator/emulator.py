@@ -4,7 +4,7 @@ contact: ravmiecznk@gmail.com
 """
 
 import configparser
-from main_logger import info, warn, debug, error, create_logger
+from setup_emubt import info, warn, debug, error, create_logger
 import bluetooth
 from circ_io_buffer import CircIoBuffer
 import time

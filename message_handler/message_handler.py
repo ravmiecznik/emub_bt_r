@@ -7,11 +7,12 @@ from my_gui_thread import GuiThread
 import struct
 from crc import crc,unpack_crc
 from my_gui_thread import GuiThread
-from main_logger import info, debug, error, warn
+from setup_emubt import info, debug, error, warn
 import time
 import abc
 from event_handler import to_signal
 from random import randrange
+from call_tracker import method_call_track
 
 class MsgLockTimeout(Exception):
     pass
@@ -33,6 +34,7 @@ def default_abstract_method_exception(cls, method, method_type='static'):
         raise Exception("{}: {} method '{}' not implemented".format(cls, method.__name__, method_type))
     return raise_exception
 
+@method_call_track
 class Message():
     class ID:
         txt_message     = 0
@@ -127,6 +129,7 @@ class Message():
             Message.lock = False
             error("{req}... !!! send failed !!!".format(req=self.raw_msg[0:40]))
             try:
+                print self.negative_signal
                 self.negative_signal()
             except TypeError:
                 self.negative_signal(self)
@@ -200,13 +203,13 @@ class Message():
     #             self.unrecognized_resp_handler()
     #     return GuiThread(wait_for_msg, action_when_done=to_signal(self.unlock_msg_send))
 
-
+@method_call_track
 class MessageHandler():
     def __init__(self, serial_connection, event_handler, ):
         self.serial_connetion = serial_connection
         self.event_handler = event_handler
         self.rx_buffer = self.serial_connetion.rx_buffer
-        self.event_handler.add_event(to_signal(lambda: None), 'get_emu_rx_buffer_slot')  #by default do nothing on get_emu_rx_buffer_signal
+        #self.event_handler.add_event(to_signal(lambda: None), 'get_emu_rx_buffer_slot')  #by default do nothing on get_emu_rx_buffer_signal
         self.console = self.event_handler.message
 
         #setup general Message attrs
@@ -251,8 +254,8 @@ class MessageHandler():
         for line in emu_buffer:
             self.console(line)
         self.console("{s}EMU END{s}".format(s=12*'-'))
-        self.event_handler.add_event(to_signal(lambda: None),
-                                     'get_emu_rx_buffer_slot')  # stop reading rx_buffer on signal
+        #self.event_handler.add_event(to_signal(lambda: None),
+        #                             'get_emu_rx_buffer_slot')  # stop reading rx_buffer on signal
 
 
 def create_message(id, body,max_packet_size=256*8 + 20, fail_crc_factor=None):

@@ -15,7 +15,7 @@ from intel_hex_handler import intel_hex_parser
 from my_gui_thread import GuiThread, thread_this_method
 from event_handler import EventHandler, to_signal
 import time
-from main_logger import error, info, debug, warn
+from setup_emubt import error, info, debug, warn
 from call_tracker import method_call_track
 
 class TextBrowserInSubWindow(QtGui.QTextBrowser):
@@ -27,7 +27,7 @@ class TextBrowserInSubWindow(QtGui.QTextBrowser):
     def append(self, string):
         self.append_sig.emit(self, string)
 
-@method_call_track
+#@method_call_track
 class Reflasher(QtGui.QWidget):
     def __init__(self, app_status_file, emulator, signal_on_close=None):
         QtGui.QWidget.__init__(self)

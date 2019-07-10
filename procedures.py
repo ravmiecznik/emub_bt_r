@@ -8,10 +8,11 @@ import struct
 from event_handler import to_signal
 from message_handler import Message
 from my_gui_thread import GuiThread, thread_this_method
-from main_logger import warn, error, info, debug
+from setup_emubt import warn, error, info, debug, BIN_PATH
 from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, ReceptionFail, PacketReceptionTimeout, BinReceiver
 from message_box import message_box
 from bin_tracker import BinTracker
+from call_tracker import method_call_track
 
 EEPROM_SIZE = 0x8000
 PACKET_SIZE = 256 * 8
@@ -36,7 +37,6 @@ class RetxCount():
         :return:
         """
         self.gui_communication_signal.emit("Num of retx {}".format(self.__retx_sum))
-
 
 class BanksProcedures():
         """
@@ -298,8 +298,8 @@ class ReadBinDataFromEmu(RetxCount):
         if platform != 'Linux':
             self.file_name = self.file_name.replace('/', '\\')
         self.file_name = self.file_name.replace(' ', '_')
-        f_path_bin = os.path.join(self.config_path, '{}.bin'.format(self.file_name))
-        f_path_hex = os.path.join(self.config_path, '{}.hex'.format(self.file_name))
+        f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(self.file_name))
+        f_path_hex = os.path.join(BIN_PATH, '{}.hex'.format(self.file_name))
 
         self.bin_receiver.save_bin(file_path=f_path_bin)
         self.bin_receiver.save_hex(file_path=f_path_hex)

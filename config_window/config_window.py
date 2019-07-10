@@ -8,8 +8,9 @@ from PyQt4.QtGui import QFileDialog, QMessageBox
 import os
 import configparser
 from event_handler import EventHandler, to_signal
-from main_logger import debug, error, warn, info
+from setup_emubt import debug, error, warn, info
 from call_tracker import method_call_track
+
 
 def str_fill(string, fill_len=20, chr=' ', right=True):
     fill = fill_len - len(string)
@@ -19,7 +20,7 @@ def str_fill(string, fill_len=20, chr=' ', right=True):
         return string
 
 
-@method_call_track
+#@method_call_track
 class ConfigEntry(QtGui.QWidget):
     def __init__(self, parent, option, value, grid, y_pos):
         QtGui.QWidget.__init__(self)
@@ -38,7 +39,7 @@ class ConfigSettings():
         self.config_file_path = os.path.join(self.config_path, 'emubt.cnf')
         self.app_status_file = os.path.join(self.config_path, 'app_status.sts')
 
-@method_call_track
+#@method_call_track
 class ConfigWindow(QtGui.QWidget):
     def __init__(self, config_file):
         QtGui.QWidget.__init__(self)

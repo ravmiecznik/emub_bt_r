@@ -3,11 +3,11 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 import traceback
-from main_logger import logger, info, tstamp, error, warn, ExceptionLogger
+from setup_emubt import logger, info, tstamp, error, warn, ExceptionLogger, debug
 from collections import OrderedDict
 import time
 from PyQt4.QtCore import QThread
-from call_tracker import shallow_track_class_calls
+
 
 threads_exception_logger = ExceptionLogger("threads_exceptions")
 
@@ -247,6 +247,7 @@ class GuiThread(QThread):
                 if not self.hard_supended:
                     if self._suspension_timeout == 0:
                         self._is_suspended = False
+                        debug("Process: {}({}, {})".format(self.process.__name__, self.args, self.kwargs))
                         self.returned_from_thread = self.process(*self.args, **self.kwargs)
                     elif time.time() - self._suspension_tstamp > self._suspension_timeout:
                         self._suspension_timeout = 0

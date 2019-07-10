@@ -2,7 +2,7 @@
 author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
-from main_logger import logger, info, debug, error, warn
+from setup_emubt import logger, info, debug, error, warn
 
 class DummyEventHandler():
     def __init__(self):

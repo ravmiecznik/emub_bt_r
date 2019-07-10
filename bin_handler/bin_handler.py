@@ -5,7 +5,7 @@ contact: ravmiecznk@gmail.com
 
 import os
 from io import BytesIO
-from main_logger import error, warn, info, debug
+from setup_emubt import error, warn, info, debug
 from message_handler.crc import crc
 import time, struct
 

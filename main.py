@@ -3,7 +3,7 @@
 author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
-#from pygame.time import delay
+
 
 import platform
 platform = platform.system()
@@ -12,7 +12,7 @@ platform = platform.system()
 #     import qdarkstyle
 
 import traceback
-from main_logger import logger, info, debug, error, warn, EMU_BT_PATH, ExceptionLogger
+from setup_emubt import logger, info, debug, error, warn, ExceptionLogger, EMU_BT_PATH
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
 from PyQt4 import QtCore, QtGui
@@ -113,9 +113,9 @@ class MainWindow(QtGui.QMainWindow,
         self.config_path = SETTINGS_PATH
         if platform != 'Linux':
             self.config_path = self.config_path.replace('/', '\\')
-        if not os.path.isdir(self.config_path):
-            print "mkdir {}".format(self.config_path)
-            os.mkdir(self.config_path)
+        # if not os.path.isdir(self.config_path):
+        #     print "mkdir {}".format(self.config_path)
+        #     os.mkdir(self.config_path)
         QtGui.QMainWindow.__init__(self)
         #super(MainWindow, self).__init__()
         self.setWindowTitle("EMU BT")

@@ -13,7 +13,7 @@ HELP_TIP = "Hold left button to select text, double click to select word,\n" \
            "middle button to execute selected word"
 
 
-@method_call_track
+#@method_call_track
 class MyTextBrowser(QtGui.QTextBrowser, HelpTip):
     """
     Qt Class: modifed QTextBrowser
@@ -31,7 +31,7 @@ class MyTextBrowser(QtGui.QTextBrowser, HelpTip):
             self.scroll_pressed_slot()
 
 
-@method_call_track
+#@method_call_track
 class Console(QtGui.QGroupBox):
     #def __init__(self, parent, scroll_pressed_slot, console_select_text_slot, event_handler=DummyEventHandler()):
     def __init__(self, parent, event_handler=DummyEventHandler()):

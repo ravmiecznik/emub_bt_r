@@ -3,7 +3,7 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
-import main_logger
+import setup_emubt
 import types
 
 ENABLE_TRACKING = True
@@ -11,7 +11,7 @@ ENABLE_TRACKING = True
 log_format = '[%(asctime)s]: %(levelname)s %(message)s'
 logger_name = "call_tracker"
 
-logger = main_logger.create_logger(logger_name, log_format, log_to_file=True)
+logger = setup_emubt.create_logger(logger_name, log_format, log_to_file=True)
 
 info = logger.info
 debug = logger.debug
@@ -87,16 +87,6 @@ def track_call(method, class_name=None):
     else:
         return method
 #
-# def check_for_static_methods(class_object):
-#     static_methods = []
-#     for attr in class_object.__dict__:
-#         if attr == 'suspend_all_threads':
-#             print type(class_object.__dict__[attr])
-#         if type(class_object.__dict__[attr]) == staticmethod:
-#             print attr
-#             static_methods.append(attr)
-#     return static_methods
-#
 def track_all_class_methods_calls_generic(get_namspace):
     def wrapper(class_obj):
         if ENABLE_TRACKING:
@@ -116,41 +106,40 @@ def track_all_class_methods_calls_generic(get_namspace):
 
 
 def getattribute(obj, item):
-    typ = type(object.__getattribute__(obj, item))
+    #typ = type(object.__getattribute__(obj, item))
+    to_wrap = object.__getattribute__(obj, item)
+    typ = type(to_wrap)
     def call_track(method):
         def wrapper(*args, **kwargs):
-            info("Call: {} with args: {}, kwargs: {}".format(item, args, kwargs))
-            return method(*args, **kwargs)
+            ret = method(*args, **kwargs)
+            info("{} with args: {}, kwargs: {}, returns {}".format(item, args, kwargs, ret))
+            return ret
         return wrapper
-    if typ is types.FunctionType:
-        setattr(obj, item, call_track(object.__getattribute__(obj, item)))
-    # if typ is types.MethodType:
-    #     print 'get', typ, typ is types.MethodType
 
+    if typ is types.MethodType:
+        info("Call method: {}.{}".format(obj, item))
+        #setattr(obj, item, call_track(to_wrap))
 
-    #elif callable(object.__getattribute__(obj, item)):
-    #    info("Other type: {}:{}".format(item, object.__getattribute__(obj, item).__name__))
     return object.__getattribute__(obj, item)
 
 
 def next_call_tracker(class_obj):
-    # info("Wrapping: {}".format(class_obj))
-    # for key in class_obj.__dict__:
-    #     attr = class_obj.__dict__[key]
-    #     typ = type(attr)
-    #     info("{}: {}".format(key, typ))
-    #     if typ is types.FunctionType:
-    #         info("FunctionType: {}".format(key))
-    #     elif str(typ) == "<type 'staticmethod'>":
-    #         info("StaticMethod: {}".format(key))
+    info("Wrapping: {}".format(class_obj))
+    for key in class_obj.__dict__:
+        attr = class_obj.__dict__[key]
+        typ = type(attr)
+        info("testing of {}: {}".format(key, typ))
+        if typ is types.FunctionType:
+            info("FunctionType: {}".format(key))
+        elif str(typ) == "<type 'staticmethod'>":
+            info("StaticMethod: {}".format(key))
     class_obj.__getattribute__ = getattribute
     return class_obj
 
-#shallow_track_class_calls = CallTrack
+
 #shallow_track_class_calls = track_all_class_methods_calls_generic(lambda obj: getattr(obj, '__dict__'))
-shallow_track_class_calls = track_all_class_methods_calls_generic(lambda obj: getattr(obj, '__dict__'))
 method_call_track = next_call_tracker
-#deep_track_class_calls = track_all_class_methods_calls_generic(lambda obj: dir(obj))
+
 
 if not ENABLE_TRACKING:
     logger.warn("Tracking disabled")
