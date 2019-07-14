@@ -311,6 +311,8 @@ class ReadBinDataFromEmu(RetxCount):
         if self.emulation_panel.auto_open_checkbox.isChecked():
             self.event_handler.open_bin_file()
         tear_down()
+        #Message('handshake')
+        #GuiThread(self.read_sram_button_slot, delay=1).start()
 
 class ReadSramProcedure(ReadBinDataFromEmu):
 
