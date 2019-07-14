@@ -242,7 +242,8 @@ class MainWindow(QtGui.QMainWindow,
         """
         welcome_msg = 'BT EEPROM EMULATOR R'
         if welcome_msg in self.emulator.raw_buffer:
-            Message('digidiag_off', positive_signal=lambda :None)
+            #Message('digidiag_off', positive_signal=lambda :None)
+            Message('digidiag_off')
 
     def lost_connection_slot(self):
         self.gui_communication_signal.emit("LOST BT CONNECTION")
