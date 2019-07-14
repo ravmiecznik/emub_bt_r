@@ -249,6 +249,9 @@ class Reflasher(QtGui.QWidget):
         self.text_browser.append("Check if reflash suceeded")
         time.sleep(1)
         self.rx_buffer.flush()
+        Message('digidiag_off', positive_signal=to_signal(self.__get_version))
+
+    def __get_version(self):
         Message(id=Message.ID.rxflush, positive_signal=to_signal(self.get_version))
 
     def get_version(self):
