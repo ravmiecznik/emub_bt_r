@@ -230,13 +230,13 @@ class MessageHandler():
         :return:
         """
         self.console("{s}EMU{s}".format(s=14*'-'))
-        time.sleep(0.1)
         emu_buffer = ''
+        time.sleep(0.2)
         tmp = self.serial_connetion.rx_buffer.read()
         while tmp:
             emu_buffer += tmp
             tmp = self.serial_connetion.rx_buffer.read()
-            time.sleep(0.1)
+            time.sleep(0.2)
         emu_buffer = emu_buffer.split('\n')
         for line in emu_buffer:
             self.console(line)

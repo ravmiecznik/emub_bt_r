@@ -160,6 +160,7 @@ class MainWindow(QtGui.QMainWindow,
         self.event_handler.add_event(to_signal(self.read_bank_button_slot))
         self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
         self.event_handler.add_event(to_signal(self.open_bin_file))
+        self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
         self.emulation_panel = EmulationPanel(self.centralwidget, self.event_handler)
@@ -186,9 +187,9 @@ class MainWindow(QtGui.QMainWindow,
         self.message_handler = MessageHandler(self.emulator, self.event_handler,)
 
         #init procedures
-        ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
+        ReadSramProcedure.__init__(self, self.emulator.raw_buffer)
         StoreToFlashProcedure.__init__(self)
-        ReadBankProcedure.__init__(self, self.emulator.rx_buffer)
+        ReadBankProcedure.__init__(self, self.emulator.raw_buffer)
 
         self.create_threads()
         self.connect_button = self.control_panel.connect_button
@@ -216,6 +217,11 @@ class MainWindow(QtGui.QMainWindow,
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
         self.show()
+
+
+    def get_emu_rx_buffer_slot(self):
+        print self.emulator.rx_buffer.read()
+
 
     def open_bin_file(self):
         config = configparser.ConfigParser()

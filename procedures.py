@@ -164,6 +164,7 @@ class StoreToFlashProcedure(RetxCount):
                 self.bin_sender = BinSender(bin_path)
                 Message('rxflush', positive_signal=to_signal(self.send_data.start),
                         negative_signal=self.console_msg_factory("rxflush failed"))
+
             except IOError as e:
                 self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
                 raise e

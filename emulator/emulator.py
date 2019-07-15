@@ -124,7 +124,7 @@ class Emulator():
                 self.rx_buffer.write(tmp_buff)
                 self.raw_buffer.write(tmp_buff)
         if self.rx_buffer.available():
-            self.event_handler.get_emu_rx_buffer_slot()
+           self.event_handler.get_emu_rx_buffer_slot()
         if self.raw_buffer.available():
             self.event_handler.get_raw_rx_buffer_slot()
 

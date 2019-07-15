@@ -247,7 +247,7 @@ class GuiThread(QThread):
                 if not self.hard_supended:
                     if self._suspension_timeout == 0:
                         self._is_suspended = False
-                        debug("Process: {}({}, {})".format(self.process.__name__, self.args, self.kwargs))
+                        #debug("Process: {}({}, {})".format(self.process.__name__, self.args, self.kwargs))
                         self.returned_from_thread = self.process(*self.args, **self.kwargs)
                     elif time.time() - self._suspension_tstamp > self._suspension_timeout:
                         self._suspension_timeout = 0
