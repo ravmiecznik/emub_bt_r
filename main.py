@@ -220,8 +220,8 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def get_emu_rx_buffer_slot(self):
-        pass
-        #print self.emulator.rx_buffer.read()
+        #pass
+        self.emulator.rx_buffer.read()
 
 
     def open_bin_file(self):
