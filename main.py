@@ -231,18 +231,9 @@ class MainWindow(QtGui.QMainWindow,
         Message('digidiag_on')
 
     def get_raw_rx_buffer_slot(self):
-        self.emulator_event_handler()
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {} ..".format(raw_data[0:10]))
 
-    def emulator_event_handler(self):
-        """
-        Handles random emulator output
-        :return:
-        """
-        welcome_msg = 'BT EEPROM EMULATOR R'
-        #if welcome_msg in self.emulator.raw_buffer:
-        #    Message('digidiag_off')
 
     def lost_connection_slot(self):
         self.gui_communication_signal.emit("LOST BT CONNECTION")
