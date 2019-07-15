@@ -129,7 +129,6 @@ class Message():
             Message.lock = False
             error("{req}... !!! send failed !!!".format(req=self.raw_msg[0:40]))
             try:
-                print self.negative_signal
                 self.negative_signal()
             except TypeError:
                 self.negative_signal(self)
@@ -187,21 +186,6 @@ class Message():
                 self.resp = Message.rx_buffer.read(self.expected_resp_len)
             return GuiThread(wait_for_msg, action_when_done=to_signal(self.handle_resp), alias=self.raw_msg[0:20])
 
-    # def catch_response(self):
-    #     def wait_for_msg():
-    #         t0 = time.time()
-    #         while Message.rx_buffer.available() < self.expected_resp_len:
-    #             time.sleep(0.001)
-    #             if time.time() - t0 > self.timeout:
-    #                 self.dtx_handler()
-    #                 return False
-    #         self.resp = Message.rx_buffer.read(self.expected_resp_len)
-    #         try:
-    #             print "call action on resp for id {}: {}".format(self.id, self.resp)
-    #             self.actions[self.resp]()
-    #         except KeyError:
-    #             self.unrecognized_resp_handler()
-    #     return GuiThread(wait_for_msg, action_when_done=to_signal(self.unlock_msg_send))
 
 @method_call_track
 class MessageHandler():
@@ -216,8 +200,10 @@ class MessageHandler():
         Message.rx_buffer = self.rx_buffer
         Message.send = self.serial_connetion.send
         Message.flush_rx_buffer = self.serial_connetion.rx_buffer.flush
-        Message.default_ack_handler = self.print_rx_buffer
+        #Message.default_ack_handler = self.print_rx_buffer
+        Message.default_ack_handler = self.rx_buffer.flush
         Message.get_rx_buffer = self.get_rx_buffer
+
 
     def print_rx_buffer(self):
         """
@@ -254,6 +240,7 @@ class MessageHandler():
         for line in emu_buffer:
             self.console(line)
         self.console("{s}EMU END{s}".format(s=12*'-'))
+        self.rx_buffer.flush()
         #self.event_handler.add_event(to_signal(lambda: None),
         #                             'get_emu_rx_buffer_slot')  # stop reading rx_buffer on signal
 
