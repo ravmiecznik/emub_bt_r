@@ -195,6 +195,7 @@ class MessageHandler():
         self.rx_buffer = self.serial_connetion.rx_buffer
         #self.event_handler.add_event(to_signal(lambda: None), 'get_emu_rx_buffer_slot')  #by default do nothing on get_emu_rx_buffer_signal
         self.console = self.event_handler.message
+        self.get_emu_rx_buffer_slot_old = self.event_handler.get_emu_rx_buffer_slot
 
         #setup general Message attrs
         Message.rx_buffer = self.rx_buffer
@@ -241,9 +242,6 @@ class MessageHandler():
             self.console(line)
         self.console("{s}EMU END{s}".format(s=12*'-'))
         self.rx_buffer.flush()
-        #self.event_handler.add_event(to_signal(lambda: None),
-        #                             'get_emu_rx_buffer_slot')  # stop reading rx_buffer on signal
-
 
 def create_message(id, body,max_packet_size=256*8 + 20, fail_crc_factor=None):
     """
