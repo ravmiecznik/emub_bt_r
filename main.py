@@ -187,9 +187,9 @@ class MainWindow(QtGui.QMainWindow,
         self.message_handler = MessageHandler(self.emulator, self.event_handler,)
 
         #init procedures
-        ReadSramProcedure.__init__(self, self.emulator.raw_buffer)
+        ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
         StoreToFlashProcedure.__init__(self)
-        ReadBankProcedure.__init__(self, self.emulator.raw_buffer)
+        ReadBankProcedure.__init__(self, self.emulator.rx_buffer)
 
         self.create_threads()
         self.connect_button = self.control_panel.connect_button
@@ -220,7 +220,8 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def get_emu_rx_buffer_slot(self):
-        print self.emulator.rx_buffer.read()
+        pass
+        #print self.emulator.rx_buffer.read()
 
 
     def open_bin_file(self):
