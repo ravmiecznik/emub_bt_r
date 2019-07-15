@@ -210,7 +210,7 @@ class MainWindow(QtGui.QMainWindow,
         self.resize(x_siz, y_siz)
         self.disable_objects_for_transmission()
         self.load_last_status()
-        self.connect_button_slot()
+        #self.connect_button_slot()
 
 
     def initUI(self):
@@ -231,19 +231,9 @@ class MainWindow(QtGui.QMainWindow,
         Message('digidiag_on')
 
     def get_raw_rx_buffer_slot(self):
-        self.emulator_event_handler()
         raw_data = self.emulator.raw_buffer.read()
         debug("raw_rx_buffer: {} ..".format(raw_data[0:10]))
 
-    def emulator_event_handler(self):
-        """
-        Handles random emulator output
-        :return:
-        """
-        welcome_msg = 'BT EEPROM EMULATOR R'
-        if welcome_msg in self.emulator.raw_buffer:
-            #Message('digidiag_off', positive_signal=lambda :None)
-            Message('digidiag_off')
 
     def lost_connection_slot(self):
         self.gui_communication_signal.emit("LOST BT CONNECTION")
@@ -277,13 +267,16 @@ class MainWindow(QtGui.QMainWindow,
             self.gui_communication_signal.emit("unsuported command")
 
     def send_help_cmd_slot(self):
-        Message('help')
+        Message('help', positive_signal=self.message_handler.print_rx_buffer_to_console)
 
 
     def send_resetemu_slot(self):
-        Message('resetemu')
-        GuiThread(to_signal(self.get_bank_in_use), delay=1).start()
+        Message('resetemu', positive_signal=self.disable_digidiag)
 
+    def disable_digidiag(self):
+       self.message_handler.print_rx_buffer_to_console()
+       Message('digidiag_off')
+       GuiThread(self.get_bank_in_use, delay=0.5).start()
 
     def read_emubt_config(self):
         config = configparser.ConfigParser()
@@ -439,8 +432,9 @@ class MainWindow(QtGui.QMainWindow,
         self.connect_button.setText("disconnect")
         self.connect_button.set_green_style_sheet()
         self.recevive_emulator_data_thread.start()
-        self.get_bank_in_use()
         self.enable_objects_after_transmission()
+        Message('digidiag_off', positive_signal=self.console_msg_factory('digidiag disabled'))
+        GuiThread(self.get_bank_in_use, delay=0.5).start()
 
 
     def set_disconnected(self):
@@ -455,7 +449,6 @@ class MainWindow(QtGui.QMainWindow,
         self.blink_connect_btn.kill()
         if self.emulator.get_connection_status() == True:
             self.set_connected()
-            GuiThread(Message, args=('digidiag_off',), delay=0.5).start()
         else:
             self.set_disconnected()
 
@@ -468,7 +461,6 @@ class MainWindow(QtGui.QMainWindow,
             if not self.connection_thread.isRunning():
                 self.connection_thread.start()
             else:
-                print 'stop connecting'
                 self.connection_thread.kill()
                 self.recevive_emulator_data_thread.kill()
                 self.emulator.disconnect()
