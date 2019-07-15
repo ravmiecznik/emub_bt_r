@@ -4,6 +4,8 @@ EMU_BT_R V1.0
 
 https://www.youtube.com/watch?v=0i5L0DQhbt8
 
+https://www.youtube.com/watch?v=bxWkzQrnqo4
+
 First working version features:
 
     Control:
