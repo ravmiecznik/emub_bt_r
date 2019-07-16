@@ -142,6 +142,7 @@ class StoreToFlashProcedure(RetxCount):
     def __init__(self, max_retry = 2):
         #init threads
         self.send_data()
+        self.get_writing_stats()
         #self.get_writing_stats()
 
         self.__was_ack = False
@@ -199,24 +200,26 @@ class StoreToFlashProcedure(RetxCount):
                 self.progress_bar.set_val_signal.emit(packet_no * 100 / PACKETS_NUM)
             else:
                 break
-
         to_signal(self.progress_bar.hide)()
         to_signal(self.enable_objects_after_transmission)()
-        self.get_writing_stats()
         self.blink_save_btn.kill()
+        if self.__was_ack:
+            self.get_writing_stats.start()
         if self.emulation_panel.reload_sram_checkbox.isChecked():
-            Message(id=Message.ID.reload_sram)
+            Message(id=Message.ID.reload_sram, positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
 
+    @thread_this_method(delay=1)
     def get_writing_stats(self):
         debug("..executing")
-        to_signal(self.enable_objects_after_transmission)()
         self.blink_save_btn.kill()
         self.gui_communication_signal.emit("Done in time {:.2f}".format(time.time() - self.t0))
         self.disp_retx_count()
-        Message("writingtime")
         to_signal(self.progress_bar.hide)()
         to_signal(self.progress_bar.hide)()
         to_signal(self.enable_objects_after_transmission)()
+
+
+        Message("writingtime", positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
 
 
     def send_data_packet_teardown_on_fail(self):
@@ -226,7 +229,7 @@ class StoreToFlashProcedure(RetxCount):
         to_signal(self.progress_bar.hide)()
         if self.__try <= self.__max_retry:
             self.gui_communication_signal.emit("SAVE operation failed. Retry: {}/{}".format(self.__try, self.__max_retry))
-            GuiThread(self.send_data.start, delay=1).start()
+            GuiThread(self.send_data.start, delay=3).start()
         else:
             self.gui_communication_signal.emit("SAVE operation failed. Check error log")
             raise Exception("Save fail")

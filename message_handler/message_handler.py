@@ -202,7 +202,8 @@ class MessageHandler():
         Message.send = self.serial_connetion.send
         Message.flush_rx_buffer = self.__rx_buffer.flush
         #Message.default_ack_handler = self.print_rx_buffer
-        Message.default_ack_handler = self.__rx_buffer.flush
+        #Message.default_ack_handler = self.__rx_buffer.flush
+        Message.default_ack_handler = lambda : None
         Message.get_rx_buffer = self.get_rx_buffer
 
 
@@ -229,7 +230,6 @@ class MessageHandler():
         in console window
         :return:
         """
-        self.console("{s}EMU{s}".format(s=14*'-'))
         emu_buffer = ''
         time.sleep(0.2)
         tmp = self.serial_connetion.rx_buffer.read()
@@ -238,10 +238,12 @@ class MessageHandler():
             tmp = self.serial_connetion.rx_buffer.read()
             time.sleep(0.2)
         emu_buffer = emu_buffer.split('\n')
-        for line in emu_buffer:
-            self.console(line)
-        self.console("{s}EMU END{s}".format(s=12*'-'))
-        self.__rx_buffer.flush()
+        if emu_buffer:
+            self.console("{s}EMU{s}".format(s=14 * '-'))
+            for line in emu_buffer:
+                self.console(line)
+            self.console("{s}EMU END{s}".format(s=12*'-'))
+        #self.__rx_buffer.flush()
 
 def create_message(id, body,max_packet_size=256*8 + 20, fail_crc_factor=None):
     """
