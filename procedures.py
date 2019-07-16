@@ -239,7 +239,8 @@ class ReadBinDataFromEmu(RetxCount):
     It is iherited in MainWindow so all objects are shared between this class and MainWindow
     """
     def __init__(self, rx_buffer, max_retx=5):
-        self.bin_receiver = BinReceiver(rx_buffer, timeout=2)
+        self.__rx_buffer = rx_buffer
+        self.bin_receiver = BinReceiver(self.__rx_buffer, timeout=2)
         self.max_retx = max_retx
 
 
@@ -284,7 +285,7 @@ class ReadBinDataFromEmu(RetxCount):
                 return get_packet(packet_count, max_retx - 1)
 
         packet_count = 0
-        self.emulator.rx_buffer.flush()
+        self.__rx_buffer.flush()
         self.progress_bar.set_title("receiving...")
         to_signal(self.progress_bar.show)()
         self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
