@@ -125,8 +125,8 @@ class Reflasher(QtGui.QWidget):
         #configure new event handler
         self.old_event_handler = self.emulator.event_handler
         self.reflasher_event_handler = EventHandler()
-        self.reflasher_event_handler.add_event(to_signal(lambda:None), "get_emu_rx_buffer_slot")
-        self.reflasher_event_handler.add_event(to_signal(lambda: None), "get_raw_rx_buffer_slot")
+        #self.reflasher_event_handler.add_event(to_signal(lambda:None), "get_emu_rx_buffer_slot")
+        #self.reflasher_event_handler.add_event(to_signal(lambda: None), "get_raw_rx_buffer_slot")
         self.emulator.set_event_handler(self.reflasher_event_handler)
 
 
@@ -175,10 +175,10 @@ class Reflasher(QtGui.QWidget):
         self.bin_image = self.bin_image + '\xEE'*(self.packetsize - (self.bin_size%self.packetsize))   #pad image
         self.bin_size = len(self.bin_image)
         self.expected_version = self._find_version_of_hex_to_reflash(self.bin_image)
-        # if not self.expected_version:
-        #     self.text_browser.append("This file is not EMU BT hex file")
-        #     self.text_browser.append("Can't continue")
-        #     return
+        if not self.expected_version:
+            self.text_browser.append("This file is not EMU BT hex file")
+            self.text_browser.append("Can't continue")
+            return
         self.resize(self.x_siz, self.y_siz + 100)
         self.send('write_p:{size} {addr}'.format(addr=0, size=len(self.bin_image)))
         if self.wait_for_resp("ready"):
