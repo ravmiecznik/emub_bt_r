@@ -192,17 +192,17 @@ class MessageHandler():
     def __init__(self, serial_connection, event_handler, ):
         self.serial_connetion = serial_connection
         self.event_handler = event_handler
-        self.rx_buffer = self.serial_connetion.rx_buffer
+        self.__rx_buffer = self.serial_connetion.rx_buffer
         #self.event_handler.add_event(to_signal(lambda: None), 'get_emu_rx_buffer_slot')  #by default do nothing on get_emu_rx_buffer_signal
         self.console = self.event_handler.message
         self.get_emu_rx_buffer_slot_old = self.event_handler.get_emu_rx_buffer_slot
 
         #setup general Message attrs
-        Message.rx_buffer = self.rx_buffer
+        Message.rx_buffer = self.__rx_buffer
         Message.send = self.serial_connetion.send
-        Message.flush_rx_buffer = self.serial_connetion.rx_buffer.flush
+        Message.flush_rx_buffer = self.__rx_buffer.flush
         #Message.default_ack_handler = self.print_rx_buffer
-        Message.default_ack_handler = self.rx_buffer.flush
+        Message.default_ack_handler = self.__rx_buffer.flush
         Message.get_rx_buffer = self.get_rx_buffer
 
 
@@ -214,11 +214,11 @@ class MessageHandler():
         self.event_handler.add_event(to_signal(self.print_rx_buffer_to_console), 'get_emu_rx_buffer_slot')
 
     def get_rx_buffer(self):
-        time.sleep(0.5)
-        return self.rx_buffer.read()
+        time.sleep(0.1)
+        return self.__rx_buffer.read()
 
     def just_print(self):
-        print self.rx_buffer.read()
+        print self.__rx_buffer.read()
 
     def send(self, message):
         return Message(message)  #, positive_signal=self.print_rx_buffer)()
@@ -241,7 +241,7 @@ class MessageHandler():
         for line in emu_buffer:
             self.console(line)
         self.console("{s}EMU END{s}".format(s=12*'-'))
-        self.rx_buffer.flush()
+        self.__rx_buffer.flush()
 
 def create_message(id, body,max_packet_size=256*8 + 20, fail_crc_factor=None):
     """
