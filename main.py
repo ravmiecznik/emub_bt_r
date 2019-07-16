@@ -220,8 +220,8 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def get_emu_rx_buffer_slot(self):
-        #pass
-        self.emulator.rx_buffer.read()
+        pass
+        #self.emulator.rx_buffer.read()
 
 
     def open_bin_file(self):
@@ -252,7 +252,11 @@ class MainWindow(QtGui.QMainWindow,
         if cmd[0:2] == 'E:':
             self.handle_E_command(cmd.split('E:')[1])
         else:
-            self.message_handler.send(cmd)
+            #self.message_handler.send(cmd)
+            self.disable_objects_for_transmission()
+            Message(cmd, positive_signal=self.message_handler.print_rx_buffer_to_console,
+                    extra_action_on_ack=to_signal(self.enable_objects_after_transmission),
+                    extra_action_on_nack=to_signal(self.enable_objects_after_transmission))
 
     def handle_E_command(self, cmd):
         cnt = 0
@@ -274,11 +278,18 @@ class MainWindow(QtGui.QMainWindow,
             self.gui_communication_signal.emit("unsuported command")
 
     def send_help_cmd_slot(self):
-        Message('help', positive_signal=self.message_handler.print_rx_buffer_to_console)
+        self.disable_objects_for_transmission()
+        Message('help', positive_signal=self.message_handler.print_rx_buffer_to_console,
+                extra_action_on_nack=to_signal(self.enable_objects_after_transmission),
+                extra_action_on_ack=to_signal(self.enable_objects_after_transmission))
 
 
     def send_resetemu_slot(self):
-        Message('resetemu', positive_signal=self.disable_digidiag)
+        self.disable_objects_for_transmission()
+        Message('resetemu', positive_signal=self.message_handler.print_rx_buffer_to_console,
+                extra_action_on_nack=to_signal(self.enable_objects_after_transmission),
+                extra_action_on_ack=to_signal(self.enable_objects_after_transmission))
+        #Message('resetemu', positive_signal=self.disable_digidiag)
 
     def disable_digidiag(self):
        self.message_handler.print_rx_buffer_to_console()
@@ -318,6 +329,9 @@ class MainWindow(QtGui.QMainWindow,
         self.emulation_panel.setDisabled(True)
         self.banks_panel.setDisabled(True)
         self.control_panel.reflash_button.setDisabled(True)
+        self.console.command_line.setDisabled(True)
+        self.console.reset_button.setDisabled(True)
+        self.console.help_button.setDisabled(True)
 
     def enable_objects_after_transmission(self):
         self.emulation_panel.setDisabled(False)
@@ -326,6 +340,9 @@ class MainWindow(QtGui.QMainWindow,
         self.banks_panel.bank1pushButton.setDisabled(False)
         self.banks_panel.bank2pushButton.setDisabled(False)
         self.banks_panel.bank3pushButton.setDisabled(False)
+        self.console.command_line.setDisabled(False)
+        self.console.reset_button.setDisabled(False)
+        self.console.help_button.setDisabled(False)
 
 
     def console_msg_factory(self, msg):
