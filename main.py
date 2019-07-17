@@ -110,6 +110,7 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def __init__(self):
+        print 'PATH', EMU_BT_PATH
         self.config_path = SETTINGS_PATH
         if platform != 'Linux':
             self.config_path = self.config_path.replace('/', '\\')
@@ -211,12 +212,13 @@ class MainWindow(QtGui.QMainWindow,
         self.resize(x_siz, y_siz)
         self.disable_objects_for_transmission()
         self.load_last_status()
-        #self.connect_button_slot()
+        if self.control_panel.autoconnect_checkbox.isChecked():
+            self.connect_button_slot()
 
 
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
-        self.show()
+        #self.show()
 
 
     def get_emu_rx_buffer_slot(self):
@@ -332,6 +334,7 @@ class MainWindow(QtGui.QMainWindow,
         #self.console.command_line.setDisabled(True)
         self.console.reset_button.setDisabled(True)
         self.console.help_button.setDisabled(True)
+        self.bin_file_panel.combo_box.clearFocus()
 
     def enable_objects_after_transmission(self):
         self.emulation_panel.setDisabled(False)
@@ -343,6 +346,7 @@ class MainWindow(QtGui.QMainWindow,
         #self.console.command_line.setDisabled(False)
         self.console.reset_button.setDisabled(False)
         self.console.help_button.setDisabled(False)
+
 
 
     def console_msg_factory(self, msg):
@@ -546,6 +550,8 @@ class MainWindow(QtGui.QMainWindow,
                 self.emulation_panel.reload_sram_checkbox.setChecked(True)
             if config[self.buttons_status_tag]['auto open'] == 'True':
                 self.emulation_panel.auto_open_checkbox.setChecked(True)
+            if config[self.buttons_status_tag]['autoconnect'] == 'True':
+                self.control_panel.autoconnect_checkbox.setChecked(True)
         except KeyError:
             pass
 
@@ -561,6 +567,7 @@ class MainWindow(QtGui.QMainWindow,
         config[self.buttons_status_tag] = {
             'reload sram checkbox': self.emulation_panel.reload_sram_checkbox.isChecked(),
             'auto open': self.emulation_panel.auto_open_checkbox.isChecked(),
+            'autoconnect': self.control_panel.autoconnect_checkbox.isChecked(),
         }
         with open(self.app_status_file, 'w') as cf:
            config.write(cf)
@@ -573,13 +580,10 @@ class MainWindow(QtGui.QMainWindow,
         print "destroy"
 
 def main():
-
     app = QtGui.QApplication(sys.argv)
-    myapp = MainWindow()
     if platform == 'Windows':
         app.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
-    #for i in QtGui.QStyleFactory.keys():
-    #    print i
+    myapp = MainWindow()
     myapp.show()
     app.exec_()
     sys.exit()

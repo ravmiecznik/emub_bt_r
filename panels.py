@@ -25,7 +25,7 @@ def prepare_file_path_for_platform(fpath):
 CONNECT_BTN_HELP = "Connect or Disconnect from EMU_BT"
 REFLASH_BTN_HELP = "Upload new firmware to EMU_BT"
 DISCOVER_BTN_HELP = "Discover EMU_BT among bluetooth devices and store result"
-DBG_CHECKBOX_HELP = "Collect debug information to file"
+AUTOCONNECT_CHECKBOX_HELP = "Autoconnect at startup"
 CONFIG_BTN_HELP = "Update config file"
 
 #@method_call_track
@@ -44,14 +44,14 @@ class ControlPanel(QtGui.QGroupBox):
         self.discover_button = PushButton("Discover", tip_msg=DISCOVER_BTN_HELP)
         self.config_button = PushButton("Config", tip_msg=CONFIG_BTN_HELP)
         self.setLayout(control_frame_FrameGrid)
-        self.dbg_checkbox = CheckBox("DBG", tip_msg=DBG_CHECKBOX_HELP)
+        self.autoconnect_checkbox = CheckBox("Autoconnect", tip_msg=AUTOCONNECT_CHECKBOX_HELP)
 
 
         control_frame_FrameGrid.addWidget(self.connect_button, 0, 0)
         control_frame_FrameGrid.addWidget(self.reflash_button, 0, 1)
         control_frame_FrameGrid.addWidget(self.discover_button, 1, 0)
         control_frame_FrameGrid.addWidget(self.config_button, 1, 1)
-        control_frame_FrameGrid.addWidget(self.dbg_checkbox, 2, 0, 1, 2)
+        control_frame_FrameGrid.addWidget(self.autoconnect_checkbox, 2, 0, 1, 2)
 
         #connect buttons
         self.connect_button.clicked.connect(event_handler.connect_button_slot)
