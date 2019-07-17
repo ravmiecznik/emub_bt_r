@@ -7,22 +7,39 @@ import time, sys
 import logging
 import os
 from PyQt4 import QtGui
+#from message_box import message_box, show_welcome_msg
+import message_box
 
 setup_file = 'emu_bt.stp'
+#EMU_BT_PATH = ''
 
 def browse_for_directory():
-    app = QtGui.QApplication(sys.argv)
-    emu_bt_path = QtGui.QFileDialog.getExistingDirectory(None, 'Select directory')
+    emu_bt_path = QtGui.QFileDialog.getExistingDirectory(None, 'Select (or create) a directory for EMUBT files')
     open(setup_file, 'w').write(str(emu_bt_path))
-    sys.exit(app.exec_())
-
+    global EMU_BT_PATH
+    EMU_BT_PATH = emu_bt_path
 
 try:
     EMU_BT_PATH = open(setup_file, 'r').read().strip()
     if not os.path.isdir(EMU_BT_PATH):
-        browse_for_directory()
+        wrong_path_msg = 'Does this location exist: {} ?\n'.format(EMU_BT_PATH) if EMU_BT_PATH else ""
+        message_box.show_welcome_msg(""
+                                     "EMUBT default directory configration is missing\n"
+                                     "{}"
+                                     "Select directory where setup, log and bin files will be stored\n"
+                                     "Start application again when done".format(wrong_path_msg),
+                                     icon=message_box.Information,
+                                     button_clicked_sig=browse_for_directory,
+                                     title="Something is missing")
 except IOError:
-    print browse_for_directory()
+    message_box.show_welcome_msg(""
+                                 "Welcome to EMUBT application\n"
+                                 "It looks like a first start\n"
+                                 "Select directory where setup, log and bin files will be stored\n"
+                                 "Start application again when done",
+                                 icon=message_box.Information,
+                                 button_clicked_sig=browse_for_directory,
+                                 title="HELLO WORLD!")
 
 LOG_PATH = os.path.join(EMU_BT_PATH, 'DBG')
 BIN_PATH = os.path.join(EMU_BT_PATH, 'DOWNLOADED')
