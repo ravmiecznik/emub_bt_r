@@ -229,7 +229,7 @@ class StoreToFlashProcedure(RetxCount):
         to_signal(self.progress_bar.hide)()
         if self.__try <= self.__max_retry:
             self.gui_communication_signal.emit("SAVE operation failed. Retry: {}/{}".format(self.__try, self.__max_retry))
-            GuiThread(self.send_data.start, delay=3).start()
+            GuiThread(self.send_data.start, delay=1).start()
         else:
             self.gui_communication_signal.emit("SAVE operation failed. Check error log")
             raise Exception("Save fail")

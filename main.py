@@ -182,7 +182,7 @@ class MainWindow(QtGui.QMainWindow,
 
 
         self.port, self.address = self.read_emubt_config()
-        self.emulator = Emulator(self.port, self.address, timeout=0.2)
+        self.emulator = Emulator(self.port, self.address, timeout=0.5)
         self.emulator.set_event_handler(self.event_handler)
 
         self.message_handler = MessageHandler(self.emulator, self.event_handler,)
