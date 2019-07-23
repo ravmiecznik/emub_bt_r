@@ -257,10 +257,6 @@ class ReadBinDataFromEmu(RetxCount):
         to_signal(self.disable_objects_for_transmission)()
         RetxCount.__init__(self)
 
-        def tear_down():
-            debug("..executing")
-            to_signal(self.progress_bar.hide)()
-            to_signal(self.enable_objects_after_transmission)()
 
         def get_packet(packet_count, max_retx=self.max_retx):
             """
@@ -279,7 +275,7 @@ class ReadBinDataFromEmu(RetxCount):
                 debug("..handling exception: {}".format(ReceptionFail))
                 if max_retx <= 0:
                     self.gui_communication_signal.emit("Reception failed")
-                    tear_down()
+                    self.tear_down()
                     debug("raise final exception")
                     raise Exception("Reception failed")
                 time.sleep(0.1)
@@ -315,7 +311,7 @@ class ReadBinDataFromEmu(RetxCount):
         self.bin_file_panel.combo_box.moveOnTop(f_path_bin)
         if self.emulation_panel.auto_open_checkbox.isChecked():
             self.event_handler.open_bin_file()
-        tear_down()
+        self.tear_down()
 
 class ReadSramProcedure(ReadBinDataFromEmu):
 
@@ -332,6 +328,11 @@ class ReadSramProcedure(ReadBinDataFromEmu):
         self.read_bin_data.start()
 
 
+    def tear_down(self):
+        debug("..executing")
+        to_signal(self.progress_bar.hide)()
+        to_signal(self.enable_objects_after_transmission)()
+        Message(id=Message.ID.reload_sram, positive_signal=self.message_handler.print_rx_buffer_to_console)
 
 class ReadBankProcedure(ReadBinDataFromEmu):
 
@@ -347,6 +348,10 @@ class ReadBankProcedure(ReadBinDataFromEmu):
         RetxCount.__init__(self)
         self.read_bin_data.start()
 
+    def tear_down(self):
+        debug("..executing")
+        to_signal(self.progress_bar.hide)()
+        to_signal(self.enable_objects_after_transmission)()
 
 class SyncFileToSramProcedure():
 
