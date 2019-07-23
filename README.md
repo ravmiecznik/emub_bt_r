@@ -1,10 +1,12 @@
 # emub_bt_r
 
-EMU_BT_R V1.0
+EMU_BT_R V1.1
 
 https://www.youtube.com/watch?v=0i5L0DQhbt8
 
 https://www.youtube.com/watch?v=bxWkzQrnqo4
+
+23.07.2019: Optimized timings, num of retx, tested on Win10/LINUX
 
 First working version features:
 
