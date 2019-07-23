@@ -8,4 +8,6 @@
 *.bin
 .idea/
 htmlcov/
+build/
+spec/
 emu_bt.stp

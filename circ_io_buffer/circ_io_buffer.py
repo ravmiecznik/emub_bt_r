@@ -4,8 +4,8 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
-import pytest
-import pytest_mccabe
+#import pytest
+#import pytest_mccabe
 from io import BytesIO
 from call_tracker import method_call_track
 
