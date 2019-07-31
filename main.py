@@ -304,6 +304,8 @@ class MainWindow(QtGui.QMainWindow,
         try:
             port = config['BLUETOOTH']['bt_device_port']
             address = config['BLUETOOTH']['bt_device_address']
+            if ':' not in address:
+                address = ':'.join([a+b for a, b in zip(address[::2], address[1::2])])
             info("Emulator config: port:{}, address:{}".format(port, address))
             if not port or not address:
                 raise KeyError
