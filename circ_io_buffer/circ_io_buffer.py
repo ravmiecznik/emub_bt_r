@@ -7,7 +7,7 @@ contact: ravmiecznk@gmail.com
 #import pytest
 #import pytest_mccabe
 from io import BytesIO
-from call_tracker import method_call_track
+#from call_tracker import method_call_track
 
 #@shallow_track_class_calls
 class CircIoBuffer(BytesIO):
