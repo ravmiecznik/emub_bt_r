@@ -84,6 +84,7 @@ class BanksProcedures():
             self.control_panel.reflash_button.setDisabled(True)
 
         def set_green_style_get_bank_info(self, bank_button):
+            self.bank_in_use = ['bank 1', 'bank 2', 'bank 3'].index(bank_button.text()) + 1
             def wrapper():
                 to_signal(bank_button.set_green_style_sheet)()
                 self.emulator.raw_buffer.flush()
@@ -116,10 +117,13 @@ class BanksProcedures():
             raw_buffer = self.emulator.raw_buffer.read()
             to_signal(self.banks_panel.set_default_style_sheet_for_buttons)()
             if 'bank1set' in raw_buffer:
+                self.bank_in_use = 1
                 to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank1pushButton))()
             elif 'bank2set' in raw_buffer:
+                self.bank_in_use = 2
                 to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank2pushButton))()
             elif 'bank3set' in raw_buffer:
+                self.bank_in_use = 3
                 to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank3pushButton))()
 
         def set_bank_name(self):
@@ -157,6 +161,7 @@ class StoreToFlashProcedure(RetxCount):
         self.__was_ack = False
 
     def store_to_flash_button_slot(self):
+        #self.send_data_suceeded = False
         self.t0 = time.time()
         bin_path = self.bin_file_panel.get_current_file()
         self.__try = 0
@@ -179,6 +184,7 @@ class StoreToFlashProcedure(RetxCount):
 
     @thread_this_method()
     def send_data(self):
+        self.send_data_suceeded = False
         debug("started {}".format(self.send_data.__name__))
         RetxCount.__init__(self)
         self.__try += 1
@@ -205,11 +211,12 @@ class StoreToFlashProcedure(RetxCount):
         self.blink_save_btn.kill()
         if self.__was_ack:
             self.get_writing_stats.start()
-        if self.emulation_panel.reload_sram_checkbox.isChecked():
-            Message(id=Message.ID.reload_sram, positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
+            if self.emulation_panel.reload_sram_checkbox.isChecked():
+                Message(id=Message.ID.reload_sram, positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
 
     @thread_this_method(delay=1)
     def get_writing_stats(self):
+        self.send_data_suceeded = True
         debug("..executing")
         self.blink_save_btn.kill()
         self.gui_communication_signal.emit("Done in time {:.2f}".format(time.time() - self.t0))
@@ -248,6 +255,7 @@ class ReadBinDataFromEmu(RetxCount):
 
 
     def read_data_thread(self):
+        self.receive_data_suceeded = False
         debug("..executing")
         t0 = time.time()
         self.bin_receiver.reset()
@@ -309,6 +317,7 @@ class ReadBinDataFromEmu(RetxCount):
         self.gui_communication_signal.emit(f_path_hex)
         self.gui_communication_signal.emit(f_path_bin)
         self.bin_file_panel.combo_box.moveOnTop(f_path_bin)
+        self.receive_data_suceeded = True
         if self.emulation_panel.auto_open_checkbox.isChecked():
             self.event_handler.open_bin_file()
         self.tear_down()
@@ -332,7 +341,7 @@ class ReadSramProcedure(ReadBinDataFromEmu):
         debug("..executing")
         to_signal(self.progress_bar.hide)()
         to_signal(self.enable_objects_after_transmission)()
-        Message(id=Message.ID.reload_sram, positive_signal=self.message_handler.print_rx_buffer_to_console)
+        #Message(id=Message.ID.reload_sram, positive_signal=self.message_handler.print_rx_buffer_to_console)
 
 class ReadBankProcedure(ReadBinDataFromEmu):
 
