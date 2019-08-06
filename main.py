@@ -30,6 +30,7 @@ from message_handler import MessageHandler, Message
 from config_window import ConfigWindow, ConfigSettings
 from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure, \
     ReadBankProcedure, SyncFileToSramProcedure
+from test_module import TestInterface
 from bin_tracker import BinTracker
 
 
@@ -104,6 +105,7 @@ class MainWindow(QtGui.QMainWindow,
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
+    insert_new_file_ti_signal = pyqtSignal(object)
 
     #general signal may be used to send functions, can be implemented as dict
     general_signal = pyqtSignal(object)
@@ -191,6 +193,7 @@ class MainWindow(QtGui.QMainWindow,
         ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
         StoreToFlashProcedure.__init__(self)
         ReadBankProcedure.__init__(self, self.emulator.rx_buffer)
+        self.test_interface = TestInterface(self)
 
         self.create_threads()
         self.connect_button = self.control_panel.connect_button
@@ -225,6 +228,13 @@ class MainWindow(QtGui.QMainWindow,
         pass
         #self.emulator.rx_buffer.read()
 
+
+    def get_current_bin_file(self):
+        self.current_bin_file = self.bin_file_panel.get_current_file()
+
+
+    def get_bank_name(self):
+        self.bank_name = self.banks_panel.bank_name_line_edit.text()
 
     def open_bin_file(self):
         config = configparser.ConfigParser()
