@@ -106,6 +106,7 @@ class MainWindow(QtGui.QMainWindow,
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
     insert_new_file_ti_signal = pyqtSignal(object)
+    config_window_apply_signal = pyqtSignal()
 
     #general signal may be used to send functions, can be implemented as dict
     general_signal = pyqtSignal(object)
@@ -139,6 +140,7 @@ class MainWindow(QtGui.QMainWindow,
         self.connect_signals()
 
         self.update_config_file_signal.connect(self.update_config_file)
+        self.config_window_apply_signal.connect(self.config_window_apply_slot)
         self.event_handler.message = self.gui_communication_signal.emit
         self.event_handler.add_event(self.update_config_file_signal.emit, self.update_config_file.__name__)
         self.event_handler.add_event(self.gui_communication_signal.emit, 'communicate')
@@ -183,11 +185,7 @@ class MainWindow(QtGui.QMainWindow,
         # create discovery thread in init---------------------------------------------------------
 
 
-        self.port, self.address = self.read_emubt_config()
-        self.emulator = Emulator(self.port, self.address, timeout=0.5)
-        self.emulator.set_event_handler(self.event_handler)
-
-        self.message_handler = MessageHandler(self.emulator, self.event_handler,)
+        self.setup_emulator()
 
         #init procedures
         ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
@@ -223,6 +221,21 @@ class MainWindow(QtGui.QMainWindow,
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
         #self.show()
 
+
+    def setup_emulator(self):
+        self.port, self.address = self.read_emubt_config()
+        self.emulator = Emulator(self.port, self.address, timeout=0.5)
+        self.emulator.set_event_handler(self.event_handler)
+        self.message_handler = MessageHandler(self.emulator, self.event_handler,)
+
+    def config_window_apply_slot(self):
+        """
+        reload emulator related objects
+        :return:
+        """
+        self.setup_emulator()
+        self.connection_thread = GuiThread(self.__connection_thread, action_when_done=to_signal(self.set_connection_status))
+        self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.001)
 
     def get_emu_rx_buffer_slot(self):
         pass
@@ -429,8 +442,8 @@ class MainWindow(QtGui.QMainWindow,
         self.console.communication_pipe_slot(msg)
 
 
-    @thread_this_method()
-    def connection_thread(self):
+    #@thread_this_method()
+    def __connection_thread(self):
         self.blink_connect_btn.start()
         self.emulator.connect(self.port, self.address)
 
@@ -463,8 +476,9 @@ class MainWindow(QtGui.QMainWindow,
         self.blink_save_btn()
         self.blink_save_btn.on_terminate = to_signal(self.emulation_panel.store_to_flash_button.set_default_style_sheet)
         self.read_bank_info()
-        self.connection_thread()
-        self.connection_thread.action_when_done = to_signal(self.set_connection_status)
+        self.connection_thread = GuiThread(self.__connection_thread, action_when_done=to_signal(self.set_connection_status))
+        #self.connection_thread()
+        #self.connection_thread.action_when_done = to_signal(self.set_connection_status)
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.001)
 
 
@@ -512,7 +526,7 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def config_button_slot(self):
-        self.config_window = ConfigWindow(self.config_file_path)
+        self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
         x_offset = 15
         y_offset = 100
         current_position_and_size = WindowGeometry(self)

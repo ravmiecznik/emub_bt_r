@@ -41,7 +41,7 @@ class ConfigSettings():
 
 #@method_call_track
 class ConfigWindow(QtGui.QWidget):
-    def __init__(self, config_file):
+    def __init__(self, config_file, apply_signal):
         QtGui.QWidget.__init__(self)
 
 
@@ -70,6 +70,7 @@ class ConfigWindow(QtGui.QWidget):
         self.setLayout(self.mainGrid)
         #self.line_edit.setText(line_edit_text)
         self.resize(self.x_siz, self.y_siz)
+        self.apply_signal = apply_signal
 
     def close(self):
         QtGui.QWidget.close(self)
@@ -104,6 +105,7 @@ class ConfigWindow(QtGui.QWidget):
             with open(self.config_file_path, 'w') as cf:
                 self.config.write(cf)
             self.close()
+        self.apply_signal.emit()
 
     def update_config_file(self, **kwargs):
         self.config['BLUETOOTH'] = kwargs
