@@ -10,4 +10,5 @@
 htmlcov/
 build/
 spec/
+test_module/.cache/
 emu_bt.stp
