@@ -6,7 +6,7 @@ import platform
 platform = platform.system()
 from PyQt4 import QtCore, QtGui
 from dummy_event_handler import DummyEventHandler
-from objects_with_help import PushButton, CheckBox, LcdDisplay, LineEdit, ComboBox
+from objects_with_help import PushButton, SmallPushButton, CheckBox, LcdDisplay, LineEdit, ComboBox
 from call_tracker import method_call_track
 import os
 import configparser
@@ -84,39 +84,61 @@ OVERWRITE_CHECK_BOX_TIP     = "If checked it will overwrte current file without 
 RELOAD_SRAM_CHECK_BOX_TIP   = "If checked it will reload FLASH bank to sram\n"
 
 class EmulationPanel(QtGui.QGroupBox):
-    def __init__(self, parent, event_handler=DummyEventHandler()):
+    def __init__(self, parent, event_handler=DummyEventHandler(), read_sram_allowed=False):
         super(EmulationPanel, self).__init__(parent)
         #self.parent = parent
         self.setTitle("Emulation")
         self.event_handler = event_handler
         emulation_frame_FrameGrid = QtGui.QGridLayout()
-        emulation_frame_FrameGrid.setSpacing(1)
+        emulation_frame_FrameGrid.setSpacing(0.5)
+
+        if read_sram_allowed == False:
+            _PushButton = SmallPushButton
+        else:
+            _PushButton = PushButton
 
 
-        self.emulate_button = PushButton("EMULATE", tip_msg=EMULATION_BTN_TIP)
-        self.read_sram_button = PushButton("READ SRAM", tip_msg=READ_SRAM_BTN_TIP)
-        self.read_bank_button = PushButton("READ BANK", tip_msg=READ_BANK_BTN_TIP)
-        self.store_to_flash_button = PushButton("SAVE", tip_msg=STORE_FLASH_BANK_BTN_TIP)
+        self.emulate_button = _PushButton("LIVE", tip_msg=EMULATION_BTN_TIP)
+        if read_sram_allowed:
+            self.read_sram_button = _PushButton("READ SRAM", tip_msg=READ_SRAM_BTN_TIP)
+            self.read_sram_button.raise_()
+        self.read_bank_button = _PushButton("READ", tip_msg=READ_BANK_BTN_TIP)
+        self.store_to_flash_button = _PushButton("SAVE", tip_msg=STORE_FLASH_BANK_BTN_TIP)
         self.auto_open_checkbox = CheckBox("auto open", tip_msg=AUTO_OPEN_CHECK_BOX_TIP)
         self.reload_sram_checkbox = CheckBox("reload sram on save", tip_msg=RELOAD_SRAM_CHECK_BOX_TIP)
 
-        self.read_sram_button.raise_()
         self.read_bank_button.raise_()
         self.emulate_button.raise_()
         self.store_to_flash_button.raise_()
         self.raise_()
 
-        emulation_frame_FrameGrid.addWidget(self.emulate_button, 0, 0)
-        emulation_frame_FrameGrid.addWidget(self.read_bank_button, 1, 0)
-        emulation_frame_FrameGrid.addWidget(self.read_sram_button, 1, 1)
-        emulation_frame_FrameGrid.addWidget(self.store_to_flash_button, 0, 1)
-        emulation_frame_FrameGrid.addWidget(self.auto_open_checkbox, 3, 0, 1, 2)
-        emulation_frame_FrameGrid.addWidget(self.reload_sram_checkbox, 4, 0, 1, 2)
+        if read_sram_allowed == True:
+            widgets_layout = [
+                (self.emulate_button, 0, 0),
+                (self.read_bank_button, 1, 0),
+                (self.read_sram_button, 1, 1),
+                (self.store_to_flash_button, 0, 1),
+                (self.auto_open_checkbox, 3, 0, 1, 2),
+                (self.reload_sram_checkbox, 4, 0, 1, 2),
+            ]
+        else:
+            widgets_layout = [
+                (self.emulate_button, 0, 0),
+                (self.read_bank_button, 0, 1),
+                (self.store_to_flash_button, 0, 2),
+                (self.auto_open_checkbox, 2, 0, 1, 2),
+                (self.reload_sram_checkbox, 3, 0, 1, 2),
+            ]
+
+        for wl in widgets_layout:
+            emulation_frame_FrameGrid.addWidget(*wl)
+
         self.setLayout(emulation_frame_FrameGrid)
 
         self.store_to_flash_button.clicked.connect(event_handler.store_to_flash_button_slot)
         self.emulate_button.clicked.connect(event_handler.emulate_button_slot)
-        self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
+        if read_sram_allowed:
+            self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
         self.read_bank_button.clicked.connect(event_handler.read_bank_button_slot)
 
 
