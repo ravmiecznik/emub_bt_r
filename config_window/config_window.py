@@ -25,13 +25,14 @@ class ConfigEntry(QtGui.QWidget):
     def __init__(self, parent, option, value, grid, y_pos):
         QtGui.QWidget.__init__(self)
         self.label = QtGui.QLabel(option, parent=parent)
-        self.line_edit = QtGui.QLineEdit()
-        self.line_edit.setText(value)
+        self.value = QtGui.QLineEdit()
+        self.value.setText(value)
         grid.addWidget(self.label,      y_pos, 0, 1, 2)
-        grid.addWidget(self.line_edit,  y_pos, 1, 1, 2)
+        grid.addWidget(self.value, y_pos, 1, 1, 2)
+
 
     def get(self):
-        return str(self.line_edit.text())
+        return str(self.value.text())
 
 
 class ConfigSettings():
@@ -91,6 +92,11 @@ class ConfigWindow(QtGui.QWidget):
             debug("Adding missing EDITORS section to: {}".format(self.config_file_path))
             self.config['EDITORS'] = {
                 'bin_editor': '',
+            }
+        if 'APPSETTINGS' not in self.config:
+            debug("Adding missing APPSETTINGS section to: {}".format(self.config_file_path))
+            self.config['APPSETTINGS'] = {
+                'allow_read_sram': 'False',
             }
         for config_section in self.config:
             for sub_key in self.config[config_section]:
