@@ -167,14 +167,16 @@ class MainWindow(QtGui.QMainWindow,
         self.event_handler.add_event(to_signal(self.open_bin_file))
         self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
 
+        ConfigSettings.__init__(self)
+
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
-        self.emulation_panel = EmulationPanel(self.centralwidget, self.event_handler)
+        self.emulation_panel = EmulationPanel(self.centralwidget, self.event_handler, read_sram_allowed=self.read_allow_read_sram_option())
         self.banks_panel = BanksPanel(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
 
-        ConfigSettings.__init__(self)
+
         self.bin_file_panel = BinFilePanel(self.centralwidget, event_handler=self.event_handler, app_status_file=self.app_status_file)
 
         #create discovery thread in init---------------------------------------------------------
@@ -338,6 +340,15 @@ class MainWindow(QtGui.QMainWindow,
             self.gui_communication_signal.emit("Trying autodiscovery")
             self.discover_emu_bt_slot()
             return None, None
+
+    def read_allow_read_sram_option(self):
+        config = configparser.ConfigParser()
+        config.read(self.config_file_path)
+        try:
+            allow = config['APPSETTINGS']['allow_read_sram'].upper()
+            return allow == 'TRUE'
+        except:
+            return False
 
     def reflash_button_slot(self):
         debug("Check if bootloader already active")
