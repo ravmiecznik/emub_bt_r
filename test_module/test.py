@@ -18,14 +18,9 @@ from test_interface import check_with_timeout
 from collections import namedtuple
 
 
-# class Thread(threading.Thread):
-#     def __init__(self, process):
-#         threading.Thread.__init__(self)
-#         self.process = process
-#
-#     def run(self):
-#         self.process()
-
+#TODO: add test for APPLY button in config_window, to check whenever bt address changes it will apply in configuration
+#1) change address, APPLY, connectin should fail
+#2) resotre correct address, APPLY, connection should succedd, help command should return help output
 
 def assert_with_timeout(assertion, test, timeout=5, period=1, **kwargs):
     t0 = time.time()
@@ -52,9 +47,6 @@ def create_random_bin():
     f.seek(0)
     return f
 
-
-# def step(callable, *args, **kwargs):
-#     return dict(step=callable, args=args, kwargs=kwargs)
 
 def step(s, *args, **kwargs):
     return dict(step=s, args=args, kwargs=kwargs)
@@ -92,6 +84,7 @@ class TestQApplication(unittest.TestCase):
         self.test_if.parent.send_data_suceeded = False
         self.assertTrue(self.test_if.is_connected())
         unittest.TestCase.run(self, *args, **kwargs)
+
 
     def test_store_and_read_bank(self):
         self.test_if.put_new_bin_file_path(self.test_image_path)
@@ -176,6 +169,7 @@ class TestQApplication(unittest.TestCase):
         except AssertionError:
             bank1_name_read_test()
 
+
     def tearDown(self):
         self.test_if.receive_data_suceeded = False
         self.test_if.send_data_suceeded = False
@@ -188,14 +182,8 @@ class TestQApplication(unittest.TestCase):
         cls.main_app.exit()
 
 
-def redirect(device):
-    pass
-
-if __name__ == "__main__":
-
+def all_tests():
     import sys
-    #sys.stderr = open('stderr.txt', 'w')
-    #sys.stdout = open('stdout.txt', 'w')
     app = QApplication(sys.argv)
     main_window = main.MainWindow()
     main_window.show()
@@ -207,12 +195,29 @@ if __name__ == "__main__":
     TestQApplication.main_app = app
     testRunner = HtmlTestRunner.HTMLTestRunner(output='html_report', report_name="EMUBT_test", add_timestamp=False)
     thread = threading.Thread(target=unittest.main, kwargs={'verbosity': 2, 'testRunner': testRunner})
-    #thread = threading.Thread(target=unittest.main, kwargs=sys.argv)
-    #thread.daemon = True
     thread.start()
-    #Thread(unittest.main).start()
-    #print dir(app)
     app.exec_()
 
-    #sys.stderr.close()
-    #sys.stdout.close()
+def test_suite():
+    import sys
+    app = QApplication(sys.argv)
+    main_window = main.MainWindow()
+    main_window.show()
+
+    main_window.connect_button.clicked.emit(1)
+
+    TestQApplication.test_if = main_window.test_interface
+    TestQApplication.main_window = main_window
+    TestQApplication.main_app = app
+    import sys
+    suite = unittest.TestSuite()
+    suite.write = sys.stdout.write
+    suite.flush = sys.stdout.flush
+    suite.addTest(TestQApplication('test_config_change_and_apply'))
+    testRunner = unittest.TextTestRunner(suite)
+    thread = threading.Thread(target=testRunner.run, args=(suite,))
+    thread.start()
+    app.exec_()
+
+if __name__ == "__main__":
+    all_tests()
