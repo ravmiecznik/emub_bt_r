@@ -70,6 +70,12 @@ class PushButton(QtGui.QPushButton, HelpTip):
         self._active_style ^= True
 
 
+class SmallPushButton(PushButton):
+    def __init__(self, *args, **kwargs):
+        PushButton.__init__(self, *args, **kwargs)
+        self.setMaximumSize(60, 20)
+
+
 class CheckBox(QtGui.QCheckBox, HelpTip):
     def __init__(self, *args, **kwargs):
         tip_msg = kwargs.pop('tip_msg')
