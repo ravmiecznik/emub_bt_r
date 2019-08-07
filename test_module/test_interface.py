@@ -37,9 +37,23 @@ class TestInterface():
         self.buttons.bank3btn = self.parent.banks_panel.bank3pushButton
         self.buttons.save = self.parent.emulation_panel.store_to_flash_button
         self.buttons.read_bank = self.parent.emulation_panel.read_bank_button
-        self.buttons.read_sram = self.parent.emulation_panel.read_sram_button
+        try:
+            self.buttons.read_sram = self.parent.emulation_panel.read_sram_button
+        except AttributeError:
+            self.buttons.read_sram = lambda *args, **kwargs: True
+        self.buttons.connect = self.parent.control_panel.connect_button
 
         #self.insert_new_file_signal.connect()
+
+
+    def __get_parent_attr_with_timoeut(self, attr, timeout=5):
+        t0 = time.time()
+        while time.time() - t0 < 5:
+            try:
+                return getattr(self.parent, attr)
+            except AttributeError:
+                time.sleep(0.1)
+        return getattr(self.parent, attr)
 
     @check_with_timeout(20)
     def is_send_data_succeeded(self):
@@ -94,6 +108,10 @@ class TestInterface():
         time.sleep(0.5)
         self.parent.banks_panel.bank_name_line_edit.returnPressed.emit()
         self.is_emulation_panel_unlocked()
+
+    def config_button_slot(self):
+        to_signal(self.parent.config_button_slot).emit()
+        return self.__get_parent_attr_with_timoeut('config_window')
 
     def get_bank_name(self):
         try:
