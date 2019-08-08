@@ -73,7 +73,7 @@ class PushButton(QtGui.QPushButton, HelpTip):
 class SmallPushButton(PushButton):
     def __init__(self, *args, **kwargs):
         PushButton.__init__(self, *args, **kwargs)
-        self.setMaximumSize(60, 20)
+        self.setMaximumSize(80, 40)
 
 
 class CheckBox(QtGui.QCheckBox, HelpTip):
