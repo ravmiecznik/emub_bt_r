@@ -31,7 +31,8 @@ from config_window import ConfigWindow, ConfigSettings
 from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure, \
     ReadBankProcedure, SyncFileToSramProcedure
 from test_module import TestInterface
-from bin_tracker import BinTracker
+from digidiag import DigidagReceiver, DigidiagTimeout
+from message_box import message_box
 
 
 
@@ -112,7 +113,8 @@ class MainWindow(QtGui.QMainWindow,
     general_signal = pyqtSignal(object)
 
 
-    def __init__(self):
+    def __init__(self, is_test=False):
+        self.is_test = is_test
         print 'PATH', EMU_BT_PATH
         self.config_path = SETTINGS_PATH
         if platform != 'Linux':
@@ -193,7 +195,8 @@ class MainWindow(QtGui.QMainWindow,
         ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
         StoreToFlashProcedure.__init__(self)
         ReadBankProcedure.__init__(self, self.emulator.rx_buffer)
-        self.test_interface = TestInterface(self)
+        if self.is_test == True:
+            self.test_interface = TestInterface(self)
 
         self.create_threads()
         self.connect_button = self.control_panel.connect_button
@@ -212,9 +215,13 @@ class MainWindow(QtGui.QMainWindow,
 
         Message.default_negative_signal = self.console_msg_factory("command failed")
 
+        self.digidag = DigidagReceiver(self.emulator.raw_buffer)
+        self.digidag_receiver_thread = GuiThread(self.digidag.start)
+
         self.resize(x_siz, y_siz)
         self.disable_objects_for_transmission()
         self.load_last_status()
+        self.__resore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
 
@@ -261,8 +268,34 @@ class MainWindow(QtGui.QMainWindow,
             pass
         self.editor_subrpocess = subprocess.Popen([editor, self.bin_file_panel.get_current_file()])
 
+
     def digidiag_on_slot(self):
-        Message('digidiag_on')
+        self.digidiag_on.start()
+
+
+    def __digidiag_on(self, retry=3, timeout=0.7):
+        if self.is_test == False and self.__resore_digidiag == True:
+            if retry:
+                print "retry", retry
+                t0 = time.time()
+                Message('digidiag_on')
+                self.digidag_receiver_thread.start()
+                while time.time() - t0 < timeout:
+                    time.sleep(0.1)
+                    if self.digidag.frames_received() >= 20:
+                        msg = "digidiag resumed"
+                        info(msg)
+                        self.gui_communication_signal.emit(msg)
+                        return True
+                if self.digidag.frames_received() < 20:
+                    self.__digidiag_on(retry=retry-1)
+            else:
+                msg = "digidiag_on failed"
+                info(msg)
+                self.gui_communication_signal.emit(msg)
+                self.__resore_digidiag = False
+                return False
+
 
     def get_raw_rx_buffer_slot(self):
         raw_data = self.emulator.raw_buffer.read()
@@ -297,10 +330,12 @@ class MainWindow(QtGui.QMainWindow,
             self.gui_communication_signal.emit("Total threads: {}".format(cnt))
             self.gui_communication_signal.emit("Total mem: {}".format(tot_mem))
             self.gui_communication_signal.emit("Total dict mem: {}".format(sys.getsizeof(GuiThread.threads_dict)))
-        if cmd == 'kill threads':
+        elif cmd == 'kill threads':
             GuiThread.kill_all_threads()
             self.recevive_emulator_data_thread.start()
             self.console.console_text_browser.clear()
+        elif cmd == 'digidiag_on':
+            self.digidiag_on_slot()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -491,6 +526,7 @@ class MainWindow(QtGui.QMainWindow,
         #self.connection_thread()
         #self.connection_thread.action_when_done = to_signal(self.set_connection_status)
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.001)
+        self.digidiag_on = GuiThread(self.__digidiag_on)
 
 
     def set_connected(self):
@@ -498,6 +534,7 @@ class MainWindow(QtGui.QMainWindow,
         self.connect_button.set_green_style_sheet()
         self.recevive_emulator_data_thread.start()
         self.enable_objects_after_transmission()
+        time.sleep(0.2)
         Message('digidiag_off', positive_signal=self.console_msg_factory('digidiag disabled'))
         GuiThread(self.get_bank_in_use, delay=0.5).start()
 
@@ -531,6 +568,7 @@ class MainWindow(QtGui.QMainWindow,
                 self.emulator.disconnect()
                 self.set_connection_status()
         else:
+            self.__digidiag_on()
             self.recevive_emulator_data_thread.kill()
             self.emulator.disconnect()
             self.set_connection_status()
@@ -573,7 +611,6 @@ class MainWindow(QtGui.QMainWindow,
             start_discovery()
 
     def tear_down_main_app(self):
-        print "tear down"
         self.update_app_status_file()
 
     def load_last_status(self):
@@ -610,6 +647,9 @@ class MainWindow(QtGui.QMainWindow,
            config.write(cf)
 
     def closeEvent(self, event):
+        if self.__digidiag_on() == False:
+            message_box("Digidiag not restored. Restart ECU for digifant diagnostics", detailed_msg="Does your Digifant BIN file contain DIGIDIAG feature ?\n"
+                                                                                                    "Remember: Digidag works only if you upload BIN file from ravmiecznik !!!")
         if event.type() == QEvent.Close:
             self.tear_down_main_app()
 
