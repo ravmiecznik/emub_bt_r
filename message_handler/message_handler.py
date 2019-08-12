@@ -13,6 +13,7 @@ import abc
 from event_handler import to_signal
 from random import randrange
 from call_tracker import method_call_track
+from auxiliary_module import null_function
 
 class MsgLockTimeout(Exception):
     pass
@@ -21,6 +22,8 @@ def default_handler(resp, req):
     def log():
         debug("{} received on req: {}".format(resp, req))
     return log
+
+
 
 def default_abstract_method_exception(cls, method, method_type='static'):
     """
@@ -103,7 +106,10 @@ class Message():
         if self.__positive_signal:
             self.__positive_signal()
         else:
-            self.default_ack_handler()
+            try:
+                self.default_ack_handler()
+            except TypeError:
+                debug("TypeError for {}".format(self.default_ack_handler))
         self.extra_action_on_ack()
 
     def __wait_for_unlock(self):
@@ -205,7 +211,7 @@ class MessageHandler():
         Message.flush_rx_buffer = self.__rx_buffer.flush
         #Message.default_ack_handler = self.print_rx_buffer
         #Message.default_ack_handler = self.__rx_buffer.flush
-        Message.default_ack_handler = lambda : None
+        Message.default_ack_handler = null_function
         Message.get_rx_buffer = self.get_rx_buffer
 
 
