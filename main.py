@@ -647,7 +647,7 @@ class MainWindow(QtGui.QMainWindow,
            config.write(cf)
 
     def closeEvent(self, event):
-        if self.__digidiag_on() == False:
+        if not self.__digidiag_on():
             message_box("Digidiag not restored. Restart ECU for digifant diagnostics", detailed_msg="Does your Digifant BIN file contain DIGIDIAG feature ?\n"
                                                                                                     "Remember: Digidag works only if you upload BIN file from ravmiecznik !!!")
         if event.type() == QEvent.Close:
