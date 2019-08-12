@@ -15,10 +15,11 @@ Cancel = QMessageBox.Cancel
 Yes = QMessageBox.Yes
 No = QMessageBox.No
 
-def message_box(msg, parent=None, icon=QMessageBox.Critical, buttons=QMessageBox.Ok, title='', exe=True, button_clicked_sig=lambda: None):
+def message_box(msg, parent=None, detailed_msg='', icon=QMessageBox.Critical, buttons=QMessageBox.Ok, title='', exe=True, button_clicked_sig=lambda: None):
     msg_box = QMessageBox(parent)
     msg_box.setIcon(icon)
     msg_box.setText(msg)
+    msg_box.setDetailedText(detailed_msg)
     msg_box.setStandardButtons(buttons)
     msg_box.setWindowTitle(title)
     msg_box.buttonClicked.connect(button_clicked_sig)
