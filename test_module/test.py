@@ -185,7 +185,7 @@ class TestQApplication(unittest.TestCase):
 def all_tests():
     import sys
     app = QApplication(sys.argv)
-    main_window = main.MainWindow()
+    main_window = main.MainWindow(is_test=True)
     main_window.show()
 
     main_window.connect_button.clicked.emit(1)
