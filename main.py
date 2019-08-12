@@ -465,7 +465,7 @@ class MainWindow(QtGui.QMainWindow,
         self.gui_communication_signal.emit("Updating:")
         for k in kwargs:
             self.gui_communication_signal.emit("{} {}".format(k, kwargs[k])),
-        ConfigWindow(self.config_file_path).update_config_file(**kwargs)
+        ConfigWindow(self.config_file_path, apply_signal=self.config_window_apply_signal).update_config_file(**kwargs)
         self.port, self.address = self.read_emubt_config()
 
 
