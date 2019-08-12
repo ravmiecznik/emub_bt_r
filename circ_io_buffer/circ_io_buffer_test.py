@@ -142,5 +142,16 @@ def test_writelines():
         pass
 
 
+def test_flush_until():
+    cb = CircIoBuffer('this is test buffer', byte_size=20)
+    cb.flush_until('test')
+    assert cb.read() == ' buffer'
+
+def test_flush_unit_sequence_not_present():
+    cb = CircIoBuffer('this is test buffer', byte_size=20)
+    cb.flush_until('xxx')
+    assert cb.available() == 0
+
+
 if __name__ == "__main__":
     pytest

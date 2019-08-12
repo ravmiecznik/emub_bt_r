@@ -92,6 +92,14 @@ class CircIoBuffer(BytesIO):
     def flush(self):
         self.__init__(initial_buffer='', byte_size=self._limit)
 
+    def flush_until(self, sequence=''):
+        cb = CircIoBuffer(byte_size=len(sequence))
+        while sequence not in cb:
+            char = self.read(1)
+            if char == '':
+                break
+            cb.write(char)
+
     def show(self):
         content = self.peek()
         content += ' '*(self._limit - len(content))
@@ -105,6 +113,13 @@ class CircIoBuffer(BytesIO):
         output += '{} <-{}'.format(bottom, self._tail)
         print output
         return output
+
+    def __str__(self):
+        tell = self.tell()
+        self.seek(0)
+        res = self.read()
+        self.seek(tell)
+        return res
 
     def __contains__(self, item):
         return item in self.peek()
