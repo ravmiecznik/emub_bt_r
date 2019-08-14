@@ -70,7 +70,7 @@ class Message():
     default_negative_signal = lambda : None
 
     def __init__(self, raw_msg='', resp_positive='ack', resp_negative='nak', resp_dtx='dtx', positive_signal=None,
-                 negative_signal=None, create_header=True, timeout=1, max_retx=10, id=0, fail_crc_factor=None,
+                 negative_signal=None, create_header=True, timeout=1, max_retx=5, id=0, fail_crc_factor=None,
                  extra_action_on_nack=lambda: None, extra_action_on_ack=lambda: None):
         #self.msg = create_message(id=id, body=raw_msg, fail_crc_factor=fail_crc_factor) if create_header else raw_msg
         self.create_header = create_header

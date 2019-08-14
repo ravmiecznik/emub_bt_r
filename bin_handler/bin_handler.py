@@ -17,6 +17,8 @@ class BinSenderFileNotPresent(Exception):
 class BinSenderInvalidBinSize(Exception):
     pass
 
+class BinSenderIOPacketSize(Exception):
+    pass
 
 class PacketReceptionTimeout(Exception):
     pass
@@ -48,20 +50,7 @@ def bin_repr(file_obj):
     return repr
 
 
-#class BinSender(BytesIO):
-class BinSender(file):
-    """
-    BinHanlder: handle binary file sending (storing)
-    """
-    def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, init_from_buffer=False, crc_attach = False):
-        file.__init__(self, bin_file, 'rb')
-        self.packet_size = packet_size
-        self.crc_attach = crc_attach
-        self.packets_get = 0
-        self.tot_packests = len(self)
-        if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
-            raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
-
+class BinSenderAbstract():
 
     def __len__(self):
         tell = self.tell()
@@ -74,6 +63,13 @@ class BinSender(file):
         self.seek(0)
         return self
 
+    def __getitem__(self, item):
+        tell = self.tell()
+        self.seek(item * self.packet_size)
+        itemget = self.read(self.packet_size)
+        self.seek(tell)
+        return itemget
+
     def next(self):
         packet = self.read(self.packet_size)
         if packet:
@@ -85,6 +81,39 @@ class BinSender(file):
 
     def __repr__(self):
         return bin_repr(self)
+
+
+class BinSender(BinSenderAbstract, file):
+    """
+    BinHanlder: handle binary file sending (storing)
+    Since it reads the EEPROM file size is checked
+    """
+    def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, crc_attach = False):
+        file.__init__(self, bin_file, 'rb')
+        self.packet_size = packet_size
+        self.crc_attach = crc_attach
+        self.packets_get = 0
+        self.tot_packests = len(self)
+        if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
+            raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
+
+
+class BinSenderIO(BinSenderAbstract, BytesIO):
+    """
+    This is in memory container
+    May be used to store nacked packets due to this each written packet size must be checked
+    """
+    def __init__(self, bytes='', packet_size = 256*8, crc_attach = False):
+        BytesIO.__init__(self, bytes)
+        self.packet_size = packet_size
+        self.packets_get = 0
+        self.crc_attach = crc_attach
+
+    def write(self, bytes):
+        if len(bytes) != self.packet_size:
+            raise BinSenderIOPacketSize
+        self.write(bytes)
+
 
 
 class BinReceiver(bytearray):
@@ -144,3 +173,10 @@ class BinReceiver(bytearray):
     def reset(self):
         self.__init__(self.__rx_buffer, self.__timeout)
 
+
+if __name__ == "__main__":
+    bs = BinSender(r'/home/rafal/EMU_BTR_FILES/DOWNLOADED/reveived_bank2.bin')
+    bsio = BinSenderIO(bs[12] + bs[15])
+    for i in bsio:
+        print BinSenderIO(i)
+        print 20 * '-'

@@ -143,7 +143,7 @@ class StoreToFlashProcedure(RetxCount):
     """
     Simplified version of StoreToFLash procedure
     """
-    def __init__(self, max_retry = 2):
+    def __init__(self, max_retry=4):
         #init threads
         self.send_data()
         self.get_writing_stats()
@@ -156,6 +156,7 @@ class StoreToFlashProcedure(RetxCount):
 
     def __set_ack(self):
         self.__was_ack = True
+        self.__tx_feedback_received = True
 
     def __set_nack(self):
         self.__was_ack = False
@@ -187,32 +188,57 @@ class StoreToFlashProcedure(RetxCount):
         self.send_data_suceeded = False
         debug("started {}".format(self.send_data.__name__))
         RetxCount.__init__(self)
-        self.__try += 1
+        #self.__try += 1
         self.blink_save_btn.start()
         self.progress_bar.set_title("sending...")
         to_signal(self.progress_bar.display)()
         to_signal(self.progress_bar.display)()
         to_signal(self.disable_objects_for_transmission)()
 
-        for packet_no, packet in enumerate(self.bin_sender):
-            if packet_no < PACKETS_NUM:
-                debug("Call write to page message. Packet num: {}".format(packet_no))
-                self.__set_nack()
-                Message(struct.pack('B', packet_no) + packet, id=Message.ID.write_to_page,
-                        positive_signal=to_signal(self.__set_ack),
-                        negative_signal=to_signal(self.send_data_packet_teardown_on_fail),
-                        extra_action_on_nack=self.add_retx_sum)
-                while not self.__was_ack: time.sleep(0.001)
-                self.progress_bar.set_val_signal.emit(packet_no * 100 / PACKETS_NUM)
+        self.__tx_feedback_received = False
+        def send_packets(packets=None, progress=0):
+            self.failed_tx_packets = []
+            packets = xrange(0, len(self.bin_sender)) if packets is None else packets
+            print "sending packets", packets
+            for packet_no in packets:
+                packet = self.bin_sender[packet_no]
+                if packet_no < PACKETS_NUM:
+                    debug("Call write to page message. Packet num: {}".format(packet_no))
+                    self.__set_nack()
+                    self.packet_no = packet_no
+                    self.__tx_feedback_received = False
+                    Message(struct.pack('B', packet_no) + packet, id=Message.ID.write_to_page,
+                            positive_signal=to_signal(self.__set_ack),
+                            #negative_signal=to_signal(self.send_data_packet_teardown_on_fail),
+                            negative_signal=to_signal(self.collect_failed_tx_packets),
+                            extra_action_on_nack=self.add_retx_sum)
+                    while not self.__tx_feedback_received: time.sleep(0.001)
+                    if self.__was_ack:
+                        progress += 1
+                    self.progress_bar.set_val_signal.emit(progress * 100 / PACKETS_NUM)
+                else:
+                    break
+            check_result()
+
+        def check_result():
+            if not self.failed_tx_packets:
+                self.get_writing_stats.start()
+                if self.emulation_panel.reload_sram_checkbox.isChecked():
+                    Message(id=Message.ID.reload_sram, positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
             else:
-                break
-        to_signal(self.progress_bar.hide)()
-        to_signal(self.enable_objects_after_transmission)()
-        self.blink_save_btn.kill()
-        if self.__was_ack:
-            self.get_writing_stats.start()
-            if self.emulation_panel.reload_sram_checkbox.isChecked():
-                Message(id=Message.ID.reload_sram, positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
+                self.__max_retry -= 1
+                print 'retx', self.__max_retry
+                if self.__max_retry == 0:
+                    to_signal(self.send_data_packet_teardown_on_fail).emit()
+                send_packets(self.failed_tx_packets, progress=len(self.bin_sender) - len(self.failed_tx_packets))
+            to_signal(self.progress_bar.hide)()
+            to_signal(self.enable_objects_after_transmission)()
+            self.blink_save_btn.kill()
+        send_packets()
+
+    def collect_failed_tx_packets(self):
+        self.failed_tx_packets.append(self.packet_no)
+        self.__tx_feedback_received = True
 
     @thread_this_method(delay=1)
     def get_writing_stats(self):
@@ -224,8 +250,6 @@ class StoreToFlashProcedure(RetxCount):
         to_signal(self.progress_bar.hide)()
         to_signal(self.progress_bar.hide)()
         to_signal(self.enable_objects_after_transmission)()
-
-
         Message("writingtime", positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
 
 
@@ -234,12 +258,8 @@ class StoreToFlashProcedure(RetxCount):
         self.blink_save_btn.kill()
         to_signal(self.enable_objects_after_transmission)()
         to_signal(self.progress_bar.hide)()
-        if self.__try <= self.__max_retry:
-            self.gui_communication_signal.emit("SAVE operation failed. Retry: {}/{}".format(self.__try, self.__max_retry))
-            GuiThread(self.send_data.start, delay=1).start()
-        else:
-            self.gui_communication_signal.emit("SAVE operation failed. Check error log")
-            raise Exception("Save fail")
+        self.gui_communication_signal.emit("SAVE operation failed. Check error log")
+        raise Exception("Save fail")
 
 
 
