@@ -178,6 +178,7 @@ class Reflasher(QtGui.QWidget):
         if not self.expected_version:
             self.text_browser.append("This file is not EMU BT hex file")
             self.text_browser.append("Can't continue")
+            self.send('run_main_app')
             return
         self.resize(self.x_siz, self.y_siz + 100)
         self.send('write_p:{size} {addr}'.format(addr=0, size=len(self.bin_image)))
