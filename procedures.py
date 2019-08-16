@@ -161,6 +161,7 @@ class StoreToFlashProcedure_v2(RetxCount):
 
 
     def save_button_slot(self):
+        self.reload_sram = self.parent.emulation_panel.reload_sram_checkbox.isChecked()
         bin_path = self.__get_current_file()
         try:
             self.bin_packets = BinFilePacketGenerator(bin_path)
@@ -235,6 +236,9 @@ class StoreToFlashProcedure_v2(RetxCount):
             while not self.__feedback_received:
                 time.sleep(0.001)
                 self.check_if_timeout(self.t0, timeout)
+        if self.reload_sram:
+            Message(id=Message.ID.reload_sram,
+                    positive_signal=to_signal(self.parent.message_handler.print_rx_buffer_to_console))
         self.tear_down()
         self.get_writing_stats()
 
@@ -242,7 +246,6 @@ class StoreToFlashProcedure_v2(RetxCount):
         self.blink_save_btn.kill()
         self.__progress_bar_hide_signal.emit()
         self.__enable_objects_after_transmission_signal.emit()
-
 
 class StoreToFlashProcedure(RetxCount):
     """
