@@ -31,12 +31,12 @@ class RetxCount():
     def retx_sum(self):
         return self.__retx_sum
 
-    def disp_retx_count(self):
+    def disp_retx_count(self, console):
         """
         gui communication signal must be part of Child class
         :return:
         """
-        self.gui_communication_signal.emit("Num of retx {}".format(self.__retx_sum))
+        console("Num of retx {}".format(self.__retx_sum))
 
 class BanksProcedures():
         """
@@ -138,7 +138,7 @@ class BanksProcedures():
                     positive_signal=to_signal(enable_objects_after_transmission_update_banks_status),
                     negative_signal=to_signal(self.enable_objects_after_transmission))
 
-class StoreToFlashProcedure_v2(RetxCount):
+class StoreToFlashProcedure(RetxCount):
 
     def __init__(self, parent, max_retry=4):
         self.parent = parent
@@ -244,211 +244,157 @@ class StoreToFlashProcedure_v2(RetxCount):
         self.__enable_objects_after_transmission_signal.emit()
 
 
-class StoreToFlashProcedure(RetxCount):
-    """
-    Simplified version of StoreToFLash procedure
-    """
-    def __init__(self, max_retry=4):
-        #init threads
-        self.send_data()
-        self.get_writing_stats()
-        #self.get_writing_stats()
-
-        self.__was_ack = False
-
-        self.__max_retry = max_retry
-        self.__try = 0
-
-    def __set_ack(self):
-        self.__was_ack = True
-        self.__tx_feedback_received = True
-
-    def __set_nack(self):
-        self.__was_ack = False
-
-    def store_to_flash_button_slot(self):
-        #self.send_data_suceeded = False
-        self.t0 = time.time()
-        bin_path = self.bin_file_panel.get_current_file()
-        self.__try = 0
-        if bin_path:
-            try:
-                self.bin_sender = BinFilePacketGenerator(bin_path)
-                Message('rxflush', positive_signal=to_signal(self.send_data.start),
-                        negative_signal=self.console_msg_factory("rxflush failed"))
-
-            except IOError as e:
-                self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
-                raise e
-            except BinSenderInvalidBinSize as e:
-                self.gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
-                self.bin_file_panel.combo_box.removeByStr(bin_path)
-                self.bin_file_panel.update_app_status_file()
-                message_box("This is not 27c256 bin image: {}".format(bin_path))
-                raise e
-
-
-    @thread_this_method()
-    def send_data(self):
-        self.send_data_suceeded = False
-        debug("started {}".format(self.send_data.__name__))
-        RetxCount.__init__(self)
-        #self.__try += 1
-        self.blink_save_btn.start()
-        self.progress_bar.set_title("sending...")
-        to_signal(self.progress_bar.display)()
-        to_signal(self.progress_bar.display)()
-        to_signal(self.disable_objects_for_transmission)()
-
-        self.__tx_feedback_received = False
-        def send_packets(packets=None, progress=0):
-            self.failed_tx_packets = []
-            packets = xrange(0, len(self.bin_sender)) if packets is None else packets
-            print "sending packets", packets
-            for packet_no in packets:
-                packet = self.bin_sender[packet_no]
-                if packet_no < PACKETS_NUM:
-                    debug("Call write to page message. Packet num: {}".format(packet_no))
-                    self.__set_nack()
-                    self.packet_no = packet_no
-                    self.__tx_feedback_received = False
-                    Message(struct.pack('B', packet_no) + packet, id=Message.ID.write_to_page,
-                            positive_signal=to_signal(self.__set_ack),
-                            #negative_signal=to_signal(self.send_data_packet_teardown_on_fail),
-                            negative_signal=to_signal(self.collect_failed_tx_packets),
-                            extra_action_on_nack=self.add_retx_sum)
-                    while not self.__tx_feedback_received: time.sleep(0.001)
-                    if self.__was_ack:
-                        progress += 1
-                    self.progress_bar.set_val_signal.emit(progress * 100 / PACKETS_NUM)
-                else:
-                    break
-            check_result()
-
-        def check_result():
-            if not self.failed_tx_packets:
-                self.get_writing_stats.start()
-                if self.emulation_panel.reload_sram_checkbox.isChecked():
-                    Message(id=Message.ID.reload_sram, positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
-            else:
-                self.__max_retry -= 1
-                print 'retx', self.__max_retry
-                if self.__max_retry == 0:
-                    to_signal(self.send_data_packet_teardown_on_fail).emit()
-                send_packets(self.failed_tx_packets, progress=len(self.bin_sender) - len(self.failed_tx_packets))
-            to_signal(self.progress_bar.hide)()
-            to_signal(self.enable_objects_after_transmission)()
-            self.blink_save_btn.kill()
-        send_packets()
-
-    def collect_failed_tx_packets(self):
-        self.failed_tx_packets.append(self.packet_no)
-        self.__tx_feedback_received = True
-
-    @thread_this_method(delay=1)
-    def get_writing_stats(self):
-        self.send_data_suceeded = True
-        debug("..executing")
-        self.blink_save_btn.kill()
-        self.gui_communication_signal.emit("Done in time {:.2f}".format(time.time() - self.t0))
-        self.disp_retx_count()
-        to_signal(self.progress_bar.hide)()
-        to_signal(self.progress_bar.hide)()
-        to_signal(self.enable_objects_after_transmission)()
-        Message("writingtime", positive_signal=to_signal(self.message_handler.print_rx_buffer_to_console))
-
-
-    def send_data_packet_teardown_on_fail(self):
-        self.send_data.kill()
-        self.blink_save_btn.kill()
-        to_signal(self.enable_objects_after_transmission)()
-        to_signal(self.progress_bar.hide)()
-        self.gui_communication_signal.emit("SAVE operation failed. Check error log")
-        raise Exception("Save fail")
-
-
 
 class ReadBinDataFromEmu(RetxCount):
     """
-    This class is isolated from MainWindow but it is a part of it.
-    It is iherited in MainWindow so all objects are shared between this class and MainWindow
+    Abstract class for any data receiver class
     """
     def __init__(self, rx_buffer, max_retx=5):
         self.__rx_buffer = rx_buffer
-        self.bin_receiver = BinReceiver(self.__rx_buffer, timeout=2)
         self.max_retx = max_retx
+        self.progress_bar = self.parent.progress_bar
+        self.show_progress = self.progress_bar.set_val_signal.emit
+        self.console = self.parent.gui_communication_signal.emit
+        self.disable_objects_for_transmission = self.parent.disable_objects_for_transmission
+        self.enable_objects_after_transmission = self.parent.enable_objects_after_transmission
+        self.autoopen_file = self.parent.emulation_panel.auto_open_checkbox.isChecked   #this is callable method
+        self.open_bin_file = self.parent.event_handler.open_bin_file                    #this is callable method
+        self.update_file_list = self.parent.bin_file_panel.combo_box.moveOnTop          #this is callable method
+        self.read_data_thread()
 
+    def read_data_button_slot(self):
+        self.read_data_thread.start()
 
-    def read_data_thread(self):
-        self.receive_data_suceeded = False
+    def read_failure_slot(self):
+        self.console("Read procedure failed")
+        self.tear_down()
+
+    def tear_down(self):
         debug("..executing")
-        t0 = time.time()
-        self.bin_receiver.reset()
-        self.gui_communication_signal.emit("{:X}".format(len(self.bin_receiver)))
+        to_signal(self.progress_bar.hide)()
+        to_signal(self.enable_objects_after_transmission)()
+
+
+    def collect_packet(self):
+        try:
+            self.bin_receiver.receive_packet()  #check crc here
+        except ReceptionFail:
+            self.retx_cnt += 1
+        if self.retx_cnt >= self.max_retx:
+            return False
+        self.__packet_received = True
+
+
+    def save_received_file(self):
+        rx_file_name = "reveived_{}".format(self.parent.banks_panel.bank_name_line_edit.text())
+        if platform != 'Linux':
+            rx_file_name = rx_file_name.replace('/', '\\')
+        rx_file_name = rx_file_name.replace(' ', '_')
+        f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(rx_file_name))
+        f_path_hex = os.path.join(BIN_PATH, '{}.hex'.format(rx_file_name))
+        self.bin_receiver.save_bin(file_path=f_path_bin)
+        self.bin_receiver.save_hex(file_path=f_path_hex)
+        self.console("Saved as:")
+        self.console(f_path_hex)
+        self.console(f_path_bin)
+        self.update_file_list(f_path_bin)
+
+
+    @thread_this_method()
+    def read_data_thread(self):
+        self.parent.receive_data_suceeded = False
+        debug("..executing")
+        timeout = 2
+        t_start = time.time()
+        self.bin_receiver = BinReceiver(self.__rx_buffer, timeout=2)
         self.progress_bar.set_title("receiving...")
         to_signal(self.progress_bar.display)()
         to_signal(self.disable_objects_for_transmission)()
         RetxCount.__init__(self)
+        self.retx_cnt = 0
+        while len(self.bin_receiver) <= self.bin_receiver.expected_packets_amount():
+            tmp_len = len(self.bin_receiver)
+            self.__packet_received = False
+            t0 = time.time()
+            Message(struct.pack('B', self.bin_receiver.packets_received()), id=self.msg_id,
+                    positive_signal=self.collect_packet,
+                    negative_signal=self.read_failure_slot)
+            while not self.__packet_received:
+                time.sleep(0.001)
+                if time.time() - t0 > timeout:
+                    self.read_failure_slot()
+                    return False
+            if len(self.bin_receiver) > tmp_len:
+                self.retx_cnt = 0
 
+            self.show_progress(100*len(self.bin_receiver)/self.bin_receiver.expected_packets_amount())
 
-        def get_packet(packet_count, max_retx=self.max_retx):
-            """
-            This inner function keeps control of retransmissions in case of CrcFail or timeout in repception
-            :param packet_count:
-            :param max_retx:
-            :return:
-            """
-
-            try:
-                Message(struct.pack('B', packet_count), id=self.msg_id, positive_signal=lambda: None)
-                self.bin_receiver.receive_packet()
-                debug("try statmentent returns True")
-                return True
-            except ReceptionFail as e:
-                debug("..handling exception: {}".format(ReceptionFail))
-                if max_retx <= 0:
-                    self.gui_communication_signal.emit("Reception failed")
-                    self.tear_down()
-                    debug("raise final exception")
-                    raise Exception("Reception failed")
-                time.sleep(0.1)
-                self.add_retx_sum()
-                #recursive call until max_retx not reached
-                return get_packet(packet_count, max_retx - 1)
-
-        packet_count = 0
-        self.__rx_buffer.flush()
-        self.progress_bar.set_title("receiving...")
-        to_signal(self.progress_bar.show)()
-        self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
-
-        while len(self.bin_receiver) < 0x8000:
-            assert packet_count < PACKETS_NUM
-            if get_packet(packet_count):
-                packet_count += 1
-                self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
-
-        self.disp_retx_count()
-        if platform != 'Linux':
-            self.file_name = self.file_name.replace('/', '\\')
-        self.file_name = self.file_name.replace(' ', '_')
-        f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(self.file_name))
-        f_path_hex = os.path.join(BIN_PATH, '{}.hex'.format(self.file_name))
-
-        self.bin_receiver.save_bin(file_path=f_path_bin)
-        self.bin_receiver.save_hex(file_path=f_path_hex)
-        self.gui_communication_signal.emit("Read done in {:.2f}".format(time.time() - t0))
-        self.gui_communication_signal.emit("Saved as:")
-        self.gui_communication_signal.emit(f_path_hex)
-        self.gui_communication_signal.emit(f_path_bin)
-        self.bin_file_panel.combo_box.moveOnTop(f_path_bin)
-        self.receive_data_suceeded = True
-        if self.emulation_panel.auto_open_checkbox.isChecked():
-            self.event_handler.open_bin_file()
+        self.disp_retx_count(self.console)
+        self.console("Read done in {:.2f}".format(time.time() - t_start))
+        self.save_received_file()
+        self.parent.receive_data_suceeded = True
+        if self.autoopen_file() == True:
+            self.open_bin_file()
         self.tear_down()
 
-class ReadSramProcedure(ReadBinDataFromEmu):
 
+        # def get_packet(packet_count, max_retx=self.max_retx):
+        #     """
+        #     This inner function keeps control of retransmissions in case of CrcFail or timeout in repception
+        #     :param packet_count:
+        #     :param max_retx:
+        #     :return:
+        #     """
+        #
+        #     try:
+        #         Message(struct.pack('B', packet_count), id=self.msg_id, positive_signal=lambda: None)
+        #         self.bin_receiver.receive_packet()
+        #         debug("try statmentent returns True")
+        #         return True
+        #     except ReceptionFail as e:
+        #         debug("..handling exception: {}".format(ReceptionFail))
+        #         if max_retx <= 0:
+        #             self.console("Reception failed")
+        #             self.tear_down()
+        #             debug("raise final exception")
+        #             raise Exception("Reception failed")
+        #         time.sleep(0.1)
+        #         self.add_retx_sum()
+        #         #recursive call until max_retx not reached
+        #         return get_packet(packet_count, max_retx - 1)
+        #
+        # packet_count = 0
+        # self.__rx_buffer.flush()
+        # #self.progress_bar.set_title("receiving...")
+        # #to_signal(self.progress_bar.show)()
+        # self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
+        #
+        # while len(self.bin_receiver) < 0x8000:
+        #     assert packet_count < PACKETS_NUM
+        #     if get_packet(packet_count):
+        #         packet_count += 1
+        #         self.progress_bar.set_val_signal.emit(packet_count * 100 / PACKETS_NUM)
+        #
+        # self.disp_retx_count()
+        # if platform != 'Linux':
+        #     self.file_name = self.file_name.replace('/', '\\')
+        # self.file_name = self.file_name.replace(' ', '_')
+        # f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(self.file_name))
+        # f_path_hex = os.path.join(BIN_PATH, '{}.hex'.format(self.file_name))
+        #
+        # self.bin_receiver.save_bin(file_path=f_path_bin)
+        # self.bin_receiver.save_hex(file_path=f_path_hex)
+        # self.gui_communication_signal.emit("Read done in {:.2f}".format(time.time() - t0))
+        # self.gui_communication_signal.emit("Saved as:")
+        # self.gui_communication_signal.emit(f_path_hex)
+        # self.gui_communication_signal.emit(f_path_bin)
+        # self.bin_file_panel.combo_box.moveOnTop(f_path_bin)
+        # self.receive_data_suceeded = True
+        # if self.emulation_panel.auto_open_checkbox.isChecked():
+        #     self.event_handler.open_bin_file()
+        # self.tear_down()
+
+class ReadSramProcedure(ReadBinDataFromEmu):
     def __init__(self, *args, **kwargs):
         ReadBinDataFromEmu.__init__(self, *args, **kwargs)
         self.read_bin_data = GuiThread(self.read_data_thread)
@@ -467,6 +413,20 @@ class ReadSramProcedure(ReadBinDataFromEmu):
         to_signal(self.progress_bar.hide)()
         to_signal(self.enable_objects_after_transmission)()
         #Message(id=Message.ID.reload_sram, positive_signal=self.message_handler.print_rx_buffer_to_console)
+
+
+class ReadSramProcedure_V2(ReadBinDataFromEmu):
+    def __init__(self, parent):
+        self.parent = parent
+        self.msg_id = Message.ID.get_sram_packet
+        ReadBinDataFromEmu.__init__(self, rx_buffer=self.parent.rx_buffer)
+
+class ReadBankProcedure_V2(ReadBinDataFromEmu):
+    def __init__(self, parent):
+        self.parent = parent
+        self.msg_id = Message.ID.get_bank_packet
+        ReadBinDataFromEmu.__init__(self, rx_buffer=self.parent.rx_buffer)
+
 
 class ReadBankProcedure(ReadBinDataFromEmu):
 
