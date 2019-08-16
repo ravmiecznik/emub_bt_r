@@ -35,7 +35,7 @@ class TestInterface():
         self.buttons.bank1btn = self.parent.banks_panel.bank1pushButton
         self.buttons.bank2btn = self.parent.banks_panel.bank2pushButton
         self.buttons.bank3btn = self.parent.banks_panel.bank3pushButton
-        self.buttons.save = self.parent.emulation_panel.store_to_flash_button
+        self.buttons.save = self.parent.emulation_panel.save_button
         self.buttons.read_bank = self.parent.emulation_panel.read_bank_button
         try:
             self.buttons.read_sram = self.parent.emulation_panel.read_sram_button
