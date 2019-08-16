@@ -50,7 +50,10 @@ def bin_repr(file_obj):
     return repr
 
 
-class BinSenderAbstract():
+class BinFilePacketGeneratorAbstract():
+    """
+    Abstaract class to create target BinFilePacketGenerator
+    """
 
     def __len__(self):
         tell = self.tell()
@@ -83,10 +86,9 @@ class BinSenderAbstract():
         return bin_repr(self)
 
 
-class BinSender(BinSenderAbstract, file):
+class BinFilePacketGenerator(BinFilePacketGeneratorAbstract, file):
     """
-    BinHanlder: handle binary file sending (storing)
-    Since it reads the EEPROM file size is checked
+    Provides iteration protocol for binary file packets
     """
     def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, crc_attach = False):
         file.__init__(self, bin_file, 'rb')
@@ -98,7 +100,7 @@ class BinSender(BinSenderAbstract, file):
             raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
 
 
-class BinSenderIO(BinSenderAbstract, BytesIO):
+class BinFilePacketGenerator_BytesIO(BinFilePacketGeneratorAbstract, BytesIO):
     """
     This is in memory container
     May be used to store nacked packets due to this each written packet size must be checked
@@ -175,8 +177,8 @@ class BinReceiver(bytearray):
 
 
 if __name__ == "__main__":
-    bs = BinSender(r'/home/rafal/EMU_BTR_FILES/DOWNLOADED/reveived_bank2.bin')
-    bsio = BinSenderIO(bs[12] + bs[15])
+    bs = BinFilePacketGenerator(r'/home/rafal/EMU_BTR_FILES/DOWNLOADED/reveived_bank2.bin')
+    bsio = BinFilePacketGenerator_BytesIO(bs[12] + bs[15])
     for i in bsio:
-        print BinSenderIO(i)
+        print BinFilePacketGenerator_BytesIO(i)
         print 20 * '-'
