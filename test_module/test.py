@@ -201,7 +201,7 @@ def all_tests():
 def test_suite():
     import sys
     app = QApplication(sys.argv)
-    main_window = main.MainWindow()
+    main_window = main.MainWindow(is_test=True, autoconnect=False)
     main_window.show()
 
     main_window.connect_button.clicked.emit(1)
