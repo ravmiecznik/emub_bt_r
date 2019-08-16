@@ -17,7 +17,7 @@ class EventHandler(object):
     def not_implemented_attribute(self, attr):
         def print_attr(*args, **kwargs):
             error("{}: {}: not implemented\n {} {}".format(self.__class__, attr, args, kwargs))
-            warn(self.__dict__)
+            debug(self.__dict__)
         return print_attr
 
 
