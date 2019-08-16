@@ -92,6 +92,8 @@ class EmulationPanel(QtGui.QGroupBox):
         emulation_frame_FrameGrid = QtGui.QGridLayout()
         emulation_frame_FrameGrid.setSpacing(0.5)
 
+        self.read_sram_allowed = read_sram_allowed
+
         if read_sram_allowed == False:
             _PushButton = SmallPushButton
         else:
@@ -99,17 +101,17 @@ class EmulationPanel(QtGui.QGroupBox):
 
 
         self.emulate_button = _PushButton("LIVE", tip_msg=EMULATION_BTN_TIP)
-        if read_sram_allowed:
+        if self.read_sram_allowed:
             self.read_sram_button = _PushButton("READ SRAM", tip_msg=READ_SRAM_BTN_TIP)
             self.read_sram_button.raise_()
         self.read_bank_button = _PushButton("READ", tip_msg=READ_BANK_BTN_TIP)
-        self.store_to_flash_button = _PushButton("SAVE", tip_msg=STORE_FLASH_BANK_BTN_TIP)
+        self.save_button = _PushButton("SAVE", tip_msg=STORE_FLASH_BANK_BTN_TIP)
         self.auto_open_checkbox = CheckBox("auto open", tip_msg=AUTO_OPEN_CHECK_BOX_TIP)
         self.reload_sram_checkbox = CheckBox("reload sram on save", tip_msg=RELOAD_SRAM_CHECK_BOX_TIP)
 
         self.read_bank_button.raise_()
         self.emulate_button.raise_()
-        self.store_to_flash_button.raise_()
+        self.save_button.raise_()
         self.raise_()
 
         if read_sram_allowed == True:
@@ -117,7 +119,7 @@ class EmulationPanel(QtGui.QGroupBox):
                 (self.emulate_button, 0, 0),
                 (self.read_bank_button, 1, 0),
                 (self.read_sram_button, 1, 1),
-                (self.store_to_flash_button, 0, 1),
+                (self.save_button, 0, 1),
                 (self.auto_open_checkbox, 3, 0, 1, 2),
                 (self.reload_sram_checkbox, 4, 0, 1, 2),
             ]
@@ -125,7 +127,7 @@ class EmulationPanel(QtGui.QGroupBox):
             widgets_layout = [
                 (self.emulate_button, 0, 0),
                 (self.read_bank_button, 0, 1),
-                (self.store_to_flash_button, 0, 2),
+                (self.save_button, 0, 2),
                 (self.auto_open_checkbox, 2, 0, 1, 2),
                 (self.reload_sram_checkbox, 3, 0, 1, 2),
             ]
@@ -135,9 +137,17 @@ class EmulationPanel(QtGui.QGroupBox):
 
         self.setLayout(emulation_frame_FrameGrid)
 
-        self.store_to_flash_button.clicked.connect(event_handler.store_to_flash_button_slot)
+        self.save_button.clicked.connect(event_handler.save_button_slot)
         self.emulate_button.clicked.connect(event_handler.emulate_button_slot)
-        if read_sram_allowed:
+        if self.read_sram_allowed:
+            self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
+        self.read_bank_button.clicked.connect(event_handler.read_bank_button_slot)
+
+    def set_event_handler(self, event_handler):
+        self.event_handler = event_handler
+        self.save_button.clicked.connect(event_handler.save_button_slot)
+        self.emulate_button.clicked.connect(event_handler.emulate_button_slot)
+        if self.read_sram_allowed:
             self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
         self.read_bank_button.clicked.connect(event_handler.read_bank_button_slot)
 
