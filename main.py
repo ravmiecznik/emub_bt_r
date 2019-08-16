@@ -28,8 +28,8 @@ from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageHandler, Message
 from config_window import ConfigWindow, ConfigSettings
-from procedures import BanksProcedures, ReadSramProcedure, StoreToFlashProcedure_v2, \
-    ReadBankProcedure, SyncFileToSramProcedure
+from procedures import BanksProcedures, ReadSramProcedure_V2, StoreToFlashProcedure, \
+    ReadBankProcedure_V2, SyncFileToSramProcedure
 from test_module import TestInterface
 from digidiag import DigidagReceiver, DigidiagTimeout
 from message_box import message_box
@@ -100,9 +100,7 @@ class QLabel(QLabel):
 
 @method_call_track
 class MainWindow(QtGui.QMainWindow,
-                 BanksProcedures,
-                 ReadSramProcedure, ReadBankProcedure,
-                 SyncFileToSramProcedure, ConfigSettings):
+                 BanksProcedures, SyncFileToSramProcedure, ConfigSettings):
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
@@ -163,8 +161,7 @@ class MainWindow(QtGui.QMainWindow,
         self.event_handler.add_event(to_signal(self.set_bank_name))
         self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
-        self.event_handler.add_event(to_signal(self.read_sram_button_slot))
-        self.event_handler.add_event(to_signal(self.read_bank_button_slot))
+        #self.event_handler.add_event(to_signal(self.read_sram_button_slot))
         self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
         self.event_handler.add_event(to_signal(self.open_bin_file))
         self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
@@ -191,7 +188,7 @@ class MainWindow(QtGui.QMainWindow,
         self.setup_emulator()
 
         #init procedures
-        ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
+        #ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
 
         self.progress_bar = ColorProgressBar(parent=self)
 
@@ -200,13 +197,14 @@ class MainWindow(QtGui.QMainWindow,
             allow_read_sram = True
         self.emulation_panel = EmulationPanel(self.centralwidget, read_sram_allowed=allow_read_sram)
 
-        self.store_to_flash_procedure = StoreToFlashProcedure_v2(self)
+        self.store_to_flash_procedure = StoreToFlashProcedure(self)
         self.save_button_slot = self.store_to_flash_procedure.save_button_slot
         self.event_handler.add_event(to_signal(self.save_button_slot))
-        self.emulation_panel.set_event_handler(self.event_handler)
 
 
-        ReadBankProcedure.__init__(self, self.emulator.rx_buffer)
+        #ReadBankProcedure.__init__(self, self.emulator.rx_buffer)
+
+
         if self.is_test == True:
             self.test_interface = TestInterface(self)
             self.control_panel.autoconnect_checkbox.setChecked(False)
@@ -226,6 +224,17 @@ class MainWindow(QtGui.QMainWindow,
 
 
         Message.default_negative_signal = self.console_msg_factory("command failed")
+
+        self.raw_rx_buffer = self.emulator.raw_buffer
+        self.rx_buffer = self.emulator.rx_buffer
+
+        self.read_bank_procedure = ReadBankProcedure_V2(self)
+        self.read_sram_procedure = ReadSramProcedure_V2(self)
+        self.read_bank_button_slot = self.read_bank_procedure.read_data_button_slot
+        self.read_sram_button_slot = self.read_sram_procedure.read_data_button_slot
+        self.event_handler.add_event(to_signal(self.read_bank_button_slot), 'read_bank_button_slot')
+        self.event_handler.add_event(to_signal(self.read_sram_button_slot), 'read_sram_button_slot')
+        self.emulation_panel.set_event_handler(self.event_handler)
 
         self.digidag = DigidagReceiver(self.emulator.raw_buffer)
         self.digidag_receiver_thread = GuiThread(self.digidag.start)
