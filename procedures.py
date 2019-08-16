@@ -9,7 +9,7 @@ from event_handler import to_signal
 from message_handler import Message
 from my_gui_thread import GuiThread, thread_this_method
 from setup_emubt import warn, error, info, debug, BIN_PATH
-from bin_handler import BinSender, BinSenderFileNotPresent, BinSenderInvalidBinSize, ReceptionFail, PacketReceptionTimeout, BinReceiver
+from bin_handler import BinFilePacketGenerator, BinSenderFileNotPresent, BinSenderInvalidBinSize, ReceptionFail, PacketReceptionTimeout, BinReceiver
 from message_box import message_box
 from bin_tracker import BinTracker
 from call_tracker import method_call_track
@@ -138,6 +138,111 @@ class BanksProcedures():
                     positive_signal=to_signal(enable_objects_after_transmission_update_banks_status),
                     negative_signal=to_signal(self.enable_objects_after_transmission))
 
+class StoreToFlashProcedure_v2(RetxCount):
+
+    def __init__(self, parent, max_retry=4):
+        self.parent = parent
+        self.send_data_thread()
+        #self.__get_writing_stats_thread()
+        self.__max_retry = max_retry
+        self.__console_msg_factory = self.parent.console_msg_factory
+        self.__get_current_file = self.parent.bin_file_panel.get_current_file
+        self.__console = self.parent.gui_communication_signal.emit
+        self.__save_button = self.parent.emulation_panel.save_button
+        self.blink_save_btn()
+        self.blink_save_btn.on_terminate = to_signal(self.__save_button.set_default_style_sheet)
+        self.__progress_bar = self.parent.progress_bar
+        self.__progress_bar_display_signal = to_signal(self.__progress_bar.display)
+        self.__progress_bar_hide_signal = to_signal(self.__progress_bar.hide)
+        self.__disable_objects_for_transmission_signal = to_signal(self.parent.disable_objects_for_transmission)
+        self.__enable_objects_after_transmission_signal = to_signal(self.parent.enable_objects_after_transmission)
+        self.__display_progress = self.__progress_bar.set_val_signal.emit
+        self.timeout = 10
+
+
+    def save_button_slot(self):
+        bin_path = self.__get_current_file()
+        try:
+            self.bin_packets = BinFilePacketGenerator(bin_path)
+            Message('rxflush', positive_signal=to_signal(self.send_data_thread.start),
+                    negative_signal=self.__console_msg_factory("rxflush failed"))
+
+        except IOError as e:
+            self.__gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
+            raise e
+        except BinSenderInvalidBinSize as e:
+            self.__gui_communication_signal.emit('{} {}'.format(e.__class__, e.message))
+            self.parent.bin_file_panel.combo_box.removeByStr(bin_path)
+            self.parent.bin_file_panel.update_app_status_file()
+            message_box("This is not 27c256 bin image: {}".format(bin_path))
+            raise e
+
+    def setup_gui_for_transmission(self):
+        RetxCount.__init__(self)
+        self.blink_save_btn.start()
+        self.__progress_bar.set_title("sending...")
+        self.__progress_bar_display_signal.emit()
+        self.__disable_objects_for_transmission_signal.emit()
+
+    def check_if_timeout(self, t0, timeout):
+        if time.time() - t0 > timeout:
+            self.__console("SAVE operation failed. Check error log")
+            self.tear_down()
+            raise Exception("Save fail")
+
+
+    def __negative_feedback_slot(self):
+        if self.timeout - (time.time() - self.t0) >= 0:
+            self.__console("Retransmitting packet: {} [{:.0f}s]".format(self.packet_no, self.timeout - (time.time() - self.t0)))
+        self.__feedback_received = True
+
+    def __positive_feedback_slot(self):
+        self.t0 = time.time()
+        self.packets_to_send.remove(self.packets_to_send[0])
+        self.__feedback_received = True
+
+    #@thread_this_method(delay=0.5)
+    def get_writing_stats(self):
+        self.parent.send_data_suceeded = True
+        debug("..executing")
+        self.__console("Done in time {:.2f}".format(time.time() - self.start_time))
+        self.__console("Num of retx {}".format(self.retx_sum()))
+        Message("writingtime", positive_signal=to_signal(self.parent.message_handler.print_rx_buffer_to_console))
+
+    @thread_this_method(period=0.4)
+    def blink_save_btn(self):
+        to_signal(self.__save_button.blink)()
+
+    @thread_this_method()
+    def send_data_thread(self):
+        self.parent.send_data_suceeded = False
+        debug("started {}".format(self.send_data_thread.__name__))
+        timeout = self.timeout
+        self.setup_gui_for_transmission()
+        self.t0 = time.time()
+        self.start_time = time.time()
+        self.packets_to_send = range(0, len(self.bin_packets))
+        while self.packets_to_send:
+            self.check_if_timeout(self.t0, timeout)
+            self.packet_no = self.packets_to_send[0]
+            packet = self.bin_packets[self.packet_no]
+            self.__feedback_received = False
+            Message(struct.pack('B', self.packet_no) + packet, id=Message.ID.write_to_page,
+                    positive_signal=self.__positive_feedback_slot,
+                    negative_signal=self.__negative_feedback_slot,
+                    extra_action_on_nack=self.add_retx_sum)
+            self.__display_progress(((PACKETS_NUM-len(self.packets_to_send))*100)/PACKETS_NUM)
+            while not self.__feedback_received:
+                time.sleep(0.001)
+                self.check_if_timeout(self.t0, timeout)
+        self.tear_down()
+        self.get_writing_stats()
+
+    def tear_down(self):
+        self.blink_save_btn.kill()
+        self.__progress_bar_hide_signal.emit()
+        self.__enable_objects_after_transmission_signal.emit()
+
 
 class StoreToFlashProcedure(RetxCount):
     """
@@ -168,7 +273,7 @@ class StoreToFlashProcedure(RetxCount):
         self.__try = 0
         if bin_path:
             try:
-                self.bin_sender = BinSender(bin_path)
+                self.bin_sender = BinFilePacketGenerator(bin_path)
                 Message('rxflush', positive_signal=to_signal(self.send_data.start),
                         negative_signal=self.console_msg_factory("rxflush failed"))
 
