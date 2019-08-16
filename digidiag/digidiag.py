@@ -27,6 +27,9 @@ class DigidagReceiver():
         self.__timeout = 1
         self.__frames_received = 0
 
+    def clear_stats(self):
+        self.__frames_received = 0
+
     def frames_received(self):
         return self.__frames_received
 

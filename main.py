@@ -242,7 +242,7 @@ class MainWindow(QtGui.QMainWindow,
         self.resize(x_siz, y_siz)
         self.disable_objects_for_transmission()
         self.load_last_status()
-        self.__resore_digidiag = True
+        self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
 
@@ -295,7 +295,8 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def __digidiag_on(self, retry=3, timeout=0.7):
-        if self.is_test == False and self.__resore_digidiag == True:
+        self.digidag.clear_stats()
+        if self.is_test == False:
             if retry:
                 print "retry", retry
                 t0 = time.time()
@@ -307,6 +308,7 @@ class MainWindow(QtGui.QMainWindow,
                         msg = "digidiag resumed"
                         info(msg)
                         self.gui_communication_signal.emit(msg)
+                        self.__restore_digidiag = True
                         return True
                 if self.digidag.frames_received() < 20:
                     self.__digidiag_on(retry=retry-1)
@@ -314,7 +316,7 @@ class MainWindow(QtGui.QMainWindow,
                 msg = "digidiag_on failed"
                 info(msg)
                 self.gui_communication_signal.emit(msg)
-                self.__resore_digidiag = False
+                self.__restore_digidiag = False
                 return False
 
 
@@ -664,7 +666,7 @@ class MainWindow(QtGui.QMainWindow,
            config.write(cf)
 
     def closeEvent(self, event):
-        if not self.__digidiag_on():
+        if self.emulator.connected and not self.__digidiag_on():
             message_box("Digidiag not restored. Restart ECU for digifant diagnostics", detailed_msg="Does your Digifant BIN file contain DIGIDIAG feature ?\n"
                                                                                                     "Remember: Digidag works only if you upload BIN file from ravmiecznik !!!")
         if event.type() == QEvent.Close:
