@@ -126,10 +126,11 @@ class BinReceiver(bytearray):
         bytearray.__init__(self)
         self.__rx_buffer = rx_buffer
         self.__timeout = timeout
-        self.__expected_data_amount = 0x8000
         self.__is_image_complete = False
         self.__timeout = 1
         self.__packet_size = 256 * 8 + 2 #plus CRC
+        self.__expected_packets_amount = 0x8000/self.__packet_size
+        self.__packets_received = 0
 
     def wait_for_packet(self):
         t0 = time.time()
@@ -139,6 +140,12 @@ class BinReceiver(bytearray):
                 self.__rx_buffer.flush()
                 return False
         return True
+
+    def expected_packets_amount(self):
+        return self.__expected_packets_amount
+
+    def packets_received(self):
+        return self.__packets_received
 
     def receive_packet(self):
         if self.wait_for_packet():
@@ -152,7 +159,8 @@ class BinReceiver(bytearray):
                 raise ReceptionFail
             else:
                 self += data_received
-                if len(self) >= self.__expected_data_amount:
+                self.__packets_received += 1
+                if len(self) >= self.__expected_packets_amount:
                     return False
                 return True
         else:
@@ -160,6 +168,8 @@ class BinReceiver(bytearray):
             raise ReceptionFail
         self.__rx_buffer.flush()
 
+    def __len__(self):
+        return self.__packets_received
 
     def __str__(self):
         return bin_repr(BytesIO(self))
