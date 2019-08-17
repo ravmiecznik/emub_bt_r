@@ -11,7 +11,9 @@ platform = platform.system()
 # if platform != 'Linux':
 #     import qdarkstyle
 
-import traceback
+
+RELEASE_VERSION = False
+
 from setup_emubt import logger, info, debug, error, warn, ExceptionLogger, EMU_BT_PATH, LOG_PATH
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
@@ -679,10 +681,12 @@ class MainWindow(QtGui.QMainWindow,
 
 def main():
     import sys, os
-    STDOUT, STDERR = sys.stdout, sys.stderr
+    STDOUT = sys.stdout
+    STDERR = sys.stderr
     with file(os.path.join(LOG_PATH, 'stdout.txt'), 'w') as stdout, file(os.path.join(LOG_PATH, 'stderr.txt'), 'w') as stderr:
-        sys.stderr = stderr
-        sys.stdout = stdout
+        if RELEASE_VERSION:
+            sys.stderr = stderr
+            sys.stdout = stdout
         app = QtGui.QApplication(sys.argv)
         if platform == 'Windows':
             app.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
