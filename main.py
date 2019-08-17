@@ -12,8 +12,6 @@ platform = platform.system()
 #     import qdarkstyle
 
 
-RELEASE_VERSION = False
-
 from setup_emubt import logger, info, debug, error, warn, ExceptionLogger, EMU_BT_PATH, LOG_PATH
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
@@ -247,6 +245,7 @@ class MainWindow(QtGui.QMainWindow,
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
+        #self.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
 
 
     def initUI(self):
@@ -679,30 +678,25 @@ class MainWindow(QtGui.QMainWindow,
 
 
 
-def main():
+def main(dev_version=False):
     import sys, os
-    STDOUT = sys.stdout
-    STDERR = sys.stderr
+    _stdout = sys.stdout
+    _stderr = sys.stderr
     with file(os.path.join(LOG_PATH, 'stdout.txt'), 'w') as stdout, file(os.path.join(LOG_PATH, 'stderr.txt'), 'w') as stderr:
-        if RELEASE_VERSION:
+        if dev_version == False:
             sys.stderr = stderr
             sys.stdout = stdout
         app = QtGui.QApplication(sys.argv)
         if platform == 'Windows':
             app.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
         myapp = MainWindow()
+        myapp.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
+        app.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
         myapp.show()
         app.exec_()
         sys.exit()
-        sys.stdout = STDOUT
-        sys.stderr = STDERR
+        sys.stdout = _stdout
+        sys.stderr = _stderr
 
 if __name__ == "__main__":
-    #exception_logger = ExceptionLogger()
-    main()
-    # try:
-    #     main()
-    # except Exception as E:
-    #     print "Catched: {}".format(E)
-    #     traceback.print_exc(file=exception_logger)
-    #     raise E
+    main(dev_version=True)
