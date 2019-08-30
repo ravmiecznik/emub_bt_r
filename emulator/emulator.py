@@ -22,6 +22,11 @@ class Emulator():
 
         self.port = port
         self.address = address
+        self.init_rxbuffers()
+        #self.rx_buffer = CircIoBuffer(byte_size=256*16)
+        #self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
+
+    def init_rxbuffers(self):
         self.rx_buffer = CircIoBuffer(byte_size=256*16)
         self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
 
@@ -96,6 +101,11 @@ class Emulator():
 
     def get_connection_status(self):
         return self.connected
+
+    def flush(self):
+        self.bt_connection.recv(256*16)
+        self.raw_buffer.flush()
+        self.rx_buffer.flush()
 
     def __try_get_data(self):
         try:
