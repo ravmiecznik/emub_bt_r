@@ -43,26 +43,33 @@ class BanksProcedures():
         Dedicated Class to seperate Banks related procedures
         Must be inherited in MainWindow
         """
+        @thread_this_method(period=1, delay=1)
+        def bank_in_use_monitor(self):
+            if self.bank_in_use is None:
+                self.get_bank_in_use()
+
         @thread_this_method()
         def read_bank_info(self):
             timeout = 1
             t0 = time.time()
             raw_buff = ''
-            to_signal(self.disable_objects_for_transmission)()
+            #to_signal(self.disable_objects_for_transmission)()
+            self.disable_objects_for_transmission_signal()
 
             def set_fail():
                 self.banks_panel.bank_name_line_edit.setText("!!FAIL!!")
-                to_signal(self.enable_objects_after_transmission)()
+                self.enable_objects_after_transmission_signal()
 
             while '<' not in raw_buff:
                 try:
                     raw_buff = self.emulator.raw_buffer.read().split('>')[1]
                 except IndexError:
                     set_fail()
+                    return False
                 time.sleep(0.001)
                 if time.time() - t0 > timeout:
                     to_signal(set_fail)()
-                    to_signal(self.enable_objects_after_transmission)()
+                    self.enable_objects_after_transmission_signal()
                     return False
             bank_name = raw_buff.split('|')[0]
 
@@ -70,10 +77,10 @@ class BanksProcedures():
                 self.banks_panel.bank_name_line_edit.setText(bank_name)
 
             to_signal(set_text)()
-            to_signal(self.enable_objects_after_transmission)()
+            self.enable_objects_after_transmission_signal()
 
         def bank_name_line_focus_out_event(self):
-            to_signal(self.enable_objects_after_transmission())()
+            self.enable_objects_after_transmission_signal()
             to_signal(self.get_bank_in_use)()
 
         def bank_name_line_edit_event(self):
@@ -85,33 +92,39 @@ class BanksProcedures():
 
         def set_green_style_get_bank_info(self, bank_button):
             self.bank_in_use = ['bank 1', 'bank 2', 'bank 3'].index(bank_button.text()) + 1
+            print "set bank in use", self.bank_in_use
             def wrapper():
                 to_signal(bank_button.set_green_style_sheet)()
                 self.emulator.raw_buffer.flush()
                 Message(id=Message.ID.get_bank_info, positive_signal=to_signal(self.read_bank_info.start))
 
-            return GuiThread(wrapper).start
+            return GuiThread(wrapper, delay=0.1).start
+
 
         def bank1set_slot(self):
-            self.banks_panel.set_default_style_sheet_for_buttons()
+            self.clear_bank_status()
             Message('bank1set',
                     positive_signal=to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank1pushButton)),
-                    negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
+                    negative_signal=to_signal(self.clear_bank_status))
 
         def bank2set_slot(self):
-            self.banks_panel.set_default_style_sheet_for_buttons()
+            self.clear_bank_status()
             Message('bank2set',
                     positive_signal=to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank2pushButton)),
-                    negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
+                    negative_signal=to_signal(self.clear_bank_status))
 
         def bank3set_slot(self):
-            self.banks_panel.set_default_style_sheet_for_buttons()
+            self.clear_bank_status()
             Message('bank3set',
                     positive_signal=to_signal(self.set_green_style_get_bank_info(self.banks_panel.bank3pushButton)),
-                    negative_signal=to_signal(self.banks_panel.set_default_style_sheet_for_buttons))
+                    negative_signal=to_signal(self.clear_bank_status))
 
         def get_bank_in_use(self):
-            Message('bankinuse', positive_signal=to_signal(self.read_bank_in_use))
+            Message('bankinuse', positive_signal=to_signal(self.read_bank_in_use), negative_signal=to_signal(self.clear_bank_status))
+
+        def clear_bank_status(self):
+            self.bank_in_use = None
+            to_signal(self.banks_panel.set_default_style_sheet_for_buttons)()
 
         def read_bank_in_use(self):
             raw_buffer = self.emulator.raw_buffer.read()
@@ -128,15 +141,14 @@ class BanksProcedures():
 
         def set_bank_name(self):
             new_bank_name = str(self.banks_panel.bank_name_line_edit.text())
-            to_signal(self.disable_objects_for_transmission)()
-
             def enable_objects_after_transmission_update_banks_status():
-                to_signal(self.enable_objects_after_transmission)()
+                self.enable_objects_after_transmission_signal()
                 to_signal(self.get_bank_in_use)()
 
             Message(new_bank_name, id=Message.ID.setbankname,
                     positive_signal=to_signal(enable_objects_after_transmission_update_banks_status),
-                    negative_signal=to_signal(self.enable_objects_after_transmission))
+                    negative_signal=self.enable_objects_after_transmission_signal)
+            self.disable_objects_for_transmission_signal()
 
 class StoreToFlashProcedure(RetxCount):
 
@@ -154,8 +166,8 @@ class StoreToFlashProcedure(RetxCount):
         self.__progress_bar = self.parent.progress_bar
         self.__progress_bar_display_signal = to_signal(self.__progress_bar.display)
         self.__progress_bar_hide_signal = to_signal(self.__progress_bar.hide)
-        self.__disable_objects_for_transmission_signal = to_signal(self.parent.disable_objects_for_transmission)
-        self.__enable_objects_after_transmission_signal = to_signal(self.parent.enable_objects_after_transmission)
+        self.__disable_objects_for_transmission_signal = self.parent.disable_objects_for_transmission_signal
+        self.__enable_objects_after_transmission_signal = self.parent.enable_objects_after_transmission_signal
         self.__display_progress = self.__progress_bar.set_val_signal.emit
         self.timeout = 10
 
@@ -260,8 +272,9 @@ class ReadBinDataAbstract(RetxCount):
         self.progress_bar = self.parent.progress_bar
         self.show_progress = self.progress_bar.set_val_signal.emit
         self.console = self.parent.gui_communication_signal.emit
-        self.disable_objects_for_transmission = self.parent.disable_objects_for_transmission
-        self.enable_objects_after_transmission = self.parent.enable_objects_after_transmission
+        self.disable_objects_for_transmission_signal = self.parent.disable_objects_for_transmission_signal
+        self.enable_objects_after_transmission_signal = self.parent.enable_objects_after_transmission_signal
+        #self.enable_objects_after_transmission = self.parent.enable_objects_after_transmission
         self.autoopen_file = self.parent.emulation_panel.auto_open_checkbox.isChecked   #this is callable method
         self.open_bin_file = self.parent.event_handler.open_bin_file                    #this is callable method
         self.update_file_list = self.parent.bin_file_panel.combo_box.moveOnTop          #this is callable method
@@ -277,7 +290,7 @@ class ReadBinDataAbstract(RetxCount):
     def tear_down(self):
         debug("..executing")
         to_signal(self.progress_bar.hide)()
-        to_signal(self.enable_objects_after_transmission)()
+        self.enable_objects_after_transmission_signal()
 
 
     def collect_packet(self):
@@ -314,7 +327,8 @@ class ReadBinDataAbstract(RetxCount):
         self.bin_receiver = BinReceiver(self.__rx_buffer, timeout=2)
         self.progress_bar.set_title("receiving...")
         to_signal(self.progress_bar.display)()
-        to_signal(self.disable_objects_for_transmission)()
+        self.disable_objects_for_transmission_signal()
+        #to_signal(self.disable_objects_for_transmission)()
         RetxCount.__init__(self)
         self.retx_cnt = 0
         while len(self.bin_receiver) <= self.bin_receiver.expected_packets_amount():
