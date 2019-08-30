@@ -33,7 +33,7 @@ from procedures import BanksProcedures, ReadSramProcedure_V2, StoreToFlashProced
 from test_module import TestInterface
 from digidiag import DigidagReceiver, DigidiagTimeout
 from message_box import message_box
-
+from auxiliary_module import null_function
 
 
 
@@ -112,6 +112,7 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def __init__(self, is_test=False):
+        self.bank_in_use = None
         self.is_test = is_test
         print 'PATH', EMU_BT_PATH
         self.config_path = SETTINGS_PATH
@@ -240,7 +241,7 @@ class MainWindow(QtGui.QMainWindow,
         self.digidag_receiver_thread = GuiThread(self.digidag.start)
 
         self.resize(x_siz, y_siz)
-        self.disable_objects_for_transmission()
+        self.disable_objects_for_transmission_signal()
         self.load_last_status()
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
@@ -337,10 +338,10 @@ class MainWindow(QtGui.QMainWindow,
             self.handle_E_command(cmd.split('E:')[1])
         elif self.emulation_panel.isEnabled():
             #self.message_handler.send(cmd)
-            self.disable_objects_for_transmission()
+            self.disable_objects_for_transmission_signal()
             Message(cmd, positive_signal=self.message_handler.print_rx_buffer_to_console,
-                    extra_action_on_ack=to_signal(self.enable_objects_after_transmission),
-                    extra_action_on_nack=to_signal(self.enable_objects_after_transmission))
+                    extra_action_on_ack=self.enable_objects_after_transmission_signal,
+                    extra_action_on_nack=self.enable_objects_after_transmission_signal)
 
     def handle_E_command(self, cmd):
         cnt = 0
@@ -364,17 +365,22 @@ class MainWindow(QtGui.QMainWindow,
             self.gui_communication_signal.emit("unsuported command")
 
     def send_help_cmd_slot(self):
-        self.disable_objects_for_transmission()
+        self.disable_objects_for_transmission_signal()
         Message('help', positive_signal=self.message_handler.print_rx_buffer_to_console,
-                extra_action_on_nack=to_signal(self.enable_objects_after_transmission),
-                extra_action_on_ack=to_signal(self.enable_objects_after_transmission))
+                extra_action_on_nack=self.enable_objects_after_transmission_signal,
+                extra_action_on_ack=self.enable_objects_after_transmission_signal)
 
 
     def send_resetemu_slot(self):
-        self.disable_objects_for_transmission()
-        Message('resetemu', positive_signal=self.message_handler.print_rx_buffer_to_console,
-                extra_action_on_nack=to_signal(self.enable_objects_after_transmission),
-                extra_action_on_ack=to_signal(self.enable_objects_after_transmission))
+        self.disable_objects_for_transmission_signal()
+        def action_on_reset():
+            self.bank_in_use = None
+            self.emulator.flush()
+            self.enable_objects_after_transmission_signal()
+        Message('resetemu', positive_signal=null_function,
+                extra_action_on_nack=action_on_reset,
+                extra_action_on_ack=action_on_reset)
+
         #Message('resetemu', positive_signal=self.disable_digidiag)
 
     def disable_digidiag(self):
@@ -422,7 +428,7 @@ class MainWindow(QtGui.QMainWindow,
                 negative_signal=to_signal(self.bootloader_activation_fail), timeout=0.5)
 
 
-    def disable_objects_for_transmission(self):
+    def __disable_objects_for_transmission(self):
         self.emulation_panel.setDisabled(True)
         self.banks_panel.setDisabled(True)
         self.control_panel.reflash_button.setDisabled(True)
@@ -431,7 +437,7 @@ class MainWindow(QtGui.QMainWindow,
         self.console.help_button.setDisabled(True)
         self.bin_file_panel.combo_box.clearFocus()
 
-    def enable_objects_after_transmission(self):
+    def __enable_objects_after_transmission(self):
         self.emulation_panel.setDisabled(False)
         self.banks_panel.setDisabled(False)
         self.control_panel.reflash_button.setDisabled(False)
@@ -497,7 +503,8 @@ class MainWindow(QtGui.QMainWindow,
         self.help_tip_signal.connect(self.help_text.setText)
         self.gui_communication_signal.connect(self.console_communication_pipe_slot)
         self.general_signal.connect(self.general_signal_slot)
-
+        self.disable_objects_for_transmission_signal = to_signal(self.__disable_objects_for_transmission)
+        self.enable_objects_after_transmission_signal = to_signal(self.__enable_objects_after_transmission)
 
     def general_signal_slot(self, object):
         object()
@@ -541,6 +548,7 @@ class MainWindow(QtGui.QMainWindow,
         #self.blink_save_btn()
         #self.blink_save_btn.on_terminate = to_signal(self.emulation_panel.save_button.set_default_style_sheet)
         self.read_bank_info()
+        self.bank_in_use_monitor()
         self.connection_thread = GuiThread(self.__connection_thread, action_when_done=to_signal(self.set_connection_status))
         #self.connection_thread()
         #self.connection_thread.action_when_done = to_signal(self.set_connection_status)
@@ -552,14 +560,15 @@ class MainWindow(QtGui.QMainWindow,
         self.connect_button.setText("disconnect")
         self.connect_button.set_green_style_sheet()
         self.recevive_emulator_data_thread.start()
-        self.enable_objects_after_transmission()
+        self.enable_objects_after_transmission_signal()
+        self.bank_in_use_monitor.start()
         time.sleep(0.2)
         Message('digidiag_off', positive_signal=self.console_msg_factory('digidiag disabled'))
         GuiThread(self.get_bank_in_use, delay=0.5).start()
 
 
     def set_disconnected(self):
-        self.disable_objects_for_transmission()
+        self.disable_objects_for_transmission_signal()
         GuiThread.kill_all_threads()
         #self.recevive_emulator_data_thread.kill()
         self.connect_button.setText("Connect")
@@ -682,7 +691,7 @@ def main(dev_version=False):
     import sys, os
     _stdout = sys.stdout
     _stderr = sys.stderr
-    with file(os.path.join(LOG_PATH, 'stdout.txt'), 'w') as stdout, file(os.path.join(LOG_PATH, 'stderr.txt'), 'w') as stderr:
+    with open(os.path.join(LOG_PATH, 'stdout.txt'), 'w', buffering=16) as stdout, open(os.path.join(LOG_PATH, 'stderr.txt'), 'w', buffering=16) as stderr:
         if dev_version == False:
             sys.stderr = stderr
             sys.stdout = stdout
