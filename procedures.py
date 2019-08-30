@@ -73,7 +73,7 @@ class BanksProcedures():
             to_signal(self.enable_objects_after_transmission)()
 
         def bank_name_line_focus_out_event(self):
-            self.enable_objects_after_transmission()
+            to_signal(self.enable_objects_after_transmission())()
             to_signal(self.get_bank_in_use)()
 
         def bank_name_line_edit_event(self):
@@ -128,10 +128,10 @@ class BanksProcedures():
 
         def set_bank_name(self):
             new_bank_name = str(self.banks_panel.bank_name_line_edit.text())
-            to_signal(self.disable_objects_for_transmission)
+            to_signal(self.disable_objects_for_transmission)()
 
             def enable_objects_after_transmission_update_banks_status():
-                self.enable_objects_after_transmission
+                to_signal(self.enable_objects_after_transmission)()
                 to_signal(self.get_bank_in_use)()
 
             Message(new_bank_name, id=Message.ID.setbankname,
