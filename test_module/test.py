@@ -35,6 +35,9 @@ def assert_with_timeout(assertion, test, timeout=5, period=1, **kwargs):
 
 
 def compare_two_files(p1, p2):
+    with open("second_file.bin", 'wb') as f1, open(p2, 'rb') as f2:
+        f1.write(f2.read())
+
     with open(p1, 'rb') as f1, open(p2, 'rb') as f2:
         a, b = f1.read(), f2.read()
         return a == b
@@ -43,7 +46,7 @@ def compare_two_files(p1, p2):
 def create_random_bin():
     f = tempfile.NamedTemporaryFile(mode='w+b')
     for i in xrange(0x8000):
-        f.write(chr(random.randint(0,0xff)))
+        f.write(chr(random.randint(0, 0xff)))
     f.seek(0)
     return f
 
@@ -86,11 +89,22 @@ class TestQApplication(unittest.TestCase):
         unittest.TestCase.run(self, *args, **kwargs)
 
 
-    def test_store_and_read_bank(self):
-        self.test_if.put_new_bin_file_path(self.test_image_path)
+    def upload_file_and_verify(self, file_path):
+        self.test_if.put_new_bin_file_path(file_path)
+        time.sleep(0.5)
         self.test_if.click(self.test_if.buttons.save)
+        time.sleep(0.5)
         self.assertTrue(self.test_if.is_send_data_succeeded())
         self.assertTrue(self.test_if.is_emulation_panel_unlocked())
+        time.sleep(0.5)
+
+    def test_store_and_read_bank(self):
+        self.upload_file_and_verify(self.test_image_path)
+        # self.test_if.put_new_bin_file_path(self.test_image_path)
+        # self.test_if.click(self.test_if.buttons.save)
+        # self.assertTrue(self.test_if.is_send_data_succeeded())
+        # self.assertTrue(self.test_if.is_emulation_panel_unlocked())
+
         self.test_if.click(self.test_if.buttons.read_bank)
         self.assertTrue(self.test_if.is_receive_data_succeeded())
         received_current_file_path = self.test_if.get_received_file_path()
@@ -100,9 +114,11 @@ class TestQApplication(unittest.TestCase):
     def test_read_sram(self):
         self.test_if.put_new_bin_file_path(self.test_image_path)
         self.test_if.click(self.test_if.buttons.save)
+        time.sleep(0.5)
         self.assertTrue(self.test_if.is_send_data_succeeded())
         self.assertTrue(self.test_if.is_emulation_panel_unlocked())
         self.test_if.click(self.test_if.buttons.read_sram)
+        time.sleep(0.5)
         self.assertTrue(self.test_if.is_receive_data_succeeded())
         received_current_file_path = self.test_if.get_received_file_path()
         self.assertTrue(compare_two_files(self.test_image_path, received_current_file_path),
@@ -115,8 +131,8 @@ class TestQApplication(unittest.TestCase):
         One fail in read of bank name is allowed
         :return:
         """
-        rand_bin = create_random_bin()
-        bin_path = rand_bin.name
+        #rand_bin = create_random_bin()
+        #bin_path = rand_bin.name
         bank_name1 = randomString(5)
         bank_name2 = randomString(5)
         bank_name3 = randomString(5)
@@ -168,6 +184,37 @@ class TestQApplication(unittest.TestCase):
             bank1_name_read_test()
         except AssertionError:
             bank1_name_read_test()
+
+
+    def test_live_emulation(self):
+        with tempfile.NamedTemporaryFile(mode='w+b') as tmpf:
+            import os
+            self.assertTrue(os.path.isfile(tmpf.name))
+            for i in xrange(0x8000):
+                tmpf.write(chr(random.randint(0, 0xfe)))
+            tmpf.seek(0)
+            tmpf.flush()
+            self.upload_file_and_verify(tmpf.name)
+            time.sleep(0.5)
+            self.test_if.click(self.test_if.buttons.live_emulate)
+            time.sleep(0.5)
+            tmpf.seek(0)
+            tmpf.write('rafal')
+            tmpf.flush()
+            time.sleep(1)
+            tmpf.seek(0x8000/2)
+            tmpf.write(300*'\xff')
+            time.sleep(1)
+            tmpf.flush()
+            time.sleep(1)
+            self.test_if.click(self.test_if.buttons.live_emulate)
+            self.test_if.click(self.test_if.buttons.read_sram)
+            time.sleep(0.5)
+            self.assertTrue(self.test_if.is_receive_data_succeeded())
+            time.sleep(0.5)
+            received_current_file_path = self.test_if.get_received_file_path()
+            self.assertTrue(compare_two_files(tmpf.name, received_current_file_path),
+                            msg='Files are different')
 
 
     def tearDown(self):

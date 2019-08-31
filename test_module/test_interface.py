@@ -37,6 +37,7 @@ class TestInterface():
         self.buttons.bank3btn = self.parent.banks_panel.bank3pushButton
         self.buttons.save = self.parent.emulation_panel.save_button
         self.buttons.read_bank = self.parent.emulation_panel.read_bank_button
+        self.buttons.live_emulate = self.parent.emulation_panel.emulate_button
         try:
             self.buttons.read_sram = self.parent.emulation_panel.read_sram_button
         except AttributeError:
@@ -84,7 +85,7 @@ class TestInterface():
     def get_bank_in_use_testIF(self):
         return self.parent.bank_in_use
 
-    @check_with_timeout(10)
+    @check_with_timeout(20)
     def is_connected(self):
         return self.parent.recevive_emulator_data_thread.isRunning()
 
