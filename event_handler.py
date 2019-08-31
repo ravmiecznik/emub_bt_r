@@ -46,7 +46,7 @@ def general_signal_factory(slot):
     def wrapper():
         try:
             dbg_msg = "emit signal: name:{} id:{}".format(slot.__name__, slot)
-            debug(dbg_msg)
+            #debug(dbg_msg)
             signal_logger.debug(dbg_msg)
             return general_signal_factory.signal.emit(slot)
         except AttributeError:
