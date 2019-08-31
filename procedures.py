@@ -45,8 +45,10 @@ class BanksProcedures():
         """
         @thread_this_method(period=1, delay=1)
         def bank_in_use_monitor(self):
+            debug("monitor bank in use")
             if self.bank_in_use is None:
                 self.get_bank_in_use()
+                debug("setting bank in use")
 
         @thread_this_method()
         def read_bank_info(self):
