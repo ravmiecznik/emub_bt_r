@@ -1,23 +1,25 @@
 # emub_bt_r
 
-EMU_BT_R V1.1
+EMU_BT_R V1.3.1
 
 https://www.youtube.com/watch?v=0i5L0DQhbt8
 
 https://www.youtube.com/watch?v=bxWkzQrnqo4
 
+31.08.2019: Optimized disable and enable object for transmission which caused crashes
+	    Additional unit tests added for Live Emulation verification	
 23.07.2019: Optimized timings, num of retx, tested on Win10/LINUX
 
-First working version features:
+Working version features:
 
     Control:
     -autodiscovery of EMU_BT device
     -reflash procedure of EMU_BT device (with internal bootloader)
-    -config window (needs to be improved)
+    -config window
 
     Emulation:
     -EMULATE: tracks changes in selected binary file, if there is a change it is uploaded to SRAM memory of EMU_BT, changes are working until EMU_BT restart, volataile change
-    -SAVE: stores current binary file in EMU_BT flash memory (permanent save)
+    -SAVE: stores current binary file in EMU_BT flash memory (permanent save), autamatically saves bin file name in EMUBT
     -READ_BANK/READ_SRAM: downloads content of current flash bank or SRAM memory to file
     -auto_open checkbox: if selected it will open downloaded content in specified bin/hex editor
     -reload sram on sava checkbox: if checked it will trigger reload of sram memory after SAVE operation
@@ -49,6 +51,9 @@ First working version features:
 	-refactored and improved procedures: read bin data from emu, save bin data to emu
 	-in DBG: stdout, stderr to file for release version
 	-first version of digidiag implemented in EMUBT
+    
+    PROCEDURES:
+    -disable digidiag on connection, resume and check digidiag on tear down
     
     #TODO:
     -GuiThread must be simplified
