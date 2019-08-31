@@ -35,8 +35,6 @@ def assert_with_timeout(assertion, test, timeout=5, period=1, **kwargs):
 
 
 def compare_two_files(p1, p2):
-    with open("second_file.bin", 'wb') as f1, open(p2, 'rb') as f2:
-        f1.write(f2.read())
 
     with open(p1, 'rb') as f1, open(p2, 'rb') as f2:
         a, b = f1.read(), f2.read()

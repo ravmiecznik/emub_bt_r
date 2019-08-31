@@ -94,7 +94,7 @@ class BanksProcedures():
 
         def set_green_style_get_bank_info(self, bank_button):
             self.bank_in_use = ['bank 1', 'bank 2', 'bank 3'].index(bank_button.text()) + 1
-            print "set bank in use", self.bank_in_use
+            #print "set bank in use", self.bank_in_use
             def wrapper():
                 to_signal(bank_button.set_green_style_sheet)()
                 self.emulator.raw_buffer.flush()
