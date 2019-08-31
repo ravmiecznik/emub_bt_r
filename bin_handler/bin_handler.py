@@ -92,6 +92,7 @@ class BinFilePacketGenerator(BinFilePacketGeneratorAbstract, file):
     """
     def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, crc_attach = False):
         file.__init__(self, bin_file, 'rb')
+        self.bin_path = bin_file
         self.packet_size = packet_size
         self.crc_attach = crc_attach
         self.packets_get = 0

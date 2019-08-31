@@ -104,7 +104,8 @@ class MainWindow(QtGui.QMainWindow,
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
-    insert_new_file_ti_signal = pyqtSignal(object)
+    insert_new_file_signal = pyqtSignal(object)
+    set_new_bank_name_signal = pyqtSignal(object)
     config_window_apply_signal = pyqtSignal()
 
     #general signal may be used to send functions, can be implemented as dict
@@ -506,7 +507,12 @@ class MainWindow(QtGui.QMainWindow,
         self.general_signal.connect(self.general_signal_slot)
         self.disable_objects_for_transmission_signal = to_signal(self.__disable_objects_for_transmission)
         self.enable_objects_after_transmission_signal = to_signal(self.__enable_objects_after_transmission)
-        self.insert_new_file_ti_signal.connect(self.bin_file_panel.insert_new_file)
+        self.insert_new_file_signal.connect(self.bin_file_panel.insert_new_file)
+        self.set_new_bank_name_signal.connect(self.set_new_bank_name_slot)
+
+    def set_new_bank_name_slot(self, name):
+        self.banks_panel.put_bank_name(name)
+        GuiThread(self.set_bank_name, delay=0.5).start()
 
     def general_signal_slot(self, object):
         object()

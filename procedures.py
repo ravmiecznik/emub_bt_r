@@ -18,7 +18,7 @@ EEPROM_SIZE = 0x8000
 PACKET_SIZE = 256 * 8
 PACKETS_NUM = EEPROM_SIZE / PACKET_SIZE
 
-import platform
+import platform, os
 
 
 class RetxCount():
@@ -250,11 +250,14 @@ class StoreToFlashProcedure(RetxCount):
             while not self.__feedback_received:
                 time.sleep(0.001)
                 self.check_if_timeout(self.t0, timeout)
+        bin_name = os.path.basename(self.bin_packets.bin_path).split('.')[0].replace('received_', '')
+        self.parent.set_new_bank_name_signal.emit(bin_name)
         if self.reload_sram:
             Message(id=Message.ID.reload_sram,
                     positive_signal=to_signal(self.parent.message_handler.print_rx_buffer_to_console))
         self.tear_down()
         self.get_writing_stats()
+        self.parent.insert_new_file_signal.emit(bin_name)
 
     def tear_down(self):
         self.blink_save_btn.kill()
@@ -268,8 +271,9 @@ class ReadBinDataAbstract(RetxCount):
     """
     Abstract class for any data receiver class
     """
-    def __init__(self, rx_buffer, max_retx=5):
+    def __init__(self, rx_buffer, max_retx=5, rx_file_name_template='received_'):
         self.__rx_buffer = rx_buffer
+        self.__rx_file_template = rx_file_name_template + '{}'
         self.max_retx = max_retx
         self.progress_bar = self.parent.progress_bar
         self.show_progress = self.progress_bar.set_val_signal.emit
@@ -306,7 +310,7 @@ class ReadBinDataAbstract(RetxCount):
 
 
     def save_received_file(self):
-        rx_file_name = "reveived_{}".format(self.parent.banks_panel.bank_name_line_edit.text())
+        rx_file_name = self.__rx_file_template.format(self.parent.banks_panel.bank_name_line_edit.text())
         if platform != 'Linux':
             rx_file_name = rx_file_name.replace('/', '\\')
         rx_file_name = rx_file_name.replace(' ', '_')
@@ -363,7 +367,7 @@ class ReadSramProcedure_V2(ReadBinDataAbstract):
     def __init__(self, parent):
         self.parent = parent
         self.msg_id = Message.ID.get_sram_packet
-        ReadBinDataAbstract.__init__(self, rx_buffer=self.parent.rx_buffer)
+        ReadBinDataAbstract.__init__(self, rx_buffer=self.parent.rx_buffer, rx_file_name_template='received_sram_')
 
     def tear_down(self):
         ReadBinDataAbstract.tear_down(self)
