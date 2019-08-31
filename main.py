@@ -138,7 +138,6 @@ class MainWindow(QtGui.QMainWindow,
 
         self.help_text = QLabel(self.centralwidget, max_text_size=(x_siz/4.8, 4))
         self.help_text.raise_()
-        self.connect_signals()
 
 
         self.update_config_file_signal.connect(self.update_config_file)
@@ -185,7 +184,7 @@ class MainWindow(QtGui.QMainWindow,
         self.blink_discovery_btn()
         # create discovery thread in init---------------------------------------------------------
 
-
+        self.connect_signals()
         self.setup_emulator()
 
         #init procedures
@@ -429,6 +428,7 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def __disable_objects_for_transmission(self):
+        self.bank_in_use_monitor.suspend()
         self.emulation_panel.setDisabled(True)
         self.banks_panel.setDisabled(True)
         self.control_panel.reflash_button.setDisabled(True)
@@ -447,6 +447,7 @@ class MainWindow(QtGui.QMainWindow,
         #self.console.command_line.setDisabled(False)
         self.console.reset_button.setDisabled(False)
         self.console.help_button.setDisabled(False)
+        self.bank_in_use_monitor.resume()
 
 
 
@@ -505,6 +506,7 @@ class MainWindow(QtGui.QMainWindow,
         self.general_signal.connect(self.general_signal_slot)
         self.disable_objects_for_transmission_signal = to_signal(self.__disable_objects_for_transmission)
         self.enable_objects_after_transmission_signal = to_signal(self.__enable_objects_after_transmission)
+        self.insert_new_file_ti_signal.connect(self.bin_file_panel.insert_new_file)
 
     def general_signal_slot(self, object):
         object()
