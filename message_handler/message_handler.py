@@ -84,7 +84,7 @@ class Message():
         self.expected_resp_len = len(resp_positive)
         self.max_retx = max_retx
         self.resp = 'NO RESP'
-        self.catch_response_thrd = self.catch_response()
+        #self.catch_response_thrd = self.catch_response()
         self.extra_action_on_nack = extra_action_on_nack
         self.extra_action_on_ack = extra_action_on_ack
         #negative signal called when max_retx exceeded
@@ -128,7 +128,7 @@ class Message():
         """
         Message.flush_rx_buffer()
         if self.max_retx < 2:
-            time.sleep(1)
+            time.sleep(0.5)
         if self.max_retx:
             warn("'{resp}' received on reg: '{req} id: {id}...' Trying retx {retx}...".format(resp=self.resp, req=self.raw_msg[0:40], id=self.id, retx=self.max_retx))
             self.__resend()
@@ -156,19 +156,21 @@ class Message():
                 return False
         Message.lock = True
         Message.flush_rx_buffer()
-        self.catch_response.start()
+        self.catch_response()
         debug("Send msg {}".format(self.raw_msg[0:20]))
         msg = create_message(id=self.id, body=self.raw_msg,
                              fail_crc_factor=self.fail_crc_factor) if self.create_header else self.raw_msg
         Message.send(msg)
+        self.catch_resp_thread.wait()
 
     def __resend(self):
         Message.flush_rx_buffer()
-        self.catch_response.start()
+        self.catch_response()
         debug("resend msg {}".format(self.raw_msg[0:20]))
         msg = create_message(id=self.id, body=self.raw_msg,
                              fail_crc_factor=self.fail_crc_factor) if self.create_header else self.raw_msg
         Message.send(msg)
+        self.catch_resp_thread.wait()
 
     def unrecognized_resp_handler(self):
         error("Unhandable resp: '{}' on req: '{}...' Flushing rx buffer".format(self.resp + Message.rx_buffer.read(), self.raw_msg[0:40]))
@@ -186,8 +188,6 @@ class Message():
     def catch_response(self):
             def wait_for_msg():
                 t0 = time.time()
-                print self.id
-                print self.raw_msg
                 while Message.rx_buffer.available() < self.expected_resp_len:
                     time.sleep(0.001)
 
@@ -195,8 +195,9 @@ class Message():
                         self.resp ='dtx'
                         return False
                 self.resp = Message.rx_buffer.read(self.expected_resp_len)
-            self.catch_response = GuiThread(wait_for_msg, action_when_done=to_signal(self.handle_resp))
-            return self.catch_response
+            self.catch_resp_thread = GuiThread(wait_for_msg, action_when_done=to_signal(self.handle_resp))
+            self.catch_resp_thread.start()
+
 
 
 @method_call_track

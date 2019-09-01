@@ -261,7 +261,7 @@ class StoreToFlashProcedure(RetxCount):
 
     def tear_down(self):
         #self.blink_save_btn.kill()
-        self.blink_save_btn.termiante()
+        self.blink_save_btn.terminate()
         self.__progress_bar_hide_signal.emit()
         self.__enable_objects_after_transmission_signal.emit()
 
@@ -388,7 +388,7 @@ class SyncFileToSramProcedure():
             if self.bin_tracker.track_file.isRunning():
                 #self.bin_tracker.track_file.kill()
                 self.bin_tracker.track_file.terminate()
-                self.emulation_panel.emulate_button.set_default_style_sheet()
+                GuiThread(to_signal(self.emulation_panel.emulate_button.set_default_style_sheet), delay=0.1).start()
                 return
         except AttributeError:
             pass

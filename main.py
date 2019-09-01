@@ -356,7 +356,7 @@ class MainWindow(QtGui.QMainWindow,
             self.gui_communication_signal.emit("Total mem: {}".format(tot_mem))
             self.gui_communication_signal.emit("Total dict mem: {}".format(sys.getsizeof(GuiThread.threads_dict)))
         elif cmd == 'kill threads':
-            GuiThread.kill_all_threads()
+            GuiThread.suspend_all_threads()
             self.recevive_emulator_data_thread.start()
             self.console.console_text_browser.clear()
         elif cmd == 'digidiag_on':
@@ -377,9 +377,10 @@ class MainWindow(QtGui.QMainWindow,
             self.bank_in_use = None
             self.emulator.flush()
             self.enable_objects_after_transmission_signal()
+            self.recevive_emulator_data_thread.resume()
         Message('resetemu', positive_signal=null_function,
-                extra_action_on_nack=action_on_reset,
-                extra_action_on_ack=action_on_reset)
+               extra_action_on_nack=action_on_reset,
+               extra_action_on_ack=action_on_reset)
 
         #Message('resetemu', positive_signal=self.disable_digidiag)
 
@@ -469,6 +470,10 @@ class MainWindow(QtGui.QMainWindow,
         self.gui_communication_signal.emit("Bootloader activation failed")
 
 
+    def suspend_all_threads_bt_rx_thread(self):
+        GuiThread.suspend_all_threads()
+        self.recevive_emulator_data_thread.resume()
+
     def reflash_app_slot(self):
         """
         Will call and display new reflasher window
@@ -476,12 +481,13 @@ class MainWindow(QtGui.QMainWindow,
         """
         self.setEnabled(False)
         #GuiThread.kill_all_threads()
-        GuiThread.suspend_all_threads()
+        self.suspend_all_threads_bt_rx_thread()
+        #GuiThread.suspend_all_threads()
         self.recevive_emulator_data_thread.start()
         self.emulator.rx_buffer.read()
         current_position_and_size = WindowGeometry(self)
         x_pos = current_position_and_size.get_position_to_the_right()
-        self.reflasher = Reflasher(self.app_status_file, self.emulator, signal_on_close=to_signal(self.reflash_window_close_slot))
+        self.reflasher = Reflasher(self.app_status_file, self.emulator, receive_data_thread=self.recevive_emulator_data_thread, signal_on_close=to_signal(self.reflash_window_close_slot))
         x_offset = 15
         y_offset = 100
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
@@ -566,19 +572,20 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def set_connected(self):
+
         self.connect_button.setText("disconnect")
-        self.connect_button.set_green_style_sheet()
-        self.connect_button.set_green_style_sheet()
         self.recevive_emulator_data_thread.start()
+        self.recevive_emulator_data_thread.resume()
         self.enable_objects_after_transmission_signal()
         Message('digidiag_off', positive_signal=self.console_msg_factory('digidiag disabled'))
-        #GuiThread(self.get_bank_in_use, delay=0.5).start()
-        #self.bank_in_use_monitor.start()
+        GuiThread(process=to_signal(self.connect_button.set_green_style_sheet), delay=0.6).start()
+        GuiThread(self.get_bank_in_use, delay=0.5).start()
+        self.bank_in_use_monitor.start()
 
 
     def set_disconnected(self):
         self.disable_objects_for_transmission_signal()
-        GuiThread.kill_all_threads()
+        GuiThread.suspend_all_threads()
         #self.recevive_emulator_data_thread.kill()
         self.connect_button.setText("Connect")
         self.connect_button.set_default_style_sheet()
@@ -605,13 +612,13 @@ class MainWindow(QtGui.QMainWindow,
                 #self.connection_thread.kill()
                 #self.recevive_emulator_data_thread.kill()
                 self.connection_thread.terminate()
-                self.recevive_emulator_data_thread.terminate()
+                self.recevive_emulator_data_thread.suspend()
                 self.emulator.disconnect()
                 self.set_connection_status()
         else:
             self.__digidiag_on()
             #self.recevive_emulator_data_thread.kill()
-            self.recevive_emulator_data_thread.terminate()
+            self.recevive_emulator_data_thread.suspend()
             self.emulator.disconnect()
             self.set_connection_status()
 

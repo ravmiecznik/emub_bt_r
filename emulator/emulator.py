@@ -103,7 +103,7 @@ class Emulator():
         return self.connected
 
     def flush(self):
-        self.bt_connection.recv(256*16)
+        #self.bt_connection.recv(256*16)
         self.raw_buffer.flush()
         self.rx_buffer.flush()
 
@@ -123,7 +123,6 @@ class Emulator():
         :param rx_buffer_ready_slot:
         :return:
         """
-
         tmp_buff = self.__try_get_data()
         if tmp_buff:
             self.rx_buffer.write(tmp_buff)

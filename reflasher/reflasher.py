@@ -29,13 +29,14 @@ class TextBrowserInSubWindow(QtGui.QTextBrowser):
 
 #@method_call_track
 class Reflasher(QtGui.QWidget):
-    def __init__(self, app_status_file, emulator, signal_on_close=None):
+    def __init__(self, app_status_file, emulator, receive_data_thread, signal_on_close=None):
         QtGui.QWidget.__init__(self)
         self.setWindowTitle("REFLASH")
         self.x_siz, self.y_siz = 400, 200
         mainGrid = QtGui.QGridLayout()
         mainGrid.setSpacing(10)
         self.emulator = emulator
+        receive_data_thread.resume()
         self.signal_on_close = signal_on_close
         self.app_status_file = app_status_file
         self.line_edit = QtGui.QLineEdit()
