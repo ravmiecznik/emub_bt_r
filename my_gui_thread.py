@@ -3,13 +3,13 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 import traceback
-from setup_emubt import logger, info, tstamp, error, warn, ExceptionLogger, debug
+from setup_emubt import logger, info, error, warn, debug
+from loggers import tstamp
 from collections import OrderedDict
 import time
 from PyQt4.QtCore import QThread
 
 
-threads_exception_logger = ExceptionLogger("threads_exceptions")
 
 def thread_this_method(**thread_kwargs):
     """
@@ -86,6 +86,7 @@ def thread_periodic_print(msg='', print_method=info):
 
 
 #@shallow_track_class_calls
+
 class GuiThread(QThread):
     threads_dict = AliasedThreadsDict()
 
@@ -280,11 +281,5 @@ class GuiThread(QThread):
         return GuiThread.__dict__['suspend_all_threads']
 
 
-
-if __name__ == "__main__":
-    import types
-    print type(GuiThread.suspend_all_threads)
-    print GuiThread.__dict__
-    print type(GuiThread.__dict__['suspend_all_threads']) in [staticmethod]
-    print type(getattr(GuiThread, 'suspend_all_threads'))
-    print GuiThread.check()
+from gui_thread import SimpleGuiThread
+GuiThread = SimpleGuiThread

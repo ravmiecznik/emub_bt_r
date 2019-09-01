@@ -4,12 +4,12 @@ contact: ravmiecznk@gmail.com
 """
 
 import configparser
-from setup_emubt import info, warn, debug, error, create_logger
+from setup_emubt import info, warn, debug, error, create_logger, LOG_PATH
 import bluetooth
 from circ_io_buffer import CircIoBuffer
 import time
 
-rx_logger = create_logger('rx_data')
+rx_logger = create_logger('rx_data', log_path=LOG_PATH)
 rx_debug = rx_logger.debug
 
 class Emulator():

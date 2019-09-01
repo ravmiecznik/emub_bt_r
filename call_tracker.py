@@ -11,12 +11,14 @@ ENABLE_TRACKING = True
 log_format = '[%(asctime)s]: %(levelname)s %(message)s'
 logger_name = "call_tracker"
 
-logger = setup_emubt.create_logger(logger_name, log_format, log_to_file=True)
+logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.LOG_PATH, format=log_format, log_to_file=True)
 
 info = logger.info
 debug = logger.debug
 error = logger.error
 warn = logger.warn
+
+
 
 def cut_args(a, size=100):
     """

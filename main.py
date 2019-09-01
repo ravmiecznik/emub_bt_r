@@ -12,7 +12,7 @@ platform = platform.system()
 #     import qdarkstyle
 
 
-from setup_emubt import logger, info, debug, error, warn, ExceptionLogger, EMU_BT_PATH, LOG_PATH
+from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
 from PyQt4 import QtCore, QtGui
@@ -385,7 +385,7 @@ class MainWindow(QtGui.QMainWindow,
 
     def disable_digidiag(self):
        self.message_handler.print_rx_buffer_to_console()
-       Message('digidiag_off')
+       #Message('digidiag_off')
        GuiThread(self.get_bank_in_use, delay=0.5).start()
 
     def read_emubt_config(self):
@@ -475,7 +475,8 @@ class MainWindow(QtGui.QMainWindow,
         :return:
         """
         self.setEnabled(False)
-        GuiThread.kill_all_threads()
+        #GuiThread.kill_all_threads()
+        GuiThread.suspend_all_threads()
         self.recevive_emulator_data_thread.start()
         self.emulator.rx_buffer.read()
         current_position_and_size = WindowGeometry(self)
@@ -567,12 +568,12 @@ class MainWindow(QtGui.QMainWindow,
     def set_connected(self):
         self.connect_button.setText("disconnect")
         self.connect_button.set_green_style_sheet()
+        self.connect_button.set_green_style_sheet()
         self.recevive_emulator_data_thread.start()
         self.enable_objects_after_transmission_signal()
-        self.bank_in_use_monitor.start()
-        time.sleep(0.2)
         Message('digidiag_off', positive_signal=self.console_msg_factory('digidiag disabled'))
-        GuiThread(self.get_bank_in_use, delay=0.5).start()
+        #GuiThread(self.get_bank_in_use, delay=0.5).start()
+        #self.bank_in_use_monitor.start()
 
 
     def set_disconnected(self):
@@ -585,7 +586,8 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def set_connection_status(self):
-        self.blink_connect_btn.kill()
+        #self.blink_connect_btn.kill()
+        self.blink_connect_btn.terminate()
         if self.emulator.get_connection_status() == True:
             self.set_connected()
         else:
@@ -600,13 +602,16 @@ class MainWindow(QtGui.QMainWindow,
             if not self.connection_thread.isRunning():
                 self.connection_thread.start()
             else:
-                self.connection_thread.kill()
-                self.recevive_emulator_data_thread.kill()
+                #self.connection_thread.kill()
+                #self.recevive_emulator_data_thread.kill()
+                self.connection_thread.terminate()
+                self.recevive_emulator_data_thread.terminate()
                 self.emulator.disconnect()
                 self.set_connection_status()
         else:
             self.__digidiag_on()
-            self.recevive_emulator_data_thread.kill()
+            #self.recevive_emulator_data_thread.kill()
+            self.recevive_emulator_data_thread.terminate()
             self.emulator.disconnect()
             self.set_connection_status()
 
@@ -622,7 +627,8 @@ class MainWindow(QtGui.QMainWindow,
 
 
     def discovery_thread_teardown(self):
-        self.blink_discovery_btn.kill()
+        #self.blink_discovery_btn.kill()
+        self.blink_discovery_btn.terminate()
 
 
     def discover_emu_bt_slot(self):

@@ -156,7 +156,7 @@ class Message():
                 return False
         Message.lock = True
         Message.flush_rx_buffer()
-        self.catch_response().start()
+        self.catch_response.start()
         debug("Send msg {}".format(self.raw_msg[0:20]))
         msg = create_message(id=self.id, body=self.raw_msg,
                              fail_crc_factor=self.fail_crc_factor) if self.create_header else self.raw_msg
@@ -164,7 +164,7 @@ class Message():
 
     def __resend(self):
         Message.flush_rx_buffer()
-        self.catch_response().start()
+        self.catch_response.start()
         debug("resend msg {}".format(self.raw_msg[0:20]))
         msg = create_message(id=self.id, body=self.raw_msg,
                              fail_crc_factor=self.fail_crc_factor) if self.create_header else self.raw_msg
@@ -186,13 +186,17 @@ class Message():
     def catch_response(self):
             def wait_for_msg():
                 t0 = time.time()
+                print self.id
+                print self.raw_msg
                 while Message.rx_buffer.available() < self.expected_resp_len:
                     time.sleep(0.001)
+
                     if time.time() - t0 > self.timeout:
                         self.resp ='dtx'
                         return False
                 self.resp = Message.rx_buffer.read(self.expected_resp_len)
-            return GuiThread(wait_for_msg, action_when_done=to_signal(self.handle_resp), alias=self.raw_msg[0:20])
+            self.catch_response = GuiThread(wait_for_msg, action_when_done=to_signal(self.handle_resp))
+            return self.catch_response
 
 
 @method_call_track

@@ -9,6 +9,7 @@ import os
 from PyQt4 import QtGui
 #from message_box import message_box, show_welcome_msg
 import message_box
+from loggers import create_logger, log_format
 
 setup_file = 'emu_bt.stp'
 #EMU_BT_PATH = ''
@@ -51,41 +52,7 @@ if not os.path.exists(LOG_PATH):
 if not os.path.exists(BIN_PATH):
     os.makedirs(BIN_PATH)
 
-def tstamp():
-    ts = time.localtime()
-    ts_ms = time.time()%60
-    ts_ms = "{:.3f}".format(ts_ms).zfill(6)
-    return "{:02d}:{:02d}:{}:".format(ts.tm_hour, ts.tm_min, ts_ms)
-
-log_format = '[%(asctime)s %(filename)s:%(lineno)d in func:%(funcName)s thr:%(threadName)s]: %(levelname)s %(message)s'
-
-def create_logger(name, format=log_format, log_level=logging.DEBUG, log_to_file=True):
-    log_formatter = logging.Formatter(format)
-    if log_to_file:
-        log_file = '{}.log'.format(name)
-        log_file = os.path.join(LOG_PATH, log_file)
-        with open(log_file, 'w') as lf:
-            lf.write('')
-        handler = logging.FileHandler(log_file)
-    else:
-        handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(log_formatter)
-
-    logger = logging.getLogger(name)
-    logger.setLevel(log_level)
-    logger.addHandler(handler)
-    return logger
-
-class ExceptionLogger():
-    def __init__(self, name='main_exceptions'):
-        log_format = '[%(asctime)s]: %(levelname)s %(message)s'
-        logger_name = name
-        self.exception_logger = create_logger(logger_name, log_format, log_to_file=True)
-
-    def write(self, msg):
-        self.exception_logger.error(msg)
-
-logger = create_logger("emu_bt", log_format)
+logger = create_logger("emu_bt", log_path=LOG_PATH, format=log_format)
 
 info = logger.info
 debug = logger.debug
