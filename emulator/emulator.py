@@ -4,12 +4,12 @@ contact: ravmiecznk@gmail.com
 """
 
 import configparser
-from setup_emubt import info, warn, debug, error, create_logger
+from setup_emubt import info, warn, debug, error, create_logger, LOG_PATH
 import bluetooth
 from circ_io_buffer import CircIoBuffer
 import time
 
-rx_logger = create_logger('rx_data')
+rx_logger = create_logger('rx_data', log_path=LOG_PATH)
 rx_debug = rx_logger.debug
 
 class Emulator():
@@ -103,7 +103,7 @@ class Emulator():
         return self.connected
 
     def flush(self):
-        self.bt_connection.recv(256*16)
+        #self.bt_connection.recv(256*16)
         self.raw_buffer.flush()
         self.rx_buffer.flush()
 
@@ -123,7 +123,6 @@ class Emulator():
         :param rx_buffer_ready_slot:
         :return:
         """
-
         tmp_buff = self.__try_get_data()
         if tmp_buff:
             self.rx_buffer.write(tmp_buff)

@@ -10,7 +10,7 @@ import setup_emubt
 DBG = False
 
 logger_name = "event_handler"
-evh_logger = setup_emubt.create_logger(logger_name, log_to_file=True)
+evh_logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.EMU_BT_PATH, log_to_file=True)
 
 class EventHandler(object):
 
@@ -34,7 +34,7 @@ class EventHandler(object):
 
 
 logger_name = "signal_calls"
-signal_logger = setup_emubt.create_logger(logger_name, log_to_file=True)
+signal_logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.EMU_BT_PATH, log_to_file=True)
 
 def general_signal_factory(slot):
     """

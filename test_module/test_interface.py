@@ -29,7 +29,7 @@ class TestInterface():
 
     def __init__(self, main_window):
         self.parent = main_window
-        self.parent.insert_new_file_ti_signal.connect(self.parent.bin_file_panel.insert_new_file)
+        #self.parent.set_new_bank_name_signal.connect(self.parent.bin_file_panel.insert_new_file)
         self.parent.bank_in_use = None
         self.buttons = Container()
         self.buttons.bank1btn = self.parent.banks_panel.bank1pushButton
@@ -102,7 +102,7 @@ class TestInterface():
         time.sleep(wait)
 
     def put_new_bin_file_path(self, text):
-        self.parent.insert_new_file_ti_signal.emit(text)
+        self.parent.insert_new_file_signal.emit(text)
 
     def enter_bank_name(self, text):
         self.parent.banks_panel.bank_name_line_edit.setText(text)
