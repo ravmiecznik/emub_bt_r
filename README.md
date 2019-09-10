@@ -6,14 +6,14 @@ https://www.youtube.com/watch?v=0i5L0DQhbt8
 
 https://www.youtube.com/watch?v=bxWkzQrnqo4
 
-23.07.2019: Optimized timings, num of retx, tested on Win10/LINUX
-10.09.2019: Version 2.0 works with EMUBT.avr V >= 2.0
-            Messaging scheme change:
-            -message sender: add new field to msg header: context_id
-            -implememnt general message receiver according to new message sender from EMUBT board
-            -new msg sender from the board will send a message body and message tail in the end with: msg_id, context_id, crc, msg_len
-            -with msg_tail it will be possible to read message body from rx_buffer and put it to message storage (dictionary ?)
-            -it will be possible to read message from storage by its context_id (msg_storage.pop(context_id))
+    23.07.2019: Optimized timings, num of retx, tested on Win10/LINUX
+    10.09.2019: Version 2.0 works with EMUBT.avr V >= 2.0
+                Messaging scheme change:
+                    -message sender: add new field to msg header: context_id
+                    -implememnt general message receiver according to new message sender from EMUBT board
+                    -new msg sender from the board will send a message body and message tail in the end with: msg_id, context_id, crc, msg_len
+                    -with msg_tail it will be possible to read message body from rx_buffer and put it to message storage (dictionary ?)
+                    -it will be possible to read message from storage by its context_id (msg_storage.pop(context_id))
 
 First working version features:
 
