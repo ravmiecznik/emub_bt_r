@@ -15,6 +15,7 @@ rx_debug = rx_logger.debug
 class Emulator():
     def __init__(self, port, address, event_handler=None, timeout=1):
         debug("Init of {}".format(Emulator.__name__))
+        self.__rcv_chunk_size = 128
         self.__lock = False
         self.connected = False
         self.event_handler = event_handler
@@ -27,7 +28,7 @@ class Emulator():
         #self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
 
     def init_rxbuffers(self):
-        self.rx_buffer = CircIoBuffer(byte_size=256*16)
+        #self.rx_buffer = CircIoBuffer(byte_size=256*16)
         self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
 
     def lock(self):
@@ -89,7 +90,8 @@ class Emulator():
                 emu = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                 emu.connect((self.address, int(self.port)))
                 self.bt_connection = emu
-                emu.settimeout(self.emu_timeout)
+                #emu.settimeout(self.emu_timeout)
+                emu.settimeout((float(self.__rcv_chunk_size) * 9)/115200)
                 self.event_handler.message("connected to emu device")
                 self.connected = True
                 return
@@ -109,11 +111,11 @@ class Emulator():
 
     def __try_get_data(self):
         try:
-            rcv = self.bt_connection.recv(100)
+            rcv = self.bt_connection.recv(self.__rcv_chunk_size)
             rx_debug("Received data amount: {}".format(len(rcv)))
             rx_debug("rcv: {} ..".format(rcv[0:50]))
             return rcv
-        except (bluetooth.btcommon.BluetoothError, IOError):
+        except (bluetooth.btcommon.BluetoothError, IOError) as e:
             #Linux and Windows support different exceptions here
             return None
 
@@ -123,20 +125,15 @@ class Emulator():
         :param rx_buffer_ready_slot:
         :return:
         """
+        t0 = time.time()
         tmp_buff = self.__try_get_data()
-        if tmp_buff:
-            self.rx_buffer.write(tmp_buff)
-            self.raw_buffer.write(tmp_buff)
         while tmp_buff:
+            while not self.raw_buffer.write(tmp_buff): time.sleep(0.001)
             tmp_buff = self.__try_get_data()
-            if tmp_buff:
-                self.rx_buffer.write(tmp_buff)
-                self.raw_buffer.write(tmp_buff)
-        if self.rx_buffer.available():
-           self.event_handler.get_emu_rx_buffer_slot()
+            if time.time() - t0 > 1:
+                break
         if self.raw_buffer.available():
             self.event_handler.get_raw_rx_buffer_slot()
-
 
     def send(self, data):
         if not self.__lock:

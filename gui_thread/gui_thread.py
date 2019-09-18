@@ -44,6 +44,7 @@ class SimpleGuiThread(QThread):
 
     def __init__(self, process, args=(), kwargs={}, period=0, delay=None, action_when_done=None):
         QThread.__init__(self)
+        self.result = None
         self.target = process
         self.__period = period
         self.__delay = delay
@@ -54,6 +55,7 @@ class SimpleGuiThread(QThread):
         self.__suspend = False
         self.__action_when_done = action_when_done
         self.__was_suspension_communicated = False
+        self.__is_running = False
 
     def suspend(self):
         self.__suspend = True
@@ -61,6 +63,12 @@ class SimpleGuiThread(QThread):
 
     def resume(self):
         self.__suspend = False
+
+    def returned(self):
+        return self.result
+
+    def is_running(self):
+        return self.__is_running
 
     @property
     def t_id(self):
@@ -70,13 +78,14 @@ class SimpleGuiThread(QThread):
         if self.__delay: time.sleep(self.__delay)
         if not self.__suspend:
             t_logger.debug("start of: {}, period: {}".format(self, self.__period))
-            self.target(*self.__args, **self.__kwargs)
+            self.result = self.target(*self.__args, **self.__kwargs)
         elif not self.__was_suspension_communicated:
             t_logger.debug("suspended: {}".format(self))
             self.__was_suspension_communicated = True
 
 
     def run(self):
+        self.__is_running = True
         if self.__delay: time.sleep(self.__delay)
         while self.__period != 0:
             self.__run()
@@ -85,6 +94,7 @@ class SimpleGuiThread(QThread):
             self.__run()
         if self.__action_when_done:
             self.__action_when_done()
+        self.__is_running = False
         self.kill()
 
 

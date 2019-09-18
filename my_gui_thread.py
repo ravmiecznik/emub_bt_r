@@ -55,6 +55,8 @@ class ThreadById():
     def __repr__(self):
         return self.__str__()
 
+
+"""
 class AliasedThreadsDict(dict):
     def __setitem__(self, key, value):
         if isinstance(value, list) and isinstance(value[0], ThreadById):
@@ -280,6 +282,6 @@ class GuiThread(QThread):
     def check():
         return GuiThread.__dict__['suspend_all_threads']
 
-
+"""
 from gui_thread import SimpleGuiThread
 GuiThread = SimpleGuiThread

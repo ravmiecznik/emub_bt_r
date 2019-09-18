@@ -4,7 +4,6 @@ contact: ravmiecznk@gmail.com
 """
 
 from message_handler.crc import crc
-from message_handler import Message
 from io import BytesIO
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QFileDialog
@@ -16,6 +15,7 @@ from my_gui_thread import GuiThread, thread_this_method
 from event_handler import EventHandler, to_signal
 import time
 from setup_emubt import error, info, debug, warn
+from message_handler import MessageSender
 from call_tracker import method_call_track
 
 class TextBrowserInSubWindow(QtGui.QTextBrowser):
@@ -29,8 +29,9 @@ class TextBrowserInSubWindow(QtGui.QTextBrowser):
 
 #@method_call_track
 class Reflasher(QtGui.QWidget):
-    def __init__(self, app_status_file, emulator, receive_data_thread, signal_on_close=None):
+    def __init__(self, app_status_file, emulator, receive_data_thread, signal_on_close=None, message_handler=None):
         QtGui.QWidget.__init__(self)
+        self.message_handler = message_handler
         self.setWindowTitle("REFLASH")
         self.x_siz, self.y_siz = 400, 200
         mainGrid = QtGui.QGridLayout()
@@ -58,16 +59,19 @@ class Reflasher(QtGui.QWidget):
         mainGrid.addWidget(self.cancel_button,  5, 0, 1, 1)
         mainGrid.addWidget(self.reflash_button, 5, 4, 1, 1)
         self.flash_succeeded = False
-        self.rx_buffer = self.emulator.rx_buffer
+        self.rx_buffer = self.emulator.raw_buffer
         self.setLayout(mainGrid)
         self.last_hex_path = self.get_last_hex_file_path()
         line_edit_text = self.last_hex_path if self.last_hex_path else "SELECT HEX FILE: press button---->"
         self.line_edit.setText(line_edit_text)
         self.configure_event_handler()
         self.send_bin_image_thread()
-        self.check_if_bootloader_ready()
-        self.check_if_bootloader_ready.start()
+        #self.check_if_bootloader_ready()
+        #self.check_if_bootloader_ready.start()
+        self.send('help')
+        time.sleep(2)
         self.get_packetsize()
+        self.get_packetsize.start()
         self.resize(self.x_siz, self.y_siz)
         self.reflash_button.setDisabled(True)
 
@@ -103,6 +107,7 @@ class Reflasher(QtGui.QWidget):
                 self.text_browser.append("Timeout in {}".format(self.get_packetsize.__name__))
                 return False
             content = self.rx_buffer.peek()
+            print content
         packetsize = self.rx_buffer.read()
         try:
             self.packetsize = int(packetsize[0: packetsize.index(eot)])
@@ -138,7 +143,7 @@ class Reflasher(QtGui.QWidget):
     def __close(self):
         #if not self.flash_succeeded:
         #    self.send('run_main_app')
-        self.emulator.rx_buffer.read()
+        self.emulator.raw_buffer.read()
         self.emulator.set_event_handler(self.old_event_handler)
         self.signal_on_close()
 
@@ -246,18 +251,21 @@ class Reflasher(QtGui.QWidget):
         self.reflash_button.setDisabled(True)
         self.cancel_button.setText("CLOSE")
         self.cancel_button.setFocus(True)
+        time.sleep(0.5)
+        self.message_handler.send(m_id=MessageSender.ID.disable_btlrd)
 
     def verify_version(self):
         self.text_browser.append("Check if reflash suceeded")
         time.sleep(1)
-        self.rx_buffer.flush()
-        Message('digidiag_off', positive_signal=to_signal(self.__get_version))
+        self._prepare_to_quit()
+        #self.rx_buffer.flush()
+        #Message('digidiag_off', positive_signal=to_signal(self.__get_version))
 
-    def __get_version(self):
-        Message(id=Message.ID.rxflush, positive_signal=to_signal(self.get_version))
+    # def __get_version(self):
+    #     Message(id=Message.ID.rxflush, positive_signal=to_signal(self.get_version))
 
     def get_version(self):
-        Message('version')
+        context = self.message_handler.send(m_id=MessageSender.ID.handshake)
         if self.wait_for_resp(self.expected_version, timeout=1):
             self.text_browser.append("Found installed version: {}".format(self.expected_version))
             self.text_browser.append("Reflashing OK")

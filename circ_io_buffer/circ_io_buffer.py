@@ -20,6 +20,13 @@ class CircIoBuffer(BytesIO):
         self._head = 0
         self._tail = self._available % self._limit
         self._set_head(bytes_len)
+        self.__write_locked = False
+
+    def lock_write(self):
+        self.__write_locked = True
+
+    def unlock_write(self):
+        self.__write_locked = False
 
     def available(self):
         return self._available
@@ -35,11 +42,15 @@ class CircIoBuffer(BytesIO):
         self._set_tail(bytes_len)
 
     def write(self, bytes):
-        bytes = bytes[-self._limit:]
-        bytes_1 = bytes[0: self._limit - self._tail]
-        bytes_2 = bytes[self._limit - self._tail:]
-        self._write(bytes_1)
-        self._write(bytes_2)
+        if not self.__write_locked:
+            bytes = bytes[-self._limit:]
+            bytes_1 = bytes[0: self._limit - self._tail]
+            bytes_2 = bytes[self._limit - self._tail:]
+            self._write(bytes_1)
+            self._write(bytes_2)
+            return True
+        else:
+            return False
 
     def _set_head(self, bytes_amount, read_flag=False):
         if self._available >= self._limit or read_flag:
@@ -130,4 +141,10 @@ def insert_str(string, substring, pos):
     return string
 
 if __name__ == "__main__":
-    pass
+    cb = CircIoBuffer(byte_size=10)
+    cb.write('rafal')
+    cb.write('rafal')
+    for i in '123456':
+        cb.write(i)
+        print cb.peek()
+
