@@ -432,6 +432,7 @@ class WritePackets():
         self.bin_packets = bin_packets
         self.tx_stats = TransmissionStats()
         self.write_thread = GuiThread(self.write_packets_procedure)
+        self.parent_send_msg = parent.send_message
 
     def check_repsonse(self, context):
         retx_timeout = 1
@@ -449,12 +450,12 @@ class WritePackets():
         _context = self.message_handler.send(MessageSender.ID.write_to_page, body=msg_body)
         return _context
 
-    def tear_down(self):
+    def __tear_down(self):
         self.gui_communication_signal.emit("Upload failed")
         to_signal(self.progress_bar.hide).emit()
 
     def write_packets_procedure(self):
-        max_timeout = 20
+        max_timeout = 25
         t_start = time.time()
         self.progress_bar.set_title("SENDING")
         to_signal(self.progress_bar.display).emit()
@@ -480,9 +481,11 @@ class WritePackets():
             else:
                 self.tx_stats.nack()
             if time.time() - t_start > max_timeout:
-                self.tear_down()
+                self.__tear_down()
                 raise SendTimeout("TIMEOUT")
         else:
+            #self.relaod_sram_thread.start()
+            self.parent_send_msg(MessageSender.ID.reload_sram)
             self.gui_communication_signal.emit("File transmitted in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
         to_signal(self.progress_bar.hide).emit()
@@ -490,7 +493,8 @@ class WritePackets():
 
 
 class ReadPackets():
-    def __init__(self, parent):
+    def __init__(self, parent, message_id):
+        self.message_id = message_id
         self.rx_message_buffer = parent.rx_message_buffer
         self.message_handler = parent.message_handler
         self.gui_communication_signal = parent.gui_communication_signal
@@ -498,6 +502,10 @@ class ReadPackets():
         self.tx_stats = TransmissionStats()
         self.read_thread = GuiThread(self.read_packets_procedure)
         self.received = BytesIO()
+
+
+    def extra_teardown(self):
+        pass
 
     def check_repsonse(self, context):
         retx_timeout = 1
@@ -514,10 +522,10 @@ class ReadPackets():
 
     def get_packet(self, packet_num):
         msg_body = struct.pack('B', packet_num)
-        _context = self.message_handler.send(MessageSender.ID.get_sram_packet, body=msg_body)
+        _context = self.message_handler.send(self.message_id, body=msg_body)
         return _context
 
-    def tear_down(self):
+    def tear_down_on_fail(self):
         self.gui_communication_signal.emit("Read failed")
         to_signal(self.progress_bar.hide).emit()
 
@@ -530,7 +538,7 @@ class ReadPackets():
         while self.progress_bar.isHidden(): time.sleep(0.1)
         while packet_num < 16:
             if self.progress_bar.isHidden():
-                self.gui_communication_signal.emit("Upload procedure terminated")
+                self.gui_communication_signal.emit("Read procedure terminated")
                 break
             context = self.get_packet(packet_num=packet_num)
             response = self.check_repsonse(context)
@@ -543,11 +551,28 @@ class ReadPackets():
                 self.tx_stats.nack()
                 time.sleep(0.5)
             if time.time() - t_start > max_timeout:
-                self.tear_down()
+                self.tear_down_on_fail()
                 break
                 raise SendTimeout("TIMEOUT")
         else:
             self.gui_communication_signal.emit("File reveived in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
+            self.extra_teardown()
         to_signal(self.progress_bar.hide).emit()
-        print bin_repr(self.received)
+        #print bin_repr(self.received)
+
+
+class ReadSramProcedure(ReadPackets):
+    def __init__(self, parent):
+        ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_sram_packet)
+        self.reload_sram_thread = parent.reload_sram
+
+
+    def extra_teardown(self):
+        self.reload_sram_thread.start()
+
+
+class ReadBankProcedure(ReadPackets):
+    def __init__(self, parent):
+        ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_bank_packet)
+

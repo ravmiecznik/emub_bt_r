@@ -57,6 +57,16 @@ class SimpleGuiThread(QThread):
         self.__was_suspension_communicated = False
         self.__is_running = False
 
+    def set_args(self, args):
+        if not type(args) is tuple:
+            raise Exception("Args must be tuple, got: {} type of: {}".format(args, type(args)))
+        self.__args = args
+
+    def set_kwargs(self, kwargs):
+        if not type(kwargs) is dict:
+            raise Exception("Args must be dict, got: {} type of: {}".format(kwargs, type(kwargs)))
+        self.__kwargs = kwargs
+
     def suspend(self):
         self.__suspend = True
         self.__was_suspension_communicated = False
@@ -85,6 +95,7 @@ class SimpleGuiThread(QThread):
 
 
     def run(self):
+        t_logger.debug("Run: {}, ARGS: {}, KWARGS: {}".format(self.target, self.__args, self.__kwargs))
         self.__is_running = True
         if self.__delay: time.sleep(self.__delay)
         while self.__period != 0:

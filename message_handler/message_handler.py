@@ -5,8 +5,8 @@ contact: ravmiecznk@gmail.com
 This module handles both message sending and message reception.
 
 RxMessage structure:
- MESSAGE_BODY_BYTES<MSG_TAIL>
-
+ MESSAGE_BODY_BYTES<MSG_TAIL>crc_tail
+   ?bytes           10 bytes 2bytes
 Because of Atmega128 limited ram memory there is a message body sent first and it's tail in the end.
 Tail acts like a header but attached in msg tail with all information: ID, CONTEXT, LEN, CRC. All those fields
 are calculated when each msg byte is transmitted. Using those fileds allows to verify msg integrity and with
@@ -20,7 +20,7 @@ from datetime import datetime
 from crc import crc
 from random import randrange
 from call_tracker import method_call_track
-from auxiliary_module import Uint16
+from auxiliary_module import Uint16, MeanCalculator
 from loggers import create_logger
 import time, os
 from setup_emubt import LOG_PATH
@@ -102,11 +102,21 @@ class MessageSender:
         get_write_stats = 11
         bootloader      = 12
         disable_btlrd   = 13
+        dummy           = 14
+        reset           = 15
 
-    def __init__(self, tx_interface):
+        @classmethod
+        def translate_id(cls, m_id):
+            try:
+                return [p[0] for p in MessageSender.ID.__dict__.items() if p[1] == m_id][0]
+            except IndexError:
+                return None
+
+    def __init__(self, tx_interface, rx_buffer):
         self.__transmit = tx_interface
+        self.__rx_buffer = rx_buffer
 
-    def __send_m(self, msg):
+    def __send_m(self, msg, m_id):
         """
         Send createad message.
          Avoid using recovered context_ids
@@ -115,8 +125,9 @@ class MessageSender:
         MessageSender.context += 1
         while MessageSender.context in MessageSender.reserved_context:
             MessageSender.context += 1
+        translated_m_id = MessageSender.ID.translate_id(m_id)
+        m_logger.debug("Sent message with context: {}, id: {}({})".format(context, translated_m_id, m_id))
         self.__transmit(msg)
-        m_logger.debug("Sent message with context: {}".format(context))
         return context
 
 
@@ -135,6 +146,7 @@ class MessageSender:
 
 
     def __send(self, m_id=None, body='NULL'):
+        #self.__rx_buffer.flush()
         timeout = 2
         t0 = time.time()
         if MessageSender.lock: m_logger.debug("message sending locked, waiting")
@@ -142,10 +154,11 @@ class MessageSender:
             time.sleep(0.001)
             if time.time() - t0 > timeout:
                 m_logger.error("TIMEOUT in wait for unlock")
+                MessageSender.lock = False
                 raise TxTimeout
         MessageSender.lock = True
         msg = create_message(id=m_id, body=body, context=MessageSender.context) if m_id is not None else body
-        context = self.__send_m(msg)
+        context = self.__send_m(msg, m_id)
         MessageSender.lock = False
         m_logger.debug("message sending unlocked")
         return context
@@ -175,7 +188,7 @@ class RxMessage(object):
         nak_feedback,
     };
     """
-    rx_id_tuple = ('ack', 'nack', 'dtx')
+    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt')
     rx_id = RxId(rx_id_tuple)
     class CRC_result():
         ack     = 0
@@ -245,25 +258,28 @@ class MessageReceiver():
     Checks given rx buffer if message is present there.
         struct  Tail
         {
-            uint8_t     tail_start = TAIL_START_MARK; // '>'
+            uint8_t     tail_start = TAIL_START_MARK; // '<'
             uint16_t    id = 0;
             uint16_t    context = 0;
             uint16_t    msg_len = 0;
-            uint16_t    crc = 0;
-            uint8_t     tail_end = TAIL_END_MARK; // '<'
+            uint16_t    body_crc= 0;
+            uint8_t     tail_end = TAIL_END_MARK; // '>'
         }
+        uint16_t    tail_crc= 0;
     """
     TAIL_LEN = 10
     TAIL_START_MARK = '<'
     TAIL_END_MARK = '>'
+    TAIL_CRC_SHIFT_POS = 3
     ts = time.time()
     LOCKED = False
     def __init__(self, rx_buffer):
         self.rx_buffer = rx_buffer
+        self.__mean_rx_time = MeanCalculator()
 
     def check_tail(self, peek_buff):
-        peek_buff_len = len(peek_buff)
         init_find = peek_buff.find(MessageReceiver.TAIL_START_MARK)
+        peek_buff_len = len(peek_buff)
         for i in xrange(peek_buff_len - MessageReceiver.TAIL_LEN + init_find):
             latest_find = i + init_find
             try:
@@ -272,14 +288,23 @@ class MessageReceiver():
                 tail_end_mark = peek_buff[latest_find:][tail_end_mark_pos]
             except IndexError:
                 return False
-            if tail_end_mark == MessageReceiver.TAIL_END_MARK:
-                tail = peek_buff[latest_find:][tail_start_mark_pos + 1: tail_end_mark_pos]
-                _id = struct.unpack('H', tail[0:2])[0]
-                _context = struct.unpack('H', tail[2:4])[0]
-                _msg_len = struct.unpack('H', tail[4:6])[0]
-                _crc = tail[6:8]
-                if _id < len(RxMessage.rx_id_tuple) and _msg_len < MAX_PACKET_SIZE and _context < 0xffff and self.rx_buffer.available() > _msg_len:
-                    return _id, _context, _msg_len, _crc, tail_start_mark_pos + latest_find, tail_end_mark_pos + latest_find
+            try:
+                if tail_end_mark == MessageReceiver.TAIL_END_MARK:
+                    peek_buff = peek_buff[latest_find:]
+                    tail = peek_buff[tail_start_mark_pos: tail_end_mark_pos]
+                    _full_tail = peek_buff[tail_start_mark_pos: tail_end_mark_pos+1]
+                    _id = struct.unpack('H', tail[1:3])[0]
+                    _context = struct.unpack('H', tail[3:5])[0]
+                    _msg_len = struct.unpack('H', tail[5:7])[0]
+                    _body_crc = tail[7:9]
+
+                    _tail_crc = peek_buff[tail_end_mark_pos+1: tail_end_mark_pos + MessageReceiver.TAIL_CRC_SHIFT_POS]
+                    tail_integrity = _tail_crc == crc(_full_tail)    #tail integrity check
+                    if _id < len(RxMessage.rx_id_tuple) and _msg_len < MAX_PACKET_SIZE and _context < 0xffff \
+                            and self.rx_buffer.available() > _msg_len and tail_integrity:
+                        return _id, _context, _msg_len, _body_crc, tail_start_mark_pos + latest_find, tail_end_mark_pos + latest_find
+            except struct.error:
+                return False
         return False
 
     def get_message(self):
@@ -288,21 +313,21 @@ class MessageReceiver():
             MessageReceiver.LOCKED = True
             peek_buff = self.rx_buffer.peek()
             try:
-                _check_tail = self.check_tail(peek_buff)
-                if _check_tail:
-                    _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = _check_tail
-
-                    msg_body = self.rx_buffer.read(tail_end_mark_pos + 1)[tail_start_mark_pos-_msg_len:tail_start_mark_pos]
+                check_tail_result = self.check_tail(peek_buff)
+                if check_tail_result:
+                    _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
+                    msg_body = self.rx_buffer.read(tail_end_mark_pos + 1 + 2)
+                    msg_body = msg_body[:tail_start_mark_pos]
                     MessageReceiver.ts = time.time()
                     crc_check = RxMessage.CRC_result.ack if _crc == crc(msg_body) else RxMessage.CRC_result.nack
                     rxmsg = RxMessage(msg_id=_id, crc_check=crc_check, length=len(msg_body), context=_context, body=msg_body)
                     m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
                     MessageReceiver.LOCKED = False
                     if _crc == crc(msg_body):
-                        m_logger.debug("Message got in: {}".format(time.time() - t0))
+                        self.__mean_rx_time.count(time.time() - t0)
+                        m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
                         return rxmsg
             except ValueError as e:
-                print e
                 m_logger.error(e)
         MessageReceiver.LOCKED = False
 

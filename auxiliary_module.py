@@ -29,8 +29,31 @@ class Uint16(int):
     def __div__(self, other):
         return Uint16(int.__div__(self, other))
 
+
+class MeanCalculator():
+    def __init__(self):
+        self.__val = float(0)
+        self.__cnt = 0
+
+    def count(self, val):
+        self.__val += val
+        self.__cnt += 1
+
+    def calc(self):
+        try:
+            return self.__val/self.__cnt
+        except ZeroDivisionError:
+            return 0
+
+    def __add__(self, other):
+        self.count(other)
+        return self
+
+    def __repr__(self):
+        return "Mean {}".format(self.calc())
+
 if __name__ == "__main__":
-    i = Uint16(0xfffd)
-    i += 1
-    i *= 67
-    print i
+    c = MeanCalculator()
+    c += 1
+    c += 2
+    print c

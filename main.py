@@ -21,17 +21,17 @@ from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
 from main_window import ColorProgressBar
 from objects_with_help import HelpTip
-from my_gui_thread import GuiThread, thread_this_method
+from my_gui_thread import GuiThread, thread_this_method, SimpleGuiThread
 from bt_discover import bt_search
 from console import Console
 from call_tracker import method_call_track
 from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
-from message_handler import MessageSender, MessageReceiver, RxMessage
+from message_handler import MessageSender, MessageReceiver, RxMessage, TxTimeout
 from config_window import ConfigWindow, ConfigSettings
 # from procedures import BanksProcedures, ReadSramProcedure_V2, StoreToFlashProcedure, \
 #     ReadBankProcedure_V2, SyncFileToSramProcedure
-from procedures import WritePackets, ReadPackets
+from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
 from digidiag import DigidagReceiver, DigidiagTimeout
 from message_box import message_box
@@ -232,7 +232,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         #self.read_sram_procedure = ReadSramProcedure_V2(self)
         #self.read_bank_button_slot = self.read_bank_procedure.read_data_button_slot
         #self.read_sram_button_slot = self.read_sram_procedure.read_data_button_slot
-        #self.event_handler.add_event(to_signal(self.read_bank_button_slot), 'read_bank_button_slot')
+        self.event_handler.add_event(to_signal(self.read_bank_button_slot), 'read_bank_button_slot')
         self.event_handler.add_event(to_signal(self.read_sram_button_slot), 'read_sram_button_slot')
         self.emulation_panel.set_event_handler(self.event_handler)
 
@@ -247,6 +247,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
         #self.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
+        self.send_message_thread = SimpleGuiThread(self.__send_message, args=())
 
 
     def initUI(self):
@@ -254,8 +255,31 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         #self.show()
 
 
+    def __send_message(self, m_id):
+        re_tx = 3
+        self.message_handler.send(MessageSender.ID.rxflush)
+        self.rx_buffer.flush()
+        #time.sleep(1)
+        context = self.message_handler.send(m_id)
+        time.sleep(0.5)
+        while context not in self.rx_message_buffer and re_tx >= 0:
+            context = self.message_handler.send(m_id)
+            re_tx -= 1
+            debug("ReTx: {}".format(MessageSender.ID.translate_id(m_id)))
+            time.sleep(0.5)
+
+
+    def send_message(self, message_id):
+        self.send_message_thread.set_args((message_id,))
+        self.send_message_thread.start()
+
+
     def read_sram_button_slot(self):
-        self.read_sram = ReadPackets(self)
+        self.read_sram = ReadSramProcedure(self)
+        self.read_sram.read_thread.start()
+
+    def read_bank_button_slot(self):
+        self.read_sram = ReadBankProcedure(self)
         self.read_sram.read_thread.start()
 
     def save_button_slot(self):
@@ -284,7 +308,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.port, self.address = self.read_emubt_config()
         self.emulator = Emulator(self.port, self.address, timeout=self.__receive_data_period/2)
         self.emulator.set_event_handler(self.event_handler)
-        self.message_handler = MessageSender(self.emulator.send)
+        self.message_handler = MessageSender(self.emulator.send, self.emulator.raw_buffer)
 
     def config_window_apply_slot(self):
         """
@@ -353,20 +377,23 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         t0 = time.time()
         msg = self.message_receiver.get_message()
         while msg:
-            if msg.id == RxMessage.rx_id_tuple.index('ack') and msg.context == 0:   #random text
+            if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
                 self.gui_communication_signal.emit("E: {}".format(msg.msg))
-            else:
-                self.rx_message_buffer[msg.context] = msg
+            self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
             if time.time() - t0 > 1:
                 debug('periodic break')
                 break
             cnt += 1
 
-    @thread_this_method(period=0.5)
-    def show_rx_messages(self):
-
-
+    @thread_this_method(period=3)
+    def heartbeat(self):
+        return
+        try:
+            print 'send'
+            self.message_handler.send(m_id=MessageSender.ID.txt_message, body='hb')
+        except (AttributeError, TxTimeout) as e:
+            pass
         return
         if self.rx_message_buffer:
             print 20 * '-'
@@ -403,7 +430,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if cmd[0:2] == 'E:':
             self.handle_E_command(cmd.split('E:')[1])
         elif self.emulation_panel.isEnabled():
-            self.message_handler.send_txt_msg(cmd)
+            self.message_handler.send(m_id=MessageSender.ID.txt_message, body=cmd)
             #self.message_handler.send(cmd)
             # self.disable_objects_for_transmission_signal()
             # Message(cmd, positive_signal=self.message_handler.print_rx_buffer_to_console,
@@ -432,28 +459,21 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.message_handler.send(id=MessageSender.ID.handshake)
         elif cmd == 'd':
             self.message_handler.send(m_id=MessageSender.ID.disable_btlrd)
+        elif cmd == 's':
+            self.send_message(MessageSender.ID.reload_sram)
         else:
             self.gui_communication_signal.emit("unsuported command")
 
     def send_help_cmd_slot(self):
-        self.disable_objects_for_transmission_signal()
-        Message('help', positive_signal=self.message_handler.print_rx_buffer_to_console,
-                extra_action_on_nack=self.enable_objects_after_transmission_signal,
-                extra_action_on_ack=self.enable_objects_after_transmission_signal)
+        self.send_message(MessageSender.ID.handshake)
+        #self.disable_objects_for_transmission_signal()
+        #Message('help', positive_signal=self.message_handler.print_rx_buffer_to_console,
+        #        extra_action_on_nack=self.enable_objects_after_transmission_signal,
+        #        extra_action_on_ack=self.enable_objects_after_transmission_signal)
 
 
     def send_resetemu_slot(self):
-        self.disable_objects_for_transmission_signal()
-        def action_on_reset():
-            self.bank_in_use = None
-            self.emulator.flush()
-            self.enable_objects_after_transmission_signal()
-            self.recevive_emulator_data_thread.resume()
-        Message('resetemu', positive_signal=null_function,
-               extra_action_on_nack=action_on_reset,
-               extra_action_on_ack=action_on_reset)
-
-        #Message('resetemu', positive_signal=self.disable_digidiag)
+        self.send_message(MessageSender.ID.reset)
 
     def disable_digidiag(self):
        self.message_handler.print_rx_buffer_to_console()
@@ -498,7 +518,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 print 'break', ('BOOTLOADER' not in self.rx_buffer) and ('command unknown:' not in self.rx_buffer)
                 break
         else:
-            print 'else'
             to_signal(self.reflash_app_slot)()
         # Message('run_bootloader\n', create_header=False, resp_positive='BOOTLOADER',
         #         positive_signal=to_signal(self.reflash_app_slot),
@@ -550,10 +569,15 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
         self.reflasher.show()
 
+    @thread_this_method()
+    def disable_bootloader_thread(self):
+        self.message_handler
+
 
     def reflash_window_close_slot(self):
         self.setEnabled(True)
         GuiThread.resume_all_threads()
+        self.send_message(MessageSender.ID.disable_btlrd)
         #Message('disable_bootloader')
 
     def __disable_objects_for_transmission(self):
@@ -647,8 +671,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         #self.connection_thread.action_when_done = to_signal(self.set_connection_status)
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1)
         #self.digidiag_on = GuiThread(self.__digidiag_on)
-        self.show_rx_messages()
-        self.show_rx_messages.start()
+        self.heartbeat()
+        self.heartbeat.start()
+        #self.reload_sram()
 
 
     def set_connected(self):

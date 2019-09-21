@@ -74,6 +74,8 @@ class Reflasher(QtGui.QWidget):
         self.get_packetsize.start()
         self.resize(self.x_siz, self.y_siz)
         self.reflash_button.setDisabled(True)
+        self.text_browser.append("!WARNING!")
+        self.text_browser.append("You are going to upload new firmware to EMUBT\n")
 
     @thread_this_method()
     def check_if_bootloader_ready(self, timeout=2):
@@ -112,7 +114,7 @@ class Reflasher(QtGui.QWidget):
         try:
             self.packetsize = int(packetsize[0: packetsize.index(eot)])
             self.reflash_button.setDisabled(False)
-            self.text_browser.append("Packetsize: {}".format(self.packetsize))
+            #self.text_browser.append("Packetsize: {}".format(self.packetsize))
             self.text_browser.append("Bootloader ready")
         except ValueError:
             if self.get_packetsize_max_retx == 1:
@@ -143,6 +145,8 @@ class Reflasher(QtGui.QWidget):
     def __close(self):
         #if not self.flash_succeeded:
         #    self.send('run_main_app')
+        self.send('run_main_app')
+        time.sleep(0.5)
         self.emulator.raw_buffer.read()
         self.emulator.set_event_handler(self.old_event_handler)
         self.signal_on_close()
@@ -184,7 +188,7 @@ class Reflasher(QtGui.QWidget):
         if not self.expected_version:
             self.text_browser.append("This file is not EMU BT hex file")
             self.text_browser.append("Can't continue")
-            self.send('run_main_app')
+            #self.send('run_main_app')
             return
         self.resize(self.x_siz, self.y_siz + 100)
         self.send('write_p:{size} {addr}'.format(addr=0, size=len(self.bin_image)))
