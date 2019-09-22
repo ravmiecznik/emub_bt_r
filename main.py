@@ -118,7 +118,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def __init__(self, is_test=False):
 
-        self.__receive_data_period = 0.001
+        self.__receive_data_period = 0.01
         self.bank_in_use = None
         self.is_test = is_test
         print 'PATH', EMU_BT_PATH
@@ -285,7 +285,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.read_sram.read_thread.start()
 
     def save_button_slot(self):
-        self.message_handler.send(MessageSender.ID.rxflush)
         bin_path = self.bin_file_panel.get_current_file()
         try:
             bin_packets = BinFilePacketGenerator(bin_path)
