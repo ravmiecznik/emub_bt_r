@@ -513,7 +513,7 @@ class ReadPackets():
         pass
 
     def check_repsonse(self, context):
-        retx_timeout = 1
+        retx_timeout = 0.5
         t0 = time.time()
         while context not in self.rx_message_buffer:
             if time.time() - t0 > retx_timeout:
@@ -535,6 +535,8 @@ class ReadPackets():
         to_signal(self.progress_bar.hide).emit()
 
     def read_packets_procedure(self):
+        self.message_handler.send(MessageSender.ID.rxflush)
+        time.sleep(0.5)
         max_timeout = 20
         t_start = time.time()
         self.progress_bar.set_title("RECEIVING")
@@ -574,11 +576,11 @@ class ReadPackets():
 class ReadSramProcedure(ReadPackets):
     def __init__(self, parent):
         ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_sram_packet)
-        self.reload_sram_thread = parent.reload_sram
+        self.parent_send_msg = parent.send_message
 
 
     def extra_teardown(self):
-        self.reload_sram_thread.start()
+        self.parent_send_msg(MessageSender.ID.reload_sram)
 
 
 class ReadBankProcedure(ReadPackets):

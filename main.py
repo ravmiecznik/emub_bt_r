@@ -118,7 +118,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def __init__(self, is_test=False):
 
-        self.__receive_data_period = 0.01
+        self.__receive_data_period = 0.001
         self.bank_in_use = None
         self.is_test = is_test
         print 'PATH', EMU_BT_PATH
@@ -464,6 +464,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.send_message(MessageSender.ID.reload_sram)
         else:
             self.gui_communication_signal.emit("unsuported command")
+
+    def reload_sram(self):
+        self.send_message(MessageSender.ID.reload_sram)
 
     def send_help_cmd_slot(self):
         self.send_message(MessageSender.ID.handshake)

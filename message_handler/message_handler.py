@@ -22,7 +22,7 @@ from random import randrange
 from call_tracker import method_call_track
 from auxiliary_module import Uint16, MeanCalculator
 from loggers import create_logger
-import time, os
+import time, os, sys
 from setup_emubt import LOG_PATH
 
 log_format = '[%(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
@@ -202,7 +202,10 @@ class RxMessage(object):
         self.__context = context
         self.__crc_result = self.__set_result(crc_check)        #crc calculated from msg raceived vs tail crc
         self.__body = self.__set_body(body)
-        self.__tstamp = datetime.now().strftime("%H:%M:%S.%s")
+        if sys.platform == 'Linux':
+            self.__tstamp = datetime.now().strftime("%H:%M:%S.%s")
+        elif sys.platform == 'win32':
+            self.__tstamp = datetime.now().strftime("%H:%M:%S.%ms")
         self.__len = length
 
     def __set_body(self, body):
@@ -313,23 +316,23 @@ class MessageReceiver():
         if not MessageReceiver.LOCKED and (self.rx_buffer.available() >= MessageReceiver.TAIL_LEN):
             MessageReceiver.LOCKED = True
             peek_buff = self.rx_buffer.peek()
-            try:
-                check_tail_result = self.check_tail(peek_buff)
-                if check_tail_result:
-                    _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
-                    msg_body = self.rx_buffer.read(tail_end_mark_pos + 1 + 2)
-                    msg_body = msg_body[:tail_start_mark_pos]
-                    MessageReceiver.ts = time.time()
-                    crc_check = RxMessage.CRC_result.ack if _crc == crc(msg_body) else RxMessage.CRC_result.nack
-                    rxmsg = RxMessage(msg_id=_id, crc_check=crc_check, length=len(msg_body), context=_context, body=msg_body)
-                    m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
-                    MessageReceiver.LOCKED = False
-                    if _crc == crc(msg_body):
-                        self.__mean_rx_time.count(time.time() - t0)
-                        m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
-                        return rxmsg
-            except ValueError as e:
-                m_logger.error(e)
+            #try:
+            check_tail_result = self.check_tail(peek_buff)
+            if check_tail_result:
+                _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
+                msg_body = self.rx_buffer.read(tail_end_mark_pos + 1 + 2)
+                msg_body = msg_body[:tail_start_mark_pos]
+                MessageReceiver.ts = time.time()
+                crc_check = RxMessage.CRC_result.ack if _crc == crc(msg_body) else RxMessage.CRC_result.nack
+                rxmsg = RxMessage(msg_id=_id, crc_check=crc_check, length=len(msg_body), context=_context, body=msg_body)
+                m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
+                MessageReceiver.LOCKED = False
+                if _crc == crc(msg_body):
+                    self.__mean_rx_time.count(time.time() - t0)
+                    m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
+                    return rxmsg
+            #except ValueError as e:
+            #    m_logger.error(e)
         MessageReceiver.LOCKED = False
 
 
