@@ -383,7 +383,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
             if time.time() - t0 > 1:
-                debug('periodic break')
+                debug('guard periodic break')
                 break
             cnt += 1
 

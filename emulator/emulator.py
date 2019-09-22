@@ -131,6 +131,7 @@ class Emulator():
             while not self.raw_buffer.write(tmp_buff): time.sleep(0.001)
             tmp_buff = self.__try_get_data()
             if time.time() - t0 > 1:
+                debug('guard periodic break')
                 break
         if self.raw_buffer.available():
             self.event_handler.get_raw_rx_buffer_slot()
