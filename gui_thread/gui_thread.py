@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
         def __init__(self):
             QtGui.QMainWindow.__init__(self)
-            self.thr = SimpleGuiThread(process=test_fun, period=0.2)
+            self.thr = SimpleGuiThread(process=fun, period=0.2)
             SimpleGuiThread.threads[0].start()
             time.sleep(1)
             print id(self.thr)
@@ -179,8 +179,8 @@ if __name__ == "__main__":
             return
 
 
-    def test_fun():
-        print test_fun.__name__
+    def fun():
+        print fun.__name__
 
     app = QtGui.QApplication(sys.argv)
     myapp = MainW()

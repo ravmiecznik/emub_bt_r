@@ -435,12 +435,12 @@ class WritePackets():
         self.parent_send_msg = parent.send_message
 
     def check_repsonse(self, context):
-        retx_timeout = 1
+        retx_timeout = 0.5
         t0 = time.time()
         while context not in self.rx_message_buffer:
             if time.time() - t0 > retx_timeout:
                 return RxMessage.rx_id_tuple.index('dtx')
-            time.sleep(0.0001)
+            time.sleep(0.001)
         else:
             result = self.rx_message_buffer.pop(context).id  # gets message and returns id from buffer
         return result
@@ -455,6 +455,8 @@ class WritePackets():
         to_signal(self.progress_bar.hide).emit()
 
     def write_packets_procedure(self):
+        self.message_handler.send(MessageSender.ID.rxflush)
+        time.sleep(0.5)
         max_timeout = 25
         t_start = time.time()
         self.progress_bar.set_title("SENDING")
@@ -467,8 +469,11 @@ class WritePackets():
             if self.progress_bar.isHidden():
                 self.gui_communication_signal.emit("Upload procedure terminated")
                 break
+            self.check_resp_thr = GuiThread(self.check_repsonse, args=(MessageSender.context,))
+            self.check_resp_thr.start()
             context = self.send_packet(packet, packet_num=packet_num)
-            response = self.check_repsonse(context)
+            while self.check_resp_thr.returned() is None: time.sleep(0.001)
+            response = self.check_resp_thr.returned()
 
             if response == RxMessage.rx_id_tuple.index('ack'):
                 self.tx_stats.ack()
@@ -540,9 +545,13 @@ class ReadPackets():
             if self.progress_bar.isHidden():
                 self.gui_communication_signal.emit("Read procedure terminated")
                 break
+
+            self.check_resp_thr = GuiThread(self.check_repsonse, args=(MessageSender.context,))
+            self.check_resp_thr.start()
             context = self.get_packet(packet_num=packet_num)
-            response = self.check_repsonse(context)
-            #self.progress_bar.set_val_signal.emit(float(packet_num) / 16 * 100)
+            while self.check_resp_thr.returned() is None: time.sleep(0.001)
+            #response = self.check_repsonse(context)
+            response = self.check_resp_thr.returned()
             if response == RxMessage.rx_id_tuple.index('ack'):
                 self.tx_stats.ack()
                 self.progress_bar.set_val_signal.emit(float(packet_num) / 16 * 100)

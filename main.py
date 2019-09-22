@@ -275,10 +275,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
 
     def read_sram_button_slot(self):
+        self.message_handler.send(MessageSender.ID.rxflush)
         self.read_sram = ReadSramProcedure(self)
         self.read_sram.read_thread.start()
 
     def read_bank_button_slot(self):
+        self.message_handler.send(MessageSender.ID.rxflush)
         self.read_sram = ReadBankProcedure(self)
         self.read_sram.read_thread.start()
 
@@ -287,7 +289,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         bin_path = self.bin_file_panel.get_current_file()
         try:
             bin_packets = BinFilePacketGenerator(bin_path)
-
         except IOError as e:
             self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
             raise e

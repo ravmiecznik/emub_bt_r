@@ -147,7 +147,7 @@ class MessageSender:
 
     def __send(self, m_id=None, body='NULL'):
         #self.__rx_buffer.flush()
-        timeout = 2
+        timeout = 4
         t0 = time.time()
         if MessageSender.lock: m_logger.debug("message sending locked, waiting")
         while MessageSender.lock:
@@ -194,6 +194,7 @@ class RxMessage(object):
         ack     = 0
         nack    = 1
         dtx     = 2
+        txt     = 3
 
 
     def __init__(self, msg_id, context, crc_check, body, length):
