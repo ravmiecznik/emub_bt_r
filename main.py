@@ -301,10 +301,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.write_packets = WritePackets(self, bin_packets)
         self.write_packets.write_thread.start()
 
-
-
-
-
     def setup_emulator(self):
         self.port, self.address = self.read_emubt_config()
         self.emulator = Emulator(self.port, self.address, timeout=self.__receive_data_period/2)
@@ -409,9 +405,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def set_bank_in_use(self, bank_no):
         self.banks_panel.set_active_button(bank_no)
 
-    def set_bank_name(self):
+    def set_bank_name(self, bank_name=None):
+        if bank_name is None:
+            bank_name = str(self.banks_panel.get_bank_name_text())
+        bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
         self.banks_panel.disable_active_button()
-        self.send_message(MessageSender.ID.set_bank_name, body=str(self.banks_panel.get_bank_name_text()))
+        self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
 
 
     @thread_this_method(period=3)

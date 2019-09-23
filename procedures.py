@@ -433,6 +433,7 @@ class WritePackets():
         self.tx_stats = TransmissionStats()
         self.write_thread = GuiThread(self.write_packets_procedure)
         self.parent_send_msg = parent.send_message
+        self.set_bank_name = parent.set_bank_name
 
     def check_repsonse(self, context):
         retx_timeout = 0.5
@@ -495,6 +496,10 @@ class WritePackets():
             self.gui_communication_signal.emit(self.tx_stats)
         to_signal(self.progress_bar.hide).emit()
         self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
+        bank_name = os.path.basename(self.bin_packets.bin_path)
+        bank_name = os.path.splitext(bank_name)[0]
+        self.set_bank_name(bank_name)
+
 
 
 class ReadPackets():
