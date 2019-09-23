@@ -109,7 +109,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
     insert_new_file_signal = pyqtSignal(object)
-    set_new_bank_name_signal = pyqtSignal(object)
+    #set_new_bank_name_signal = pyqtSignal(object)
+    set_banks_panel_bank_name_signal = pyqtSignal(object)
     config_window_apply_signal = pyqtSignal()
 
     #general signal may be used to send functions, can be implemented as dict
@@ -158,10 +159,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.get_raw_rx_buffer_slot))
         self.event_handler.add_event(to_signal(self.send_help_cmd_slot))
         self.event_handler.add_event(to_signal(self.send_resetemu_slot))
-        #self.event_handler.add_event(to_signal(self.bank1set_slot))
-        #self.event_handler.add_event(to_signal(self.bank2set_slot))
-        #self.event_handler.add_event(to_signal(self.bank3set_slot))
-        #self.event_handler.add_event(to_signal(self.set_bank_name))
+        self.event_handler.add_event(to_signal(self.bank1set_slot))
+        self.event_handler.add_event(to_signal(self.bank2set_slot))
+        self.event_handler.add_event(to_signal(self.bank3set_slot))
+        self.event_handler.add_event(to_signal(self.set_bank_name))
         #self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
         #self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         #self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
@@ -247,7 +248,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
         #self.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
-        self.send_message_thread = SimpleGuiThread(self.__send_message, args=())
 
 
     def initUI(self):
@@ -255,22 +255,23 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         #self.show()
 
 
-    def __send_message(self, m_id):
+    def __send_message(self, m_id, body='NULL'):
+        self.message_handler.send(m_id=MessageSender.ID.rxflush, body=body)
+        time.sleep(0.1)
         re_tx = 3
         self.message_handler.send(MessageSender.ID.rxflush)
         self.rx_buffer.flush()
         #time.sleep(1)
         context = self.message_handler.send(m_id)
-        time.sleep(0.5)
         while context not in self.rx_message_buffer and re_tx >= 0:
-            context = self.message_handler.send(m_id)
+            context = self.message_handler.send(m_id, body=body)
             re_tx -= 1
             debug("ReTx: {}".format(MessageSender.ID.translate_id(m_id)))
-            time.sleep(0.5)
+            time.sleep(0.3)
 
 
-    def send_message(self, message_id):
-        self.send_message_thread.set_args((message_id,))
+    def send_message(self, message_id, body='NULL'):
+        self.send_message_thread = SimpleGuiThread(self.__send_message, args=(message_id, body))
         self.send_message_thread.start()
 
 
@@ -373,18 +374,45 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
 
     def get_raw_rx_buffer_slot(self):
+        banks = ['bank1set', 'bank2set', 'bank3set']
         cnt = 0
         t0 = time.time()
         msg = self.message_receiver.get_message()
         while msg:
             if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
                 self.gui_communication_signal.emit("E: {}".format(msg.msg))
+            if msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
+                self.set_bank_in_use(banks.index(msg.msg))
+            if msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
+                self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
             self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
             if time.time() - t0 > 1:
                 debug('guard periodic break')
                 break
             cnt += 1
+
+    #BANKS PROCEDURES
+    def bank1set_slot(self):
+        self.bank_set_slot(0)
+
+    def bank2set_slot(self):
+        self.bank_set_slot(1)
+
+    def bank3set_slot(self):
+        self.bank_set_slot(2)
+
+    def bank_set_slot(self, bank_num):
+        msg_id = [MessageSender.ID.bank1_set,MessageSender.ID.bank2_set, MessageSender.ID.bank3_set][bank_num]
+        self.send_message(message_id=msg_id)
+
+    def set_bank_in_use(self, bank_no):
+        self.banks_panel.set_active_button(bank_no)
+
+    def set_bank_name(self):
+        self.banks_panel.disable_active_button()
+        self.send_message(MessageSender.ID.set_bank_name, body=str(self.banks_panel.get_bank_name_text()))
+
 
     @thread_this_method(period=3)
     def heartbeat(self):
@@ -460,7 +488,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif cmd == 'd':
             self.message_handler.send(m_id=MessageSender.ID.disable_btlrd)
         elif cmd == 's':
-            self.send_message(MessageSender.ID.reload_sram)
+            self.send_message(MessageSender.ID.set_bank_name, body='rafal')
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -620,11 +648,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.disable_objects_for_transmission_signal = to_signal(self.__disable_objects_for_transmission)
         self.enable_objects_after_transmission_signal = to_signal(self.__enable_objects_after_transmission)
         self.insert_new_file_signal.connect(self.bin_file_panel.insert_new_file)
-        self.set_new_bank_name_signal.connect(self.set_new_bank_name_slot)
+        #self.set_new_bank_name_signal.connect(self.set_new_bank_name_slot)
+        self.set_banks_panel_bank_name_signal.connect(self.banks_panel.put_bank_name)
 
-    def set_new_bank_name_slot(self, name):
-        self.banks_panel.put_bank_name(name)
-        GuiThread(self.set_bank_name, delay=0.5).start()
+    # def set_new_bank_name_slot(self, name):
+    #     self.banks_panel.put_bank_name(name)
+    #     GuiThread(self.set_bank_name, delay=0.5).start()
 
     def general_signal_slot(self, object):
         object()
@@ -686,9 +715,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.recevive_emulator_data_thread.resume()
         self.enable_objects_after_transmission_signal()
         #Message('digidiag_off', positive_signal=self.console_msg_factory('digidiag disabled'))
-        GuiThread(process=to_signal(self.connect_button.set_green_style_sheet), delay=0.6).start()
+        self.tmp_thread = GuiThread(process=to_signal(self.connect_button.set_green_style_sheet), delay=0.6)
+        self.tmp_thread.start()
+        self.send_message(message_id=MessageSender.ID.get_bank_in_use)
         #GuiThread(self.get_bank_in_use, delay=0.5).start()
         #self.bank_in_use_monitor.start()
+
 
 
     def set_disconnected(self):

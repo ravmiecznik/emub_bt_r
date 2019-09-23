@@ -92,18 +92,22 @@ class MessageSender:
         write_to_page   = 1
         rxflush         = 2
         setbankname     = 3
-        get_bank_info   = 4
-        get_sram_packet = 5
-        get_bank_packet = 6
-        enable_sram     = 7
-        reload_sram     = 8
-        send_sram_bytes = 9
-        handshake       = 10
-        get_write_stats = 11
-        bootloader      = 12
-        disable_btlrd   = 13
-        dummy           = 14
-        reset           = 15
+        get_sram_packet = 4
+        get_bank_packet = 5
+        enable_sram     = 6
+        reload_sram     = 7
+        send_sram_bytes = 8
+        handshake       = 9
+        get_write_stats = 10
+        bootloader      = 11
+        disable_btlrd   = 12
+        dummy           = 13
+        reset           = 14
+        bank1_set       = 15
+        bank2_set       = 16
+        bank3_set       = 17
+        get_bank_in_use = 18
+        set_bank_name   = 19
 
         @classmethod
         def translate_id(cls, m_id):
@@ -127,6 +131,7 @@ class MessageSender:
             MessageSender.context += 1
         translated_m_id = MessageSender.ID.translate_id(m_id)
         m_logger.debug("Sent message with context: {}, id: {}({})".format(context, translated_m_id, m_id))
+        m_logger.debug(msg[11:30])
         self.__transmit(msg)
         return context
 
@@ -202,7 +207,7 @@ class RxMessage(object):
         self.__context = context
         self.__crc_result = self.__set_result(crc_check)        #crc calculated from msg raceived vs tail crc
         self.__body = self.__set_body(body)
-        if sys.platform == 'Linux':
+        if sys.platform in ('linux', 'linux2'):
             self.__tstamp = datetime.now().strftime("%H:%M:%S.%s")
         elif sys.platform == 'win32':
             self.__tstamp = datetime.now().strftime("%H:%M:%S.%ms")
@@ -249,7 +254,7 @@ class RxMessage(object):
                                              context=self.__context,
                                              result=['ack', 'nack', 'dtx'][self.__crc_result],
                                              lenght=self.__len,
-                                             body=' '.join(self.__body[0:10].split()) + '...',
+                                             body=' '.join(self.__body[0:20].split()) + '...',
                                              tstamp=self.__tstamp)
 
 MSG_RX_DBG_TEMPLATE = "\n--------------------\n"\

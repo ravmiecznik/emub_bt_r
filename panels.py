@@ -204,6 +204,10 @@ class BanksPanel(QtGui.QGroupBox):
     def put_bank_name(self, name):
         self.bank_name_line_edit.setText(name[0:self.bank_name_max_len])
 
+    def get_bank_name_text(self):
+        return self.bank_name_line_edit.text()[0:self.bank_name_max_len]
+
+
     def set_default_style_sheet_for_buttons(self):
         self.bank1pushButton.set_default_style_sheet()
         self.bank2pushButton.set_default_style_sheet()
@@ -214,6 +218,24 @@ class BanksPanel(QtGui.QGroupBox):
         self.bank_name_line_edit.setText(bank_name)
         self.event_handler.set_bank_name()
         self.bank_name_line_edit.clearFocus()
+
+    def disable_active_button(self):
+        to_signal(self.bank1pushButton.set_default_style_sheet)()
+        to_signal(self.bank2pushButton.set_default_style_sheet)()
+        to_signal(self.bank3pushButton.set_default_style_sheet)()
+
+
+    def set_active_button(self, bank_no):
+        to_signal(self.bank1pushButton.set_default_style_sheet)()
+        to_signal(self.bank2pushButton.set_default_style_sheet)()
+        to_signal(self.bank3pushButton.set_default_style_sheet)()
+        set_green_style = \
+            [
+            self.bank1pushButton.set_green_style_sheet,
+            self.bank2pushButton.set_green_style_sheet,
+            self.bank3pushButton.set_green_style_sheet,
+            ][bank_no]
+        to_signal(set_green_style).emit()
 
 
 
