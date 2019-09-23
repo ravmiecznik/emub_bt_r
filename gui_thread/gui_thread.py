@@ -56,6 +56,7 @@ class SimpleGuiThread(QThread):
         self.__action_when_done = action_when_done
         self.__was_suspension_communicated = False
         self.__is_running = False
+        self.__is_terminated = False
 
     def set_args(self, args):
         if not type(args) is tuple:
@@ -86,6 +87,7 @@ class SimpleGuiThread(QThread):
 
     def __run(self):
         if self.__delay: time.sleep(self.__delay)
+        self.__is_terminated = False
         if not self.__suspend:
             t_logger.debug("start of: {}, period: {}".format(self, self.__period))
             self.result = self.target(*self.__args, **self.__kwargs)
@@ -97,8 +99,9 @@ class SimpleGuiThread(QThread):
     def run(self):
         t_logger.debug("Run: {}, ARGS: {}, KWARGS: {}".format(self.target, self.__args, self.__kwargs))
         self.__is_running = True
+        self.__is_terminated = False
         if self.__delay: time.sleep(self.__delay)
-        while self.__period != 0:
+        while self.__period != 0 and self.__is_terminated is not True:
             self.__run()
             time.sleep(self.__period)
         else:
@@ -109,17 +112,26 @@ class SimpleGuiThread(QThread):
         self.kill()
 
 
-    def terminate(self):
+    def terminate_s(self):
         """
         Will stop the thread but it is still present in memory
         :return:
         """
         t_logger.debug("Terminating {}".format(self))
-        self.__prev_period = self.__period
-        self.__period = 0
+        self.__is_terminated = True
+        #self.__prev_period = self.__period
+        #self.__period = 0
         #while not self.wait():
         #    time.sleep(0.001)
 
+    def terminate(self):
+        t_logger.debug("Deleting: {}".format(self))
+        try:
+            SimpleGuiThread.threads.remove(self)
+        except ValueError:
+            pass
+        t_logger.debug("Num of threads: {}".format(len(SimpleGuiThread.threads)))
+        QThread.terminate(self)
 
     def restart(self, period):
         """
@@ -127,7 +139,8 @@ class SimpleGuiThread(QThread):
         :param period:
         :return:
         """
-        self.__period = period if period else self.__prev_period
+        self.__is_terminated = False
+        #self.__period = period if period else self.__prev_period
 
 
     def kill(self):

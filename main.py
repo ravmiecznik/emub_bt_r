@@ -669,7 +669,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     #@thread_this_method()
     def __connection_thread(self):
-        self.blink_connect_btn.start()
+        self.blink_connect_thread = GuiThread(to_signal(self.control_panel.connect_button.blink), period=0.5)
+        self.blink_connect_thread.start()
+        #self.blink_connect_btn.start()
         self.emulator.connect(self.port, self.address)
 
 
@@ -681,6 +683,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     @thread_this_method(period=0.5)
     def blink_connect_btn(self):
+        print 'blink'
         to_signal(self.control_panel.connect_button.blink)()
 
 
@@ -693,52 +696,34 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         """
         self.blink_discovery_btn.on_terminate = to_signal(self.control_panel.discover_button.set_default_style_sheet)
         self.blink_connect_btn()
-        #self.blink_save_btn()
-        #self.blink_save_btn.on_terminate = to_signal(self.emulation_panel.save_button.set_default_style_sheet)
-        #self.read_bank_info()
-        #self.bank_in_use_monitor()
         self.connection_thread = GuiThread(self.__connection_thread, action_when_done=to_signal(self.set_connection_status))
-        #self.connection_thread()
-        #self.connection_thread.action_when_done = to_signal(self.set_connection_status)
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1)
         #self.digidiag_on = GuiThread(self.__digidiag_on)
         self.heartbeat()
         self.heartbeat.start()
-        #self.reload_sram()
-
 
     def set_connected(self):
-
         self.connect_button.setText("disconnect")
         self.recevive_emulator_data_thread.start()
         self.recevive_emulator_data_thread.resume()
         self.enable_objects_after_transmission_signal()
-        #Message('digidiag_off', positive_signal=self.console_msg_factory('digidiag disabled'))
         self.tmp_thread = GuiThread(process=to_signal(self.connect_button.set_green_style_sheet), delay=0.6)
         self.tmp_thread.start()
         self.send_message(message_id=MessageSender.ID.get_bank_in_use)
-        #GuiThread(self.get_bank_in_use, delay=0.5).start()
-        #self.bank_in_use_monitor.start()
-
-
 
     def set_disconnected(self):
         self.disable_objects_for_transmission_signal()
         GuiThread.suspend_all_threads()
-        #self.recevive_emulator_data_thread.kill()
         self.connect_button.setText("Connect")
         self.connect_button.set_default_style_sheet()
         self.emulator.disconnect()
 
-
     def set_connection_status(self):
-        #self.blink_connect_btn.kill()
-        self.blink_connect_btn.terminate()
+        #self.blink_connect_btn.terminate()
         if self.emulator.get_connection_status() == True:
             self.set_connected()
         else:
             self.set_disconnected()
-
 
     def connect_button_slot(self):
         if self.port is None and self.address is None:
@@ -746,11 +731,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             return
         if not self.emulator.connected:
             if not self.connection_thread.isRunning():
+                self.connection_thread = GuiThread(self.__connection_thread,
+                                                   action_when_done=to_signal(self.set_connection_status))
                 self.connection_thread.start()
             else:
-                #self.connection_thread.kill()
-                #self.recevive_emulator_data_thread.kill()
                 self.connection_thread.terminate()
+                self.blink_connect_thread.terminate()
                 self.recevive_emulator_data_thread.suspend()
                 self.emulator.disconnect()
                 self.set_connection_status()
@@ -760,7 +746,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.recevive_emulator_data_thread.suspend()
             self.emulator.disconnect()
             self.set_connection_status()
-
 
     def config_button_slot(self):
         self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
