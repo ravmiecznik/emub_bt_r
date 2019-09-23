@@ -8,7 +8,7 @@ import struct
 from event_handler import to_signal
 from my_gui_thread import GuiThread, thread_this_method
 from setup_emubt import warn, error, info, debug, BIN_PATH
-from bin_handler import BinFilePacketGenerator, BinSenderFileNotPresent, BinSenderInvalidBinSize, ReceptionFail, PacketReceptionTimeout, BinReceiver
+from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize, ReceptionFail, BinReceiver
 from message_box import message_box
 from bin_tracker import BinTracker
 from message_handler import TransmissionStats, MessageSender, MessageReceiver, RxMessage
@@ -512,6 +512,8 @@ class ReadPackets():
         self.tx_stats = TransmissionStats()
         self.read_thread = GuiThread(self.read_packets_procedure)
         self.received = BytesIO()
+        self.get_bank_name = parent.banks_panel.get_bank_name_text
+        self.update_file_list = parent.bin_file_panel.combo_box.moveOnTop
 
 
     def extra_teardown(self):
@@ -557,7 +559,6 @@ class ReadPackets():
             self.check_resp_thr.start()
             context = self.get_packet(packet_num=packet_num)
             while self.check_resp_thr.returned() is None: time.sleep(0.001)
-            #response = self.check_repsonse(context)
             response = self.check_resp_thr.returned()
             if response == RxMessage.rx_id_tuple.index('ack'):
                 self.tx_stats.ack()
@@ -569,12 +570,12 @@ class ReadPackets():
             if time.time() - t_start > max_timeout:
                 self.tear_down_on_fail()
                 break
-                raise SendTimeout("TIMEOUT")
         else:
             self.gui_communication_signal.emit("File reveived in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
             self.extra_teardown()
         to_signal(self.progress_bar.hide).emit()
+
         #print bin_repr(self.received)
 
 
@@ -586,9 +587,23 @@ class ReadSramProcedure(ReadPackets):
 
     def extra_teardown(self):
         self.parent_send_msg(MessageSender.ID.reload_sram)
-
+        rx_file_name = self.get_bank_name()
+        f_path_bin = os.path.join(BIN_PATH, '{}_sram.bin'.format(rx_file_name))
+        with open(f_path_bin, 'wb') as f:
+            self.received.seek(0)
+            f.write(self.received.read())
+        self.gui_communication_signal.emit("Saved as: {}".format(f_path_bin))
+        self.update_file_list(f_path_bin)
 
 class ReadBankProcedure(ReadPackets):
     def __init__(self, parent):
         ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_bank_packet)
 
+    def extra_teardown(self):
+        rx_file_name = self.get_bank_name()
+        f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(rx_file_name))
+        with open(f_path_bin, 'wb') as f:
+            self.received.seek(0)
+            f.write(self.received.read())
+        self.gui_communication_signal.emit("Saved as: {}".format(f_path_bin))
+        self.update_file_list(f_path_bin)

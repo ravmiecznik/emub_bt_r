@@ -166,7 +166,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         #self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
         #self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         #self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
-        #self.event_handler.add_event(to_signal(self.open_bin_file))
+        self.event_handler.add_event(to_signal(self.open_bin_file))
         #self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
 
         ConfigSettings.__init__(self)
