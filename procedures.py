@@ -460,7 +460,9 @@ class WritePackets():
         time.sleep(0.5)
         max_timeout = 25
         t_start = time.time()
-        self.progress_bar.set_title("SENDING")
+        bank_name_full = os.path.basename(self.bin_packets.bin_path)
+        bank_name = os.path.splitext(bank_name_full)[0]
+        self.progress_bar.set_title("SENDING: {}".format(bank_name_full))
         to_signal(self.progress_bar.display).emit()
 
         packet_num = 0
@@ -490,14 +492,11 @@ class WritePackets():
                 self.__tear_down()
                 raise SendTimeout("TIMEOUT")
         else:
-            #self.relaod_sram_thread.start()
-            self.parent_send_msg(MessageSender.ID.reload_sram)
+            self.parent_send_msg(MessageSender.ID.reload_sram, timeout=1)
             self.gui_communication_signal.emit("File transmitted in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
         to_signal(self.progress_bar.hide).emit()
         self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
-        bank_name = os.path.basename(self.bin_packets.bin_path)
-        bank_name = os.path.splitext(bank_name)[0]
         self.set_bank_name(bank_name)
 
 

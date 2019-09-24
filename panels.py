@@ -105,7 +105,7 @@ class EmulationPanel(QtGui.QGroupBox):
             self.read_sram_button = _PushButton("READ SRAM", tip_msg=READ_SRAM_BTN_TIP)
             self.read_sram_button.raise_()
         self.read_bank_button = _PushButton("READ", tip_msg=READ_BANK_BTN_TIP)
-        self.save_button = _PushButton("SAVE", tip_msg=STORE_FLASH_BANK_BTN_TIP)
+        self.save_button = _PushButton("UPLOAD", tip_msg=STORE_FLASH_BANK_BTN_TIP)
         self.auto_open_checkbox = CheckBox("auto open", tip_msg=AUTO_OPEN_CHECK_BOX_TIP)
         self.reload_sram_checkbox = CheckBox("reload sram on save", tip_msg=RELOAD_SRAM_CHECK_BOX_TIP)
 

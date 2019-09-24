@@ -96,7 +96,7 @@ class ColorProgressBar(QtGui.QProgressBar):
     def set_title(self, title):
         self.setWindowTitle(title)
 
-    def display(self, width=400, height=50, x_offset=400, y_offset=200):
+    def display(self, width=600, height=50, x_offset=400, y_offset=200):
         self.setValue(0)
         current_position_and_size = WindowGeometry(self.parent)
         x_pos = current_position_and_size.get_position_to_the_right()

@@ -255,7 +255,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         #self.show()
 
 
-    def __send_message(self, m_id, body='NULL'):
+    def __send_message(self, m_id, body='NULL', timeout=0.3):
         self.message_handler.send(m_id=MessageSender.ID.rxflush, body=body)
         time.sleep(0.1)
         re_tx = 3
@@ -267,11 +267,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             context = self.message_handler.send(m_id, body=body)
             re_tx -= 1
             debug("ReTx: {}".format(MessageSender.ID.translate_id(m_id)))
-            time.sleep(0.3)
+            time.sleep(timeout)
 
 
-    def send_message(self, message_id, body='NULL'):
-        self.send_message_thread = SimpleGuiThread(self.__send_message, args=(message_id, body))
+    def send_message(self, message_id, body='NULL', timeout=0.3):
+        self.send_message_thread = SimpleGuiThread(self.__send_message, args=(message_id, body, timeout))
         self.send_message_thread.start()
 
 
@@ -549,9 +549,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 break
         else:
             to_signal(self.reflash_app_slot)()
-        # Message('run_bootloader\n', create_header=False, resp_positive='BOOTLOADER',
-        #         positive_signal=to_signal(self.reflash_app_slot),
-        #         negative_signal=to_signal(self.activate_bootloader), timeout=0.2, max_retx=2)
 
     def activate_bootloader(self):
         debug("Try to enable bootloader in default mode")
@@ -594,7 +591,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         current_position_and_size = WindowGeometry(self)
         x_pos = current_position_and_size.get_position_to_the_right()
         self.reflasher = Reflasher(self.app_status_file, self.emulator, receive_data_thread=self.recevive_emulator_data_thread, signal_on_close=to_signal(self.reflash_window_close_slot), message_handler=self.message_handler)
-        x_offset = 15
+        x_offset = -400
         y_offset = 100
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
         self.reflasher.show()
@@ -703,6 +700,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.heartbeat.start()
 
     def set_connected(self):
+        self.blink_connect_thread.terminate()
         self.connect_button.setText("disconnect")
         self.recevive_emulator_data_thread.start()
         self.recevive_emulator_data_thread.resume()
@@ -719,7 +717,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.emulator.disconnect()
 
     def set_connection_status(self):
-        #self.blink_connect_btn.terminate()
         if self.emulator.get_connection_status() == True:
             self.set_connected()
         else:
@@ -735,8 +732,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                                                    action_when_done=to_signal(self.set_connection_status))
                 self.connection_thread.start()
             else:
-                self.connection_thread.terminate()
                 self.blink_connect_thread.terminate()
+                self.connection_thread.terminate()
                 self.recevive_emulator_data_thread.suspend()
                 self.emulator.disconnect()
                 self.set_connection_status()
