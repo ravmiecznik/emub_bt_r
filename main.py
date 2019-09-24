@@ -35,6 +35,7 @@ from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
 from digidiag import DigidagReceiver, DigidiagTimeout
 from message_box import message_box
+from bin_tracker import BinTracker
 from auxiliary_module import null_function
 
 import sys, os, subprocess
@@ -155,7 +156,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.discover_emu_bt_slot))
         self.event_handler.add_event(to_signal(self.lost_connection_slot))
         self.event_handler.add_event(to_signal(self.config_button_slot))
-        #self.event_handler.add_event(to_signal(self.emulate_button_slot))
+        self.event_handler.add_event(to_signal(self.emulate_button_slot))
         self.event_handler.add_event(to_signal(self.get_raw_rx_buffer_slot))
         self.event_handler.add_event(to_signal(self.send_help_cmd_slot))
         self.event_handler.add_event(to_signal(self.send_resetemu_slot))
@@ -165,7 +166,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.set_bank_name))
         #self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
         #self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
-        #self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
+        self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
         self.event_handler.add_event(to_signal(self.open_bin_file))
         #self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
 
@@ -268,12 +269,17 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             re_tx -= 1
             debug("ReTx: {}".format(MessageSender.ID.translate_id(m_id)))
             time.sleep(timeout)
+        else:
+            try:
+                return self.rx_message_buffer[context].crc_check
+            except:
+                return None
 
 
     def send_message(self, message_id, body='NULL', timeout=0.3):
         self.send_message_thread = SimpleGuiThread(self.__send_message, args=(message_id, body, timeout))
         self.send_message_thread.start()
-
+        return self.send_message_thread.returned
 
     def read_sram_button_slot(self):
         self.message_handler.send(MessageSender.ID.rxflush)
@@ -415,6 +421,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     @thread_this_method(period=3)
     def heartbeat(self):
+        if self.emulator.connected:
+            self.send_message(message_id=MessageSender.ID.dummy)
         return
         try:
             print 'send'
@@ -697,7 +705,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1)
         #self.digidiag_on = GuiThread(self.__digidiag_on)
         self.heartbeat()
-        self.heartbeat.start()
+        #self.heartbeat.start()
+        self.send_sram_bytes()
 
     def set_connected(self):
         self.blink_connect_thread.terminate()
@@ -781,6 +790,44 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.help_text.setText("Can't do it when connected")
         except AttributeError:
             start_discovery()
+
+
+    def emulate_button_slot(self):
+
+        try:
+            if self.bin_tracker.track_file.isRunning():
+                #self.bin_tracker.track_file.kill()
+                self.bin_tracker.track_file.terminate()
+                to_signal(self.emulation_panel.emulate_button.set_default_style_sheet)()
+                return
+        except AttributeError:
+            pass
+        bin_path = self.bin_file_panel.get_current_file()
+        self.bin_tracker = BinTracker(bin_path, self.event_handler, to_signal(self.emulation_panel.emulate_button.blink))
+        self.bin_tracker.start()
+
+    def emulation_diffs_present_slot(self):
+        self.send_sram_bytes.start()
+
+    @thread_this_method()
+    def send_sram_bytes(self):
+        self.send_message(message_id=MessageSender.ID.rxflush)
+        max_msg_len = 256 * 8   #single packet size
+        msg_body = ''
+        bytes_cnt = 0
+        while self.bin_tracker.diffs:
+            msg_body += self.bin_tracker.diffs.popitem()
+            bytes_cnt += 1
+            if len(msg_body) >= max_msg_len - 3:
+                break
+        result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=1)
+        while result() is None:
+            time.sleep(0.001)
+        print 'result', result()
+        self.bin_tracker.resume()
+        # Message(id=Message.ID.send_sram_bytes, raw_msg=msg_body, positive_signal=self.console_msg_factory("Updated sram of {} bytes\nRemaining: {} bytes".format(bytes_cnt, len(self.bin_tracker.diffs))),
+        #         extra_action_on_nack=to_signal(self.bin_tracker.resume),
+        #         extra_action_on_ack=to_signal(self.bin_tracker.resume))
 
     def tear_down_main_app(self):
         self.update_app_status_file()

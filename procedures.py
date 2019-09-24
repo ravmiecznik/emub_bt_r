@@ -434,6 +434,8 @@ class WritePackets():
         self.write_thread = GuiThread(self.write_packets_procedure)
         self.parent_send_msg = parent.send_message
         self.set_bank_name = parent.set_bank_name
+        self.disable_objects_for_transmission_signal = parent.disable_objects_for_transmission_signal
+        self.enable_objects_after_transmission_signal = parent.enable_objects_after_transmission_signal
 
     def check_repsonse(self, context):
         retx_timeout = 0.5
@@ -454,8 +456,10 @@ class WritePackets():
     def __tear_down(self):
         self.gui_communication_signal.emit("Upload failed")
         to_signal(self.progress_bar.hide).emit()
+        self.enable_objects_after_transmission_signal.emit()
 
     def write_packets_procedure(self):
+        self.disable_objects_for_transmission_signal.emit()
         self.message_handler.send(MessageSender.ID.rxflush)
         time.sleep(0.5)
         max_timeout = 25
@@ -498,6 +502,7 @@ class WritePackets():
         to_signal(self.progress_bar.hide).emit()
         self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
         self.set_bank_name(bank_name)
+        self.enable_objects_after_transmission_signal.emit()
 
 
 
@@ -513,6 +518,10 @@ class ReadPackets():
         self.received = BytesIO()
         self.get_bank_name = parent.banks_panel.get_bank_name_text
         self.update_file_list = parent.bin_file_panel.combo_box.moveOnTop
+        self.disable_objects_for_transmission_signal = parent.disable_objects_for_transmission_signal
+        self.enable_objects_after_transmission_signal = parent.enable_objects_after_transmission_signal
+        self.auto_open = parent.emulation_panel.auto_open_checkbox.isChecked
+        self.event_handler = parent.event_handler
 
 
     def extra_teardown(self):
@@ -539,8 +548,10 @@ class ReadPackets():
     def tear_down_on_fail(self):
         self.gui_communication_signal.emit("Read failed")
         to_signal(self.progress_bar.hide).emit()
+        self.enable_objects_after_transmission_signal.emit()
 
     def read_packets_procedure(self):
+        self.disable_objects_for_transmission_signal.emit()
         self.message_handler.send(MessageSender.ID.rxflush)
         time.sleep(0.5)
         max_timeout = 20
@@ -574,6 +585,9 @@ class ReadPackets():
             self.gui_communication_signal.emit(self.tx_stats)
             self.extra_teardown()
         to_signal(self.progress_bar.hide).emit()
+        self.enable_objects_after_transmission_signal.emit()
+        if self.auto_open():
+            self.event_handler.open_bin_file()
 
         #print bin_repr(self.received)
 

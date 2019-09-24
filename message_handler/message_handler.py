@@ -236,7 +236,7 @@ class RxMessage(object):
 
     @property
     def crc_check(self):
-        return ('ack', 'nack', 'dtx')[self.__crc_result]
+        return ('ack', 'nack', 'dtx', 'txt')[self.__crc_result]
 
     @property
     def msg(self):

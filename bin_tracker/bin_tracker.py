@@ -55,8 +55,8 @@ class BinTracker(file):
             self.__mtime = os.path.getmtime(self.file_path)
             self.file_changed_procedure()
         if self.diffs:
-            self.track_file.suspend()
             self.event_handler.emulation_diffs_present_slot.emit()
+            self.track_file.suspend()
         self.blink_signal()
 
     def check_diffs(self):
