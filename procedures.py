@@ -85,9 +85,6 @@ class BanksProcedures():
             to_signal(set_text)()
             self.enable_objects_after_transmission_signal()
 
-        def bank_name_line_focus_out_event(self):
-            self.enable_objects_after_transmission_signal()
-            to_signal(self.get_bank_in_use)()
 
         def bank_name_line_edit_event(self):
             self.emulation_panel.setDisabled(True)

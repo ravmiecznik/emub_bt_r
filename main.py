@@ -164,8 +164,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.bank2set_slot))
         self.event_handler.add_event(to_signal(self.bank3set_slot))
         self.event_handler.add_event(to_signal(self.set_bank_name))
-        #self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
-        #self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
+        self.event_handler.add_event(to_signal(self.bank_name_line_edit_event))
+        self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
         self.event_handler.add_event(to_signal(self.open_bin_file))
         #self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
@@ -334,6 +334,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def get_bank_name(self):
         self.bank_name = self.banks_panel.bank_name_line_edit.text()
 
+
     def open_bin_file(self):
         config = configparser.ConfigParser()
         config.read(self.config_file_path)
@@ -416,12 +417,29 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             bank_name = str(self.banks_panel.get_bank_name_text())
         bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
         self.banks_panel.disable_active_button()
-        self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
+        try:
+            if self.__tmp_bank_name != bank_name:
+                self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=0.5)
+        except AttributeError:
+            self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=0.5)
+        self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
+
+    def bank_name_line_focus_out_event(self):
+        self.enable_objects_after_transmission_signal()
+        self.set_bank_name()
+
+    def bank_name_line_edit_event(self):
+        self.emulation_panel.setDisabled(True)
+        self.banks_panel.bank1pushButton.setDisabled(True)
+        self.banks_panel.bank2pushButton.setDisabled(True)
+        self.banks_panel.bank3pushButton.setDisabled(True)
+        self.control_panel.reflash_button.setDisabled(True)
 
 
     @thread_this_method(period=3)
     def heartbeat(self):
         if self.emulator.connected:
+            print self.heartbeat.__name__
             self.send_message(message_id=MessageSender.ID.dummy)
         return
         try:
@@ -820,10 +838,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             bytes_cnt += 1
             if len(msg_body) >= max_msg_len - 3:
                 break
-        result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=1)
-        while result() is None:
-            time.sleep(0.001)
-        print 'result', result()
+        print len(msg_body)
+        #result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=1)
+        #while result() is None:
+        #    time.sleep(0.001)
+        #print 'result', result()
+        #time.sleep(1)
         self.bin_tracker.resume()
         # Message(id=Message.ID.send_sram_bytes, raw_msg=msg_body, positive_signal=self.console_msg_factory("Updated sram of {} bytes\nRemaining: {} bytes".format(bytes_cnt, len(self.bin_tracker.diffs))),
         #         extra_action_on_nack=to_signal(self.bin_tracker.resume),
