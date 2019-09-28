@@ -29,11 +29,11 @@ except AttributeError:
 class Ui_DockWidget(object):
     def setupUi(self, DockWidget):
         DockWidget.setObjectName(_fromUtf8("DockWidget"))
-        DockWidget.resize(693, 575)
+        DockWidget.resize(1010, 910)
         self.dockWidgetContents = QtGui.QWidget()
         self.dockWidgetContents.setObjectName(_fromUtf8("dockWidgetContents"))
         self.ktextbrowser = QTextBrowser(self.dockWidgetContents)
-        self.ktextbrowser.setGeometry(QtCore.QRect(10, 20, 671, 511))
+        self.ktextbrowser.setGeometry(QtCore.QRect(10, 20, 1000, 900))
         self.ktextbrowser.setObjectName(_fromUtf8("ktextbrowser"))
         DockWidget.setWidget(self.dockWidgetContents)
 
@@ -60,12 +60,12 @@ class DigiDiag(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent=parent)
         self.setWindowTitle("DIGDIAG")
-        self.x_siz, self.y_siz = 400, 400
+        self.x_siz, self.y_siz = 600, 500
         mainGrid = QtGui.QGridLayout()
         mainGrid.setSpacing(10)
         font = QtGui.QFont('Courier New', 8)
         self.ktextbrowser = QTextBrowser(self)
-        self.ktextbrowser.setGeometry(QtCore.QRect(10, 20, 250, 130))
+        self.ktextbrowser.setGeometry(QtCore.QRect(10, 20, 400, 200))
         self.ktextbrowser.setFont(font)
         self.log_file = open(os.path.join(LOG_PATH, 'digidag.dmp'), 'w')
         self.dump_log_file()
