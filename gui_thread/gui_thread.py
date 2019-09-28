@@ -12,6 +12,52 @@ log_format = '[%(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
 logger_name = "thread_tracker"
 
 t_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format, log_to_file=True)
+info = t_logger.info
+
+def thread_this_method(**thread_kwargs):
+    """
+    This is decorator.
+    It will turn given method into GuiThread.
+    Usage:
+    @thread_this_method(GuiThread args)
+    def method(self, *method_args)
+        method stuff here
+
+    start method as thread:
+    method(*method_args).start()
+
+    kill method thread:
+    method.kill()
+
+    :param thread_kwargs:
+    :return: wrapped GuiThread object
+    """
+    def method_wraper(method):
+        def method_call_wrap(*args, **kwargs):
+            instance = args[0]
+            info("decorator {}: Converting method {} into {} object".format(thread_this_method.__name__, method.__name__, SimpleGuiThread.__name__))
+            info("{} with args: {}, kwargs: {}".format(SimpleGuiThread.__name__, args, thread_kwargs))
+            thread = SimpleGuiThread(method, args=args, **thread_kwargs)
+            thread.__name__ = "threaded_{}".format(method.__name__)
+            setattr(instance, method.__name__, thread)
+            return thread
+        return method_call_wrap
+        method_wraper.__name__ = method.__name__
+        method_call_wrap.__name__ = method.__name__
+    return method_wraper
+
+class ThreadById():
+    def __init__(self, thread, id, alias=None):
+        self.thread = thread
+        self.id = id
+        self.alias = alias
+
+    def __str__(self):
+        return "name:{} id:{} alias:{}".format(self.thread.process.__name__, self.id, self.alias)
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class SimpleGuiThread(QThread):
     threads = []
@@ -42,7 +88,7 @@ class SimpleGuiThread(QThread):
             SimpleGuiThread.threads[0].kill()
             SimpleGuiThread.threads.remove(SimpleGuiThread.threads[0])
 
-    def __init__(self, process, args=(), kwargs={}, period=0, delay=None, action_when_done=None):
+    def __init__(self, process, args=(), kwargs={}, period=0, delay=None, action_when_done=None, trace='full'):
         QThread.__init__(self)
         self.result = None
         self.target = process
@@ -57,6 +103,7 @@ class SimpleGuiThread(QThread):
         self.__was_suspension_communicated = False
         self.__is_running = False
         self.__is_terminated = False
+        self.__trace = trace
 
     def set_args(self, args):
         if not type(args) is tuple:
@@ -89,7 +136,8 @@ class SimpleGuiThread(QThread):
         if self.__delay: time.sleep(self.__delay)
         self.__is_terminated = False
         if not self.__suspend:
-            t_logger.debug("start of: {}, period: {}".format(self, self.__period))
+            if self.__trace == 'full':
+                t_logger.debug("start of: {}, period: {}".format(self, self.__period))
             self.result = self.target(*self.__args, **self.__kwargs)
         elif not self.__was_suspension_communicated:
             t_logger.debug("suspended: {}".format(self))

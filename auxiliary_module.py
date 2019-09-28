@@ -52,6 +52,8 @@ class MeanCalculator():
     def __repr__(self):
         return "Mean {}".format(self.calc())
 
+
+
 if __name__ == "__main__":
     c = MeanCalculator()
     c += 1

@@ -193,13 +193,14 @@ class RxMessage(object):
         nak_feedback,
     };
     """
-    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt')
+    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dgframe')
     rx_id = RxId(rx_id_tuple)
     class CRC_result():
         ack     = 0
         nack    = 1
         dtx     = 2
         txt     = 3
+        dgframe = 4
 
 
     def __init__(self, msg_id, context, crc_check, body, length):
@@ -236,7 +237,7 @@ class RxMessage(object):
 
     @property
     def crc_check(self):
-        return ('ack', 'nack', 'dtx', 'txt')[self.__crc_result]
+        return RxMessage.rx_id_tuple[self.__crc_result]
 
     @property
     def msg(self):

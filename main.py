@@ -33,7 +33,7 @@ from config_window import ConfigWindow, ConfigSettings
 #     ReadBankProcedure_V2, SyncFileToSramProcedure
 from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
-from digidiag import DigidagReceiver, DigidiagTimeout
+from digidiag import DigiDiag, Ui_DockWidget
 from message_box import message_box
 from bin_tracker import BinTracker
 from auxiliary_module import null_function
@@ -121,6 +121,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def __init__(self, is_test=False):
 
         self.__receive_data_period = 0.01
+        self.digidag_frames = dict()
         self.bank_in_use = None
         self.is_test = is_test
         print 'PATH', EMU_BT_PATH
@@ -239,9 +240,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.emulation_panel.set_event_handler(self.event_handler)
 
 
-        self.digidag = DigidagReceiver(self.emulator.raw_buffer)
-        self.digidag_receiver_thread = GuiThread(self.digidag.start)
-
         self.resize(x_siz, y_siz)
         self.disable_objects_for_transmission_signal()
         self.load_last_status()
@@ -249,6 +247,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
         #self.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
+        self.digidiag_slot()
 
 
     def initUI(self):
@@ -384,10 +383,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         while msg:
             if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
                 self.gui_communication_signal.emit("E: {}".format(msg.msg))
-            if msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
+            elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
                 self.set_bank_in_use(banks.index(msg.msg))
-            if msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
+            elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
                 self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
+            elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
+                self.digidag_frames[ord(msg.msg[1])] = msg.msg
+                self.feed_digidiag()
+                #self.gui_communication_signal.emit((10*' {:02X}').format(*[ord(i) for i in msg.msg]))
             self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
             if time.time() - t0 > 1:
@@ -416,11 +419,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if bank_name is None:
             bank_name = str(self.banks_panel.get_bank_name_text())
         bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
-        self.banks_panel.disable_active_button()
+        #don't update bank name if not changed
         try:
             if self.__tmp_bank_name != bank_name:
+                self.banks_panel.disable_active_button()
                 self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=0.5)
         except AttributeError:
+            self.banks_panel.disable_active_button()
             self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=0.5)
         self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
 
@@ -514,6 +519,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.message_handler.send(m_id=MessageSender.ID.disable_btlrd)
         elif cmd == 's':
             self.send_message(MessageSender.ID.set_bank_name, body='rafal')
+        elif cmd == 'i':
+            self.digidiag_slot()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -622,6 +629,19 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
         self.reflasher.show()
 
+
+    def digidiag_slot(self):
+        self.digiag_widget = DigiDiag()
+        self.digiag_widget.show()
+        self.digiag_widget.show_frames(self.digidag_frames)
+
+
+    def feed_digidiag(self):
+        try:
+            self.digiag_widget.show_frames(self.digidag_frames)
+        except AttributeError:
+            pass
+
     @thread_this_method()
     def disable_bootloader_thread(self):
         self.message_handler
@@ -720,7 +740,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.blink_discovery_btn.on_terminate = to_signal(self.control_panel.discover_button.set_default_style_sheet)
         self.blink_connect_btn()
         self.connection_thread = GuiThread(self.__connection_thread, action_when_done=to_signal(self.set_connection_status))
-        self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1)
+        self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1, trace=None)
         #self.digidiag_on = GuiThread(self.__digidiag_on)
         self.heartbeat()
         #self.heartbeat.start()
@@ -811,7 +831,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
 
     def emulate_button_slot(self):
-
+        self.cnt = 0
         try:
             if self.bin_tracker.track_file.isRunning():
                 #self.bin_tracker.track_file.kill()
@@ -829,7 +849,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     @thread_this_method()
     def send_sram_bytes(self):
-        self.send_message(message_id=MessageSender.ID.rxflush)
+        #self.send_message(message_id=MessageSender.ID.rxflush)
         max_msg_len = 256 * 8   #single packet size
         msg_body = ''
         bytes_cnt = 0
@@ -838,12 +858,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             bytes_cnt += 1
             if len(msg_body) >= max_msg_len - 3:
                 break
-        print len(msg_body)
-        #result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=1)
-        #while result() is None:
-        #    time.sleep(0.001)
-        #print 'result', result()
-        #time.sleep(1)
+        result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=1)
+        while result() is None:
+           time.sleep(0.001)
         self.bin_tracker.resume()
         # Message(id=Message.ID.send_sram_bytes, raw_msg=msg_body, positive_signal=self.console_msg_factory("Updated sram of {} bytes\nRemaining: {} bytes".format(bytes_cnt, len(self.bin_tracker.diffs))),
         #         extra_action_on_nack=to_signal(self.bin_tracker.resume),
@@ -891,6 +908,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         #                                                                                             "Remember: Digidag works only if you upload BIN file from ravmiecznik !!!")
         if event.type() == QEvent.Close:
             self.tear_down_main_app()
+            app = QtGui.QApplication.instance()
+            app.closeAllWindows()
 
     def destroyEvent(self, event):
         print "destroy"

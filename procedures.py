@@ -498,7 +498,7 @@ class WritePackets():
             self.gui_communication_signal.emit(self.tx_stats)
         to_signal(self.progress_bar.hide).emit()
         self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
-        self.set_bank_name(bank_name)
+        self.set_bank_name(bank_name.replace('_sram', ''))
         self.enable_objects_after_transmission_signal.emit()
 
 
@@ -598,7 +598,10 @@ class ReadSramProcedure(ReadPackets):
     def extra_teardown(self):
         self.parent_send_msg(MessageSender.ID.reload_sram)
         rx_file_name = self.get_bank_name()
-        f_path_bin = os.path.join(BIN_PATH, '{}_sram.bin'.format(rx_file_name))
+        try:
+            f_path_bin = os.path.join(BIN_PATH, '{}_sram.bin'.format(rx_file_name))
+        except:
+            f_path_bin = os.path.join(BIN_PATH, '{}_sram.bin'.format('XXXX'))
         with open(f_path_bin, 'wb') as f:
             self.received.seek(0)
             f.write(self.received.read())

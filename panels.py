@@ -73,7 +73,7 @@ class ControlPanel(QtGui.QGroupBox):
 
 
 
-EMULATION_BTN_TIP           = "This is very long test string to check if line wrapping will work to avoid main window expansion and segmantation fault eventually, hope will wokr, bye bye bye bye friends"
+EMULATION_BTN_TIP           = "Track selected file for changes. If file is modified all changed bytes will be send to EMUBT SRAM memory"
 STORE_FLASH_BANK_BTN_TIP    = "This button commits selected binary file to permanent memory in currently selected bank"
 READ_SRAM_BTN_TIP           = "SRAM: this memory is visible to your ECU. This button will get its content." \
                             "\nBut beware that during read process Emulator is not accessible to ECU" \
