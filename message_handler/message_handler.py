@@ -135,13 +135,11 @@ class MessageSender:
         self.__transmit(msg)
         return context
 
-
     def send(self, m_id, body='NULL'):
         """
         Polymorphic method for send
         """
         return self.__send(m_id, body)
-
 
     def send_raw_msg(self, body):
         """
@@ -149,9 +147,7 @@ class MessageSender:
         """
         return self.__send(m_id=None, body=body)
 
-
     def __send(self, m_id=None, body='NULL'):
-        #self.__rx_buffer.flush()
         timeout = 4
         t0 = time.time()
         if MessageSender.lock: m_logger.debug("message sending locked, waiting")
@@ -162,7 +158,7 @@ class MessageSender:
                 MessageSender.lock = False
                 raise TxTimeout
         MessageSender.lock = True
-        msg = create_message(id=m_id, body=body, context=MessageSender.context) if m_id is not None else body
+        msg = create_message(msg_id=m_id, body=body, context=MessageSender.context) if m_id is not None else body
         context = self.__send_m(msg, m_id)
         MessageSender.lock = False
         m_logger.debug("message sending unlocked")
@@ -185,6 +181,7 @@ class RxId(tuple):
             print "Type error"
             return 'dtx'
 
+
 class RxMessage(object):
     """
     Rx message ids (types)
@@ -195,13 +192,13 @@ class RxMessage(object):
     """
     rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dgframe')
     rx_id = RxId(rx_id_tuple)
+
     class CRC_result():
         ack     = 0
         nack    = 1
         dtx     = 2
         txt     = 3
         dgframe = 4
-
 
     def __init__(self, msg_id, context, crc_check, body, length):
         self.__id = msg_id
@@ -258,12 +255,14 @@ class RxMessage(object):
                                              body=' '.join(self.__body[0:20].split()) + '...',
                                              tstamp=self.__tstamp)
 
+
 MSG_RX_DBG_TEMPLATE = "\n--------------------\n"\
                       "Message received:\n" \
                       "{}\n" \
                       "--------------------"
 
-class MessageReceiver():
+
+class MessageReceiver:
     """"
     Checks given rx buffer if message is present there.
         struct  Tail
@@ -283,6 +282,7 @@ class MessageReceiver():
     TAIL_CRC_SHIFT_POS = 3
     ts = time.time()
     LOCKED = False
+
     def __init__(self, rx_buffer):
         self.rx_buffer = rx_buffer
         self.__mean_rx_time = MeanCalculator()
@@ -309,7 +309,7 @@ class MessageReceiver():
                     _body_crc = tail[7:9]
 
                     _tail_crc = peek_buff[tail_end_mark_pos+1: tail_end_mark_pos + MessageReceiver.TAIL_CRC_SHIFT_POS]
-                    tail_integrity = _tail_crc == crc(_full_tail)    #tail integrity check
+                    tail_integrity = _tail_crc == crc(_full_tail)    # tail integrity check
                     if _id < len(RxMessage.rx_id_tuple) and _msg_len < MAX_PACKET_SIZE and _context < 0xffff \
                             and self.rx_buffer.available() > _msg_len and tail_integrity:
                         return _id, _context, _msg_len, _body_crc, tail_start_mark_pos + latest_find, tail_end_mark_pos + latest_find
@@ -322,7 +322,6 @@ class MessageReceiver():
         if not MessageReceiver.LOCKED and (self.rx_buffer.available() >= MessageReceiver.TAIL_LEN):
             MessageReceiver.LOCKED = True
             peek_buff = self.rx_buffer.peek()
-            #try:
             check_tail_result = self.check_tail(peek_buff)
             if check_tail_result:
                 _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
@@ -337,18 +336,18 @@ class MessageReceiver():
                     self.__mean_rx_time.count(time.time() - t0)
                     m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
                     return rxmsg
-            #except ValueError as e:
-            #    m_logger.error(e)
         MessageReceiver.LOCKED = False
 
 
-def create_message(id, body, context=0, max_packet_size=MAX_PACKET_SIZE, fail_crc_factor=None):
+def create_message(msg_id, body, context=0, max_packet_size=MAX_PACKET_SIZE, fail_crc_factor=None):
     """
     Create message with name, body_len, crc, id
     fail_crc_factor: propability factor to fail crc, value 4 means that 1 of 4 transmissions will fail crc, overwrites fail_crc
-    :param name:
+    :param msg_id: msg id
+    :param context: msg context
     :param body:
     :param max_packet_size:
+    :param fail_crc_factor: fail factor for testing purposes
     :return:
     """
     body_len = len(body)                            #integer type, 4 bytes long
@@ -356,7 +355,7 @@ def create_message(id, body, context=0, max_packet_size=MAX_PACKET_SIZE, fail_cr
     if body_len + header_size > max_packet_size:
         raise Exception("msg len to big: {}>{}".format(body_len + header_size, max_packet_size))
     body_len = struct.pack('I', body_len)
-    id = struct.pack('H', id)                       #two bytes
+    msg_id = struct.pack('H', msg_id)                       #two bytes
     context = struct.pack('H', context)  # two bytes
     c = crc(body)                                   #two bytes field
     if fail_crc_factor:
@@ -364,7 +363,8 @@ def create_message(id, body, context=0, max_packet_size=MAX_PACKET_SIZE, fail_cr
             c1 = c[0]
             c2 = chr(ord(c[1]) + 1) if ord(c[1]) <= 0xff else chr(ord(c[1]) - 1)
             c = c1 + c2
-    return '>{id}{context}{body_len}{crc}<{body}'.format(id=id, context=context, body_len=body_len, crc=c, body=body)
+    return '>{id}{context}{body_len}{crc}<{body}'.format(id=msg_id, context=context, body_len=body_len, crc=c, body=body)
+
 
 if __name__ == "__main__":
     rm = RxMessage(1, 2, 3, 'rafal')
