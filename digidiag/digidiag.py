@@ -9,7 +9,7 @@ from PyQt4.QtGui import QTextBrowser
 from PyQt4.QtGui import QFileDialog
 from PyQt4.QtCore import pyqtSignal
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
-from gui_thread import GuiThread, thread_this_method
+from gui_thread import GuiThread, SignalThread, thread_this_method
 import struct, time
 from event_handler import to_signal
 
@@ -74,6 +74,7 @@ class DigiFrames(dict):
 class DigiDiag(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent=parent)
+        self.parent = parent
         self.setWindowTitle("DIGDIAG")
         self.x_siz, self.y_siz = 600, 500
         mainGrid = QtGui.QGridLayout()
@@ -83,7 +84,7 @@ class DigiDiag(QtGui.QWidget):
         self.ktextbrowser.setGeometry(QtCore.QRect(10, 20, 400, 200))
         self.ktextbrowser.setFont(font)
         self.log_file = open(os.path.join(LOG_PATH, 'digidag.dmp'), 'w')
-        self.refresh_thread = GuiThread(to_signal(self.refresh), period=0.1)
+        self.refresh_thread = SignalThread(self.refresh, period=0.1)
         self.refresh_thread.start()
         self.__log_period = 0.05
         self.log_thread = GuiThread(self.log_thread, period=self.__log_period)

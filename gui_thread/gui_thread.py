@@ -7,12 +7,15 @@ from loggers import create_logger
 import time, os
 from PyQt4.QtCore import QThread
 from setup_emubt import LOG_PATH
+from PyQt4.QtCore import pyqtSignal
 
 log_format = '[%(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
 logger_name = "thread_tracker"
 
 t_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format, log_to_file=True)
 info = t_logger.info
+
+
 
 
 def thread_this_method(**thread_kwargs):
@@ -206,6 +209,39 @@ class GuiThread(QThread):
 
     def __repr__(self):
         return "{}.{} id:{}".format(GuiThread, self.target.__name__, self.__id)
+
+
+class SignalThread(GuiThread):
+    """
+    This thread generator must have defined general_signal static attribute.
+    This must come from main window general signal.
+    SignalThread.general_signal = main_window.general_signal
+    """
+
+    def __init__(self, *args, **kwargs):
+        GuiThread.__init__(self, *args, **kwargs)
+        self.target = self.to_signal(self.target)
+
+
+    def to_signal(self, slot):
+        """
+        This functions will create a signal with slot argument
+        :param signal:
+        :param slot:
+        :return:
+        """
+        def wrapper():
+            try:
+                dbg_msg = "emit signal: name:{} id:{}".format(slot.__name__, slot)
+                t_logger.debug(dbg_msg)
+                return self.general_signal.emit(slot)
+            except AttributeError:
+                raise Exception("{doc}\n.{factory}: missing signal attribute. "
+                                "Set it up with {factory}.signal=some_signal"
+                                .format(doc=SignalThread.__doc__, factory=self))
+        wrapper.__name__ = slot.__name__
+        wrapper.emit = wrapper.__call__
+        return wrapper
 
 
 if __name__ == "__main__":

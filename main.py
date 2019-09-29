@@ -21,7 +21,7 @@ from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
 from main_window import ColorProgressBar
 from objects_with_help import HelpTip
-from gui_thread import thread_this_method, GuiThread
+from gui_thread import thread_this_method, GuiThread, SignalThread
 from bt_discover import bt_search
 from console import Console
 from call_tracker import method_call_track
@@ -34,7 +34,6 @@ from test_module import TestInterface
 from digidiag import DigiDiag
 from message_box import message_box
 from bin_tracker import BinTracker
-
 import sys, os, subprocess
 import configparser
 import time
@@ -125,6 +124,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.centralwidget = QtGui.QWidget(self)
         self.event_handler = EventHandler()
         general_signal_factory.signal = self.general_signal
+        SignalThread.general_signal = self.general_signal
 
         self.last_bin_files_tag = "LAST BIN FILES"
         self.buttons_status_tag = "BUTTONS STATUS"
