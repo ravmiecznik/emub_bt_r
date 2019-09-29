@@ -121,7 +121,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def __init__(self, is_test=False):
 
         self.__receive_data_period = 0.01
-        self.digidag_frames = dict()
         self.bank_in_use = None
         self.is_test = is_test
         print 'PATH', EMU_BT_PATH
@@ -345,8 +344,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.editor_subrpocess = subprocess.Popen([editor, self.bin_file_panel.get_current_file()])
 
 
-    def digidiag_on_slot(self):
-        self.digidiag_on.start()
+    # def digidiag_on_slot(self):
+    #     self.digidiag_on.start()
 
 
     # def __digidiag_on(self, retry=3, timeout=0.7):
@@ -388,8 +387,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
                 self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
             elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
-                self.digidag_frames[ord(msg.msg[1])] = msg.msg
-                self.feed_digidiag()
+                #self.digidag_frames[ord(msg.msg[1])] = msg.msg
+                self.feed_digidiag(msg.msg)
                 #self.gui_communication_signal.emit((10*' {:02X}').format(*[ord(i) for i in msg.msg]))
             self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
@@ -595,13 +594,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         return wrapper
 
 
-    def check_if_bootloader_already_active(self):
-        debug("Check if bootloader already active")
-        self.emulator.rx_buffer.flush()
-        Message('run_bootloader\n', create_header=False, resp_positive='BOOTLOADER', positive_signal=to_signal(self.reflash_app_slot),
-                negative_signal=to_signal(self.bootloader_activation_fail), timeout=0.5)
-
-
     def bootloader_activation_fail(self):
         self.gui_communication_signal.emit("Bootloader activation failed")
 
@@ -616,9 +608,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         :return:
         """
         self.setEnabled(False)
-        #GuiThread.kill_all_threads()
         self.suspend_all_threads_bt_rx_thread()
-        #GuiThread.suspend_all_threads()
         self.recevive_emulator_data_thread.start()
         self.emulator.raw_buffer.read()
         current_position_and_size = WindowGeometry(self)
@@ -633,32 +623,23 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def digidiag_slot(self):
         self.digiag_widget = DigiDiag()
         self.digiag_widget.show()
-        self.digiag_widget.show_frames(self.digidag_frames)
 
-
-    def feed_digidiag(self):
+    def feed_digidiag(self, frame):
         try:
-            self.digiag_widget.show_frames(self.digidag_frames)
+            self.digiag_widget.feed_with_data(frame)
         except AttributeError:
             pass
-
-    @thread_this_method()
-    def disable_bootloader_thread(self):
-        self.message_handler
 
 
     def reflash_window_close_slot(self):
         self.setEnabled(True)
         GuiThread.resume_all_threads()
         self.send_message(MessageSender.ID.disable_btlrd)
-        #Message('disable_bootloader')
 
     def __disable_objects_for_transmission(self):
-        #self.bank_in_use_monitor.suspend()
         self.emulation_panel.setDisabled(True)
         self.banks_panel.setDisabled(True)
         self.control_panel.reflash_button.setDisabled(True)
-        #self.console.command_line.setDisabled(True)
         self.console.reset_button.setDisabled(True)
         self.console.help_button.setDisabled(True)
         self.bin_file_panel.combo_box.clearFocus()
@@ -739,7 +720,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         """
         self.blink_discovery_btn.on_terminate = to_signal(self.control_panel.discover_button.set_default_style_sheet)
         self.blink_connect_btn()
-        self.connection_thread = GuiThread(self.__connection_thread, action_when_done=to_signal(self.set_connection_status))
+        self.connection_thread = GuiThread(self.__connection_thread,
+                                           action_when_done=to_signal(self.set_connection_status))
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1, trace=None)
         #self.digidiag_on = GuiThread(self.__digidiag_on)
         self.heartbeat()
@@ -752,7 +734,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.recevive_emulator_data_thread.start()
         self.recevive_emulator_data_thread.resume()
         self.enable_objects_after_transmission_signal()
-        self.tmp_thread = GuiThread(process=to_signal(self.connect_button.set_green_style_sheet), delay=0.6)
+        self.tmp_thread = GuiThread(process=to_signal(self.connect_button.set_green_style_sheet))
         self.tmp_thread.start()
         self.send_message(message_id=MessageSender.ID.get_bank_in_use)
 
@@ -773,18 +755,20 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if self.port is None and self.address is None:
             self.gui_communication_signal.emit("There is no configuration for EMUBT")
             return
+
         if not self.emulator.connected:
             if not self.connection_thread.isRunning():
                 self.connection_thread = GuiThread(self.__connection_thread,
-                                                   action_when_done=to_signal(self.set_connection_status))
+                                                    action_when_done=to_signal(self.set_connection_status))
                 self.connection_thread.start()
             else:
                 self.blink_connect_thread.terminate()
-                self.connection_thread.terminate()
+                self.connection_thread.kill()
                 self.recevive_emulator_data_thread.suspend()
                 self.emulator.disconnect()
                 self.set_connection_status()
         else:
+            print 'point D'
             #self.__digidiag_on()
             #self.recevive_emulator_data_thread.kill()
             self.recevive_emulator_data_thread.suspend()

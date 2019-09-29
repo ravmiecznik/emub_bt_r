@@ -146,6 +146,7 @@ class SimpleGuiThread(QThread):
 
     def run(self):
         t_logger.debug("Run: {}, ARGS: {}, KWARGS: {}".format(self.target, self.__args, self.__kwargs))
+        t_logger.debug("Num of threads: {}".format(len(SimpleGuiThread.threads)))
         self.__is_running = True
         self.__is_terminated = False
         if self.__delay: time.sleep(self.__delay)
@@ -157,7 +158,11 @@ class SimpleGuiThread(QThread):
         if self.__action_when_done:
             self.__action_when_done()
         self.__is_running = False
-        self.kill()
+        #self.kill()
+        try:
+            SimpleGuiThread.threads.remove(self)
+        except ValueError:
+            pass
 
 
     def terminate_s(self):

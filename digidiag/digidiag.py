@@ -10,6 +10,8 @@ from PyQt4.QtGui import QFileDialog
 from PyQt4.QtCore import pyqtSignal
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
 from gui_thread import SimpleGuiThread, thread_this_method
+import struct, time
+from event_handler import to_signal
 
 
 try:
@@ -44,6 +46,21 @@ class Ui_DockWidget(object):
         DockWidget.setWindowTitle(_translate("DockWidget", "DockWidget", None))
 
 
+def log_tstamp_pack(t):
+    """
+    pack tstamp to unsigned short (2 bytes)
+    log_stamp: 2digits_decimal_value__3digits_miliseconds
+    first two digits represents seconds, three last digits represents time in miliseconds
+    :param t: packed tstamp
+    :return:
+    """
+    #print t, '|',
+    t = int(t * 10000) #shift milisecods to integer values
+    #print t
+    try:
+        return struct.pack('H', t)
+    except struct.error:
+        print "ERROR", t
 
 
 class DigiFrames(dict):
@@ -52,8 +69,6 @@ class DigiFrames(dict):
         for frame_id in sorted(self.keys(), reverse=True):
             o += ('{:02X}: ' + 8*' {:02X}' + '\n').format(frame_id, *self[frame_id])
         return o
-
-
 
 
 class DigiDiag(QtGui.QWidget):
@@ -68,32 +83,36 @@ class DigiDiag(QtGui.QWidget):
         self.ktextbrowser.setGeometry(QtCore.QRect(10, 20, 400, 200))
         self.ktextbrowser.setFont(font)
         self.log_file = open(os.path.join(LOG_PATH, 'digidag.dmp'), 'w')
-        self.dump_log_file()
-        self.dump_log_file.start()
+        self.refresh_thread = SimpleGuiThread(to_signal(self.refresh), period=0.1)
+        self.refresh_thread.start()
+        self.__log_period = 0.05
+        self.log_thread = SimpleGuiThread(self.log_thread, period=self.__log_period)
+        self.prev_tstamp = time.time()
+        self.tmp = time.time()
+        self.template = '{:02X}: ' + 8*' {:02X}' + '\n'
+        self.frames = dict()
+        self.log_thread.start()
+        self.log_thread.start()
+        self._log_separator = 10 * '\0'
 
-        #mainGrid.addWidget(self.line_edit,      0, 0, 1, 5)
-        #mainGrid.addWidget(self.browse_button,  0, 5)
-        #mainGrid.addWidget(self.text_browser,   1, 0, 4, 5)
-        #mainGrid.addWidget(self.cancel_button,  5, 0, 1, 1)
-        #mainGrid.addWidget(self.reflash_button, 5, 4, 1, 1)
-        #self.setLayout(mainGrid)
 
-        #self.check_if_bootloader_ready()
-        #self.check_if_bootloader_ready.start()
+    def log_thread(self):
+        self.log_file.write(self._log_separator)
+        for frame_id in sorted(self.frames.keys(), reverse=True):
+            self.log_file.write(self.frames[frame_id])
 
-    def show_frames(self, frames):
-        o=''
-        template = '{:02X}: ' + 8*' {:02X}' + '\n'
-        for frame_id in sorted(frames.keys(), reverse=True):
-            o+= template.format(*[frame_id] + [ord(i) for i in frames[frame_id]])
-            self.log_file.write(frames[frame_id])
-        # for d in dir(self.ktextbrowser):
-        #     print d
+
+    def feed_with_data(self, frame):
+        self.frames[ord(frame[1])] = frame  #key by frame id
+
+    def refresh(self):
+        o = ''
+        for frame_id in sorted(self.frames.keys(), reverse=True):
+            o+= self.template.format(*[frame_id] + [ord(i) for i in self.frames[frame_id]])
+        o += '\n {:<03.2f}'.format(time.time()*10000 - self.tmp)
+        self.tmp = time.time()*10000
         self.ktextbrowser.setText(o)
 
-    @thread_this_method(period=1)
-    def dump_log_file(self):
-        self.log_file.flush()
 
     def __del__(self):
         print 'bye from digidiag'
