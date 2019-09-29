@@ -637,7 +637,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.config_window.show()
 
     def discovery_thread_teardown(self):
-        # self.blink_discovery_btn.kill()
         self.blink_discovery_btn.terminate()
         self.control_panel.discover_button.set_default_style_sheet()
 
@@ -667,7 +666,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.cnt = 0
         try:
             if self.bin_tracker.track_file.isRunning():
-                #self.bin_tracker.track_file.kill()
                 self.bin_tracker.track_file.terminate()
                 to_signal(self.emulation_panel.emulate_button.set_default_style_sheet)()
                 return
