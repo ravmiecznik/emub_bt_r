@@ -4,7 +4,7 @@ contact: ravmiecznk@gmail.com
 """
 
 from bin_handler import bin_repr
-from my_gui_thread import GuiThread, thread_this_method
+from gui_thread import GuiThread, thread_this_method
 from io import BytesIO
 import os
 import struct

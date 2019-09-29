@@ -11,7 +11,7 @@ from PyQt4.QtCore import pyqtSignal
 import os
 import configparser
 from intel_hex_handler import intel_hex_parser
-from my_gui_thread import GuiThread, thread_this_method
+from gui_thread import GuiThread, thread_this_method
 from event_handler import EventHandler, to_signal
 import time
 from setup_emubt import error, info, debug, warn

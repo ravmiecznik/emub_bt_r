@@ -9,7 +9,7 @@ from PyQt4.QtGui import QTextBrowser
 from PyQt4.QtGui import QFileDialog
 from PyQt4.QtCore import pyqtSignal
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
-from gui_thread import SimpleGuiThread, thread_this_method
+from gui_thread import GuiThread, thread_this_method
 import struct, time
 from event_handler import to_signal
 
@@ -83,10 +83,10 @@ class DigiDiag(QtGui.QWidget):
         self.ktextbrowser.setGeometry(QtCore.QRect(10, 20, 400, 200))
         self.ktextbrowser.setFont(font)
         self.log_file = open(os.path.join(LOG_PATH, 'digidag.dmp'), 'w')
-        self.refresh_thread = SimpleGuiThread(to_signal(self.refresh), period=0.1)
+        self.refresh_thread = GuiThread(to_signal(self.refresh), period=0.1)
         self.refresh_thread.start()
         self.__log_period = 0.05
-        self.log_thread = SimpleGuiThread(self.log_thread, period=self.__log_period)
+        self.log_thread = GuiThread(self.log_thread, period=self.__log_period)
         self.prev_tstamp = time.time()
         self.tmp = time.time()
         self.template = '{:02X}: ' + 8*' {:02X}' + '\n'

@@ -35,9 +35,9 @@ def thread_this_method(**thread_kwargs):
     def method_wraper(method):
         def method_call_wrap(*args, **kwargs):
             instance = args[0]
-            info("decorator {}: Converting method {} into {} object".format(thread_this_method.__name__, method.__name__, SimpleGuiThread.__name__))
-            info("{} with args: {}, kwargs: {}".format(SimpleGuiThread.__name__, args, thread_kwargs))
-            thread = SimpleGuiThread(method, args=args, **thread_kwargs)
+            info("decorator {}: Converting method {} into {} object".format(thread_this_method.__name__, method.__name__, GuiThread.__name__))
+            info("{} with args: {}, kwargs: {}".format(GuiThread.__name__, args, thread_kwargs))
+            thread = GuiThread(method, args=args, **thread_kwargs)
             thread.__name__ = "threaded_{}".format(method.__name__)
             setattr(instance, method.__name__, thread)
             return thread
@@ -59,34 +59,34 @@ class ThreadById():
         return self.__str__()
 
 
-class SimpleGuiThread(QThread):
+class GuiThread(QThread):
     threads = []
 
     @staticmethod
     def append_new_thread(item):
-        t_id = len(SimpleGuiThread.threads)
-        SimpleGuiThread.threads.append(item)
+        t_id = len(GuiThread.threads)
+        GuiThread.threads.append(item)
         return t_id
 
     @staticmethod
     def num_of_threads():
-        return len(SimpleGuiThread.threads)
+        return len(GuiThread.threads)
 
     @staticmethod
     def suspend_all_threads():
-        for t in SimpleGuiThread.threads:
+        for t in GuiThread.threads:
             t.suspend()
 
     @staticmethod
     def resume_all_threads():
-        for t in SimpleGuiThread.threads:
+        for t in GuiThread.threads:
             t.resume()
 
     @staticmethod
     def kill_all_threads():
-        while SimpleGuiThread.threads:
-            SimpleGuiThread.threads[0].kill()
-            SimpleGuiThread.threads.remove(SimpleGuiThread.threads[0])
+        while GuiThread.threads:
+            GuiThread.threads[0].kill()
+            GuiThread.threads.remove(GuiThread.threads[0])
 
     def __init__(self, process, args=(), kwargs={}, period=0, delay=None, action_when_done=None, trace='full'):
         QThread.__init__(self)
@@ -97,7 +97,7 @@ class SimpleGuiThread(QThread):
         self.__args = args
         self.__kwargs = kwargs
         self.__id = None
-        self.__id = SimpleGuiThread.append_new_thread(self)
+        self.__id = GuiThread.append_new_thread(self)
         self.__suspend = False
         self.__action_when_done = action_when_done
         self.__was_suspension_communicated = False
@@ -146,7 +146,7 @@ class SimpleGuiThread(QThread):
 
     def run(self):
         t_logger.debug("Run: {}, ARGS: {}, KWARGS: {}".format(self.target, self.__args, self.__kwargs))
-        t_logger.debug("Num of threads: {}".format(len(SimpleGuiThread.threads)))
+        t_logger.debug("Num of threads: {}".format(len(GuiThread.threads)))
         self.__is_running = True
         self.__is_terminated = False
         if self.__delay: time.sleep(self.__delay)
@@ -160,7 +160,7 @@ class SimpleGuiThread(QThread):
         self.__is_running = False
         #self.kill()
         try:
-            SimpleGuiThread.threads.remove(self)
+            GuiThread.threads.remove(self)
         except ValueError:
             pass
 
@@ -180,10 +180,10 @@ class SimpleGuiThread(QThread):
     def terminate(self):
         t_logger.debug("Deleting: {}".format(self))
         try:
-            SimpleGuiThread.threads.remove(self)
+            GuiThread.threads.remove(self)
         except ValueError:
             pass
-        t_logger.debug("Num of threads: {}".format(len(SimpleGuiThread.threads)))
+        t_logger.debug("Num of threads: {}".format(len(GuiThread.threads)))
         QThread.terminate(self)
 
     def restart(self, period):
@@ -203,14 +203,14 @@ class SimpleGuiThread(QThread):
         self.terminate()
         t_logger.debug("Deleting: {}".format(self))
         try:
-            SimpleGuiThread.threads.remove(self)
+            GuiThread.threads.remove(self)
         except ValueError:
             pass
-        t_logger.debug("Num of threads: {}".format(len(SimpleGuiThread.threads)))
+        t_logger.debug("Num of threads: {}".format(len(GuiThread.threads)))
 
 
     def __repr__(self):
-        return "{}.{} id:{}".format(SimpleGuiThread, self.target.__name__, self.__id)
+        return "{}.{} id:{}".format(GuiThread, self.target.__name__, self.__id)
 
 
 if __name__ == "__main__":
@@ -223,8 +223,8 @@ if __name__ == "__main__":
 
         def __init__(self):
             QtGui.QMainWindow.__init__(self)
-            self.thr = SimpleGuiThread(process=fun, period=0.2)
-            SimpleGuiThread.threads[0].start()
+            self.thr = GuiThread(process=fun, period=0.2)
+            GuiThread.threads[0].start()
             time.sleep(1)
             print id(self.thr)
             #self.thr.kill()

@@ -21,7 +21,7 @@ from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
 from main_window import ColorProgressBar
 from objects_with_help import HelpTip
-from my_gui_thread import GuiThread, thread_this_method, SimpleGuiThread
+from gui_thread import thread_this_method, GuiThread
 from bt_discover import bt_search
 from console import Console
 from call_tracker import method_call_track
@@ -275,7 +275,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
 
     def send_message(self, message_id, body='NULL', timeout=0.3):
-        self.send_message_thread = SimpleGuiThread(self.__send_message, args=(message_id, body, timeout))
+        self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, timeout))
         self.send_message_thread.start()
         return self.send_message_thread.returned
 

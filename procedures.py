@@ -6,7 +6,7 @@ contact: ravmiecznk@gmail.com
 import time, os
 import struct
 from event_handler import to_signal
-from my_gui_thread import GuiThread, thread_this_method
+from gui_thread import GuiThread, thread_this_method
 from setup_emubt import warn, error, info, debug, BIN_PATH
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize, ReceptionFail, BinReceiver
 from message_box import message_box
