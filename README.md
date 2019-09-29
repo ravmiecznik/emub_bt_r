@@ -5,7 +5,13 @@ EMU_BT_R V2.0
 https://www.youtube.com/watch?v=0i5L0DQhbt8
 
 https://www.youtube.com/watch?v=bxWkzQrnqo4
-
+    
+    29.09.2019: Full and independent bi-directional communication. APP to BOARD message uses message with header (id, context, len, crc),
+                BOARD to APP message uses tail which is attached to message (id, context, len). Rx messages are stored in rx buffer and are
+                filtered after its id and context. It allows to much more flexible transmission schemes like receiving random data (digifant
+                diagnostic frames, board cpuload, random text and of cource ack/nacks and transmitted data frames)
+                New version also implements first approach for digifant diagnostics: reception and storage of digifant diagnostic frames.
+                Target goal is to display full logging with gauges and LCD displays. 
     23.07.2019: Optimized timings, num of retx, tested on Win10/LINUX
     10.09.2019: Version 2.0 works with EMUBT.avr V >= 2.0
                 Messaging scheme change:
@@ -50,14 +56,12 @@ First working version features:
 
     BLANK PANEL BELOW:
     -this panel displays some tips for actually pointed by mouse button/window/checkbox
-
-	17/08/2019:
-	-check if digidiag resumed
-	-refactored and improved procedures: read bin data from emu, save bin data to emu
-	-in DBG: stdout, stderr to file for release version
-	-first version of digidiag implemented in EMUBT
+    
     
     #TODO:
     -Bin file viewer to be added to see commited changes by EMULATION procedure
-    -call tracker must be fixed: this is not big issue, just for debugging purposes
-	-display window for digidiag
+    -implement gauge/lcd displays for digifant diagnostics
+    
+    Fixed:
+    -occassional crashes on read bank name procedures, read/send binary data
+    -all additional windows are displayed on top of main window
