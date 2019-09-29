@@ -29,27 +29,25 @@ from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageSender, MessageReceiver, RxMessage, TxTimeout
 from config_window import ConfigWindow, ConfigSettings
-# from procedures import BanksProcedures, ReadSramProcedure_V2, StoreToFlashProcedure, \
-#     ReadBankProcedure_V2, SyncFileToSramProcedure
 from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
-from digidiag import DigiDiag, Ui_DockWidget
+from digidiag import DigiDiag
 from message_box import message_box
 from bin_tracker import BinTracker
-from auxiliary_module import null_function
 
 import sys, os, subprocess
 import configparser
 import time
 import textwrap
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
-import struct
+
 
 BACKGROUND = "background-color: rgb({},{},{})"
-GREEN_STYLE_SHEET = BACKGROUND.format(154,252,41)
-GREY_STYLE_SHEET = BACKGROUND.format(48,53,58)
+GREEN_STYLE_SHEET = BACKGROUND.format(154, 252, 41)
+GREY_STYLE_SHEET = BACKGROUND.format(48, 53, 58)
 
 SETTINGS_PATH = EMU_BT_PATH
+
 
 class WindowGeometry(object):
     def __init__(self, QtGuiobject):
@@ -66,8 +64,6 @@ class WindowGeometry(object):
         return self.pos_x, self.pos_y, self.width, self.height
 
 
-
-
 def compare_bin_files(file1, file2):
     with open(file1, 'rb') as f1, open(file2, 'rb') as f2:
         cnt = 0
@@ -79,6 +75,7 @@ def compare_bin_files(file1, file2):
             else:
                 print "{:2X} - {:2X}".format(ord(a), ord(b))
             cnt += 1
+
 
 class QLabel(QLabel):
     """
@@ -103,35 +100,28 @@ class QLabel(QLabel):
 
 
 @method_call_track
-# class MainWindow(QtGui.QMainWindow,
-#                  BanksProcedures, SyncFileToSramProcedure, ConfigSettings):
 class MainWindow(QtGui.QMainWindow, ConfigSettings):
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
     insert_new_file_signal = pyqtSignal(object)
-    #set_new_bank_name_signal = pyqtSignal(object)
     set_banks_panel_bank_name_signal = pyqtSignal(object)
     config_window_apply_signal = pyqtSignal()
-
-    #general signal may be used to send functions, can be implemented as dict
     general_signal = pyqtSignal(object)
 
-
     def __init__(self, is_test=False):
-
+        print 'PATH', EMU_BT_PATH
         self.__receive_data_period = 0.01
         self.bank_in_use = None
         self.is_test = is_test
-        print 'PATH', EMU_BT_PATH
         self.config_path = SETTINGS_PATH
         if platform != 'Linux':
             self.config_path = self.config_path.replace('/', '\\')
         QtGui.QMainWindow.__init__(self)
         self.setWindowTitle("EMU BT")
         x_siz, y_siz = 500, 700
-        mainGrid = QtGui.QGridLayout()
-        mainGrid.setSpacing(10)
+        main_grid = QtGui.QGridLayout()
+        main_grid.setSpacing(10)
         self.centralwidget = QtGui.QWidget(self)
         self.event_handler = EventHandler()
         general_signal_factory.signal = self.general_signal
@@ -143,7 +133,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
         self.help_text = QLabel(self.centralwidget, max_text_size=(x_siz/4.8, 4))
         self.help_text.raise_()
-
 
         self.update_config_file_signal.connect(self.update_config_file)
         self.config_window_apply_signal.connect(self.config_window_apply_slot)
@@ -168,10 +157,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
         self.event_handler.add_event(to_signal(self.open_bin_file))
-        #self.event_handler.add_event(to_signal(self.get_emu_rx_buffer_slot))
 
         ConfigSettings.__init__(self)
-
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
         self.banks_panel = BanksPanel(self.centralwidget, event_handler=self.event_handler)
@@ -179,10 +166,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
 
-
         self.bin_file_panel = BinFilePanel(self.centralwidget, event_handler=self.event_handler, app_status_file=self.app_status_file)
 
-        #create discovery thread in init---------------------------------------------------------
+        # create discovery thread in init---------------------------------------------------------
         bt_device_to_search = 'EMUBT'
         self.discovery_thread = GuiThread(process=bt_search, args=(bt_device_to_search, self.event_handler),
                                           action_when_done=to_signal(self.discovery_thread_teardown))
@@ -192,9 +178,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.connect_signals()
         self.setup_emulator()
 
-        #init procedures
-        #ReadSramProcedure.__init__(self, self.emulator.rx_buffer)
-
         self.progress_bar = ColorProgressBar(parent=self)
 
         allow_read_sram = self.read_allow_read_sram_option()
@@ -202,10 +185,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             allow_read_sram = True
         self.emulation_panel = EmulationPanel(self.centralwidget, read_sram_allowed=allow_read_sram)
 
-        #self.store_to_flash_procedure = StoreToFlashProcedure(self)
-        #self.save_button_slot = self.store_to_flash_procedure.save_button_slot
         self.event_handler.add_event(to_signal(self.save_button_slot))
-
 
         if self.is_test == True:
             self.test_interface = TestInterface(self)
@@ -219,25 +199,20 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
         HelpTip.set_static_help_tip_slot_signal(self.help_tip_signal)
 
-        mainGrid.addWidget(self.control_panel,   0, 0, 2, 1)
-        mainGrid.addWidget(self.emulation_panel, 0, 2, 2, 1)
-        mainGrid.addWidget(self.banks_panel,     0, 4, 2, 1)
-        mainGrid.addWidget(self.bin_file_panel,  5, 0, 1, 6)
-        mainGrid.addWidget(self.console,         6, 0, 6, 6)
-        mainGrid.addWidget(self.help_text,      13, 0, 1, 6)
-        self.centralwidget.setLayout(mainGrid)
+        main_grid.addWidget(self.control_panel,   0, 0, 2, 1)
+        main_grid.addWidget(self.emulation_panel, 0, 2, 2, 1)
+        main_grid.addWidget(self.banks_panel,     0, 4, 2, 1)
+        main_grid.addWidget(self.bin_file_panel,  5, 0, 1, 6)
+        main_grid.addWidget(self.console,         6, 0, 6, 6)
+        main_grid.addWidget(self.help_text,      13, 0, 1, 6)
+        self.centralwidget.setLayout(main_grid)
 
         self.raw_rx_buffer = self.emulator.raw_buffer
         self.rx_buffer = self.emulator.raw_buffer
 
-        #self.read_bank_procedure = ReadBankProcedure_V2(self)
-        #self.read_sram_procedure = ReadSramProcedure_V2(self)
-        #self.read_bank_button_slot = self.read_bank_procedure.read_data_button_slot
-        #self.read_sram_button_slot = self.read_sram_procedure.read_data_button_slot
         self.event_handler.add_event(to_signal(self.read_bank_button_slot), 'read_bank_button_slot')
         self.event_handler.add_event(to_signal(self.read_sram_button_slot), 'read_sram_button_slot')
         self.emulation_panel.set_event_handler(self.event_handler)
-
 
         self.resize(x_siz, y_siz)
         self.disable_objects_for_transmission_signal()
@@ -245,14 +220,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
-        #self.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
         self.digidiag_slot()
-
 
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
-        #self.show()
-
 
     def __send_message(self, m_id, body='NULL', timeout=0.3):
         self.message_handler.send(m_id=MessageSender.ID.rxflush, body=body)
@@ -260,7 +231,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         re_tx = 3
         self.message_handler.send(MessageSender.ID.rxflush)
         self.rx_buffer.flush()
-        #time.sleep(1)
         context = self.message_handler.send(m_id)
         while context not in self.rx_message_buffer and re_tx >= 0:
             context = self.message_handler.send(m_id, body=body)
@@ -270,9 +240,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         else:
             try:
                 return self.rx_message_buffer[context].crc_check
-            except:
+            except KeyError:
                 return None
-
 
     def send_message(self, message_id, body='NULL', timeout=0.3):
         self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, timeout))
@@ -317,21 +286,16 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         :return:
         """
         self.setup_emulator()
-        self.connection_thread = GuiThread(self.__connection_thread, action_when_done=to_signal(self.set_connection_status))
-        self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=self.__receive_data_period)
-
-    def get_emu_rx_buffer_slot(self):
-        pass
-        #self.emulator.rx_buffer.read()
-
+        self.connection_thread = GuiThread(self.__connection_thread,
+                                           action_when_done=to_signal(self.set_connection_status))
+        self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data,
+                                                       period=self.__receive_data_period)
 
     def get_current_bin_file(self):
         self.current_bin_file = self.bin_file_panel.get_current_file()
 
-
     def get_bank_name(self):
         self.bank_name = self.banks_panel.bank_name_line_edit.text()
-
 
     def open_bin_file(self):
         config = configparser.ConfigParser()
@@ -342,37 +306,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         except AttributeError:
             pass
         self.editor_subrpocess = subprocess.Popen([editor, self.bin_file_panel.get_current_file()])
-
-
-    # def digidiag_on_slot(self):
-    #     self.digidiag_on.start()
-
-
-    # def __digidiag_on(self, retry=3, timeout=0.7):
-    #     self.digidag.clear_stats()
-    #     if self.is_test == False:
-    #         if retry:
-    #             print "retry", retry
-    #             t0 = time.time()
-    #             Message('digidiag_on')
-    #             self.digidag_receiver_thread.start()
-    #             while time.time() - t0 < timeout:
-    #                 time.sleep(0.1)
-    #                 if self.digidag.frames_received() >= 20:
-    #                     msg = "digidiag resumed"
-    #                     info(msg)
-    #                     self.gui_communication_signal.emit(msg)
-    #                     self.__restore_digidiag = True
-    #                     return True
-    #             if self.digidag.frames_received() < 20:
-    #                 self.__digidiag_on(retry=retry-1)
-    #         else:
-    #             msg = "digidiag_on failed"
-    #             info(msg)
-    #             self.gui_communication_signal.emit(msg)
-    #             self.__restore_digidiag = False
-    #             return False
-
 
     def get_raw_rx_buffer_slot(self):
         banks = ['bank1set', 'bank2set', 'bank3set']
@@ -397,7 +330,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 break
             cnt += 1
 
-    #BANKS PROCEDURES
+    # BANKS PROCEDURES
     def bank1set_slot(self):
         self.bank_set_slot(0)
 
@@ -418,7 +351,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if bank_name is None:
             bank_name = str(self.banks_panel.get_bank_name_text())
         bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
-        #don't update bank name if not changed
+        # don't update bank name if not changed
         try:
             if self.__tmp_bank_name != bank_name:
                 self.banks_panel.disable_active_button()
@@ -439,43 +372,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.banks_panel.bank3pushButton.setDisabled(True)
         self.control_panel.reflash_button.setDisabled(True)
 
-
     @thread_this_method(period=3)
     def heartbeat(self):
         if self.emulator.connected:
             print self.heartbeat.__name__
             self.send_message(message_id=MessageSender.ID.dummy)
         return
-        try:
-            print 'send'
-            self.message_handler.send(m_id=MessageSender.ID.txt_message, body='hb')
-        except (AttributeError, TxTimeout) as e:
-            pass
-        return
-        if self.rx_message_buffer:
-            print 20 * '-'
-        while self.rx_message_buffer:
-            msg = self.rx_message_buffer.popitem()[1]
-            if msg:
-                print msg
-                self.rx_stats.total += 1
-            if msg and msg.crc_check == msg.CRC.ack:
-                self.rx_stats.acks += 1
-            if msg and msg.crc_check == msg.CRC.dtx:
-                self.rx_stats.dtxs += 1
-            elif msg and msg.crc_check == msg.CRC.nack:
-                self.rx_stats.nacks += 1
-                print msg
-            print 'a:',self.rx_stats.acks, ' n:', self.rx_stats.nacks, ' d:',self.rx_stats.dtxs, ' t:', self.rx_stats.total
-            try:
-                print (100 * self.rx_stats.nacks)/self.rx_stats.acks
-            except ZeroDivisionError:
-                pass
-            print
-
-        #self.message_handler.send(id=MessageHandler.ID.handshake)
-
-
 
     def lost_connection_slot(self):
         self.gui_communication_signal.emit("LOST BT CONNECTION")
@@ -485,16 +387,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.console.command_line.clear()
         cmd = str(command)
         if cmd[0:2] == 'E:':
-            self.handle_E_command(cmd.split('E:')[1])
+            self.handle_command(cmd.split('E:')[1])
         elif self.emulation_panel.isEnabled():
             self.message_handler.send(m_id=MessageSender.ID.txt_message, body=cmd)
-            #self.message_handler.send(cmd)
-            # self.disable_objects_for_transmission_signal()
-            # Message(cmd, positive_signal=self.message_handler.print_rx_buffer_to_console,
-            #         extra_action_on_ack=self.enable_objects_after_transmission_signal,
-            #         extra_action_on_nack=self.enable_objects_after_transmission_signal)
 
-    def handle_E_command(self, cmd):
+    def handle_command(self, cmd):
         cnt = 0
         tot_mem = 0
         if cmd == 'gui threads':
@@ -528,19 +425,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def send_help_cmd_slot(self):
         self.send_message(MessageSender.ID.handshake)
-        #self.disable_objects_for_transmission_signal()
-        #Message('help', positive_signal=self.message_handler.print_rx_buffer_to_console,
-        #        extra_action_on_nack=self.enable_objects_after_transmission_signal,
-        #        extra_action_on_ack=self.enable_objects_after_transmission_signal)
-
 
     def send_resetemu_slot(self):
         self.send_message(MessageSender.ID.reset)
-
-    def disable_digidiag(self):
-       self.message_handler.print_rx_buffer_to_console()
-       #Message('digidiag_off')
-       GuiThread(self.get_bank_in_use, delay=0.5).start()
 
     def read_emubt_config(self):
         config = configparser.ConfigParser()
@@ -566,7 +453,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         try:
             allow = config['APPSETTINGS']['allow_read_sram'].upper()
             return allow == 'TRUE'
-        except:
+        except KeyError:
             return False
 
     def reflash_button_slot(self):
@@ -582,21 +469,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         else:
             to_signal(self.reflash_app_slot)()
 
-    def activate_bootloader(self):
-        debug("Try to enable bootloader in default mode")
-        Message('run_bootloader', positive_signal=to_signal(self.reflash_app_slot),
-                negative_signal=to_signal(self.bootloader_activation_fail), timeout=0.5)
-
-
     def console_msg_factory(self, msg):
         def wrapper(*args):
             self.gui_communication_signal.emit(msg)
         return wrapper
 
-
     def bootloader_activation_fail(self):
         self.gui_communication_signal.emit("Bootloader activation failed")
-
 
     def suspend_all_threads_bt_rx_thread(self):
         GuiThread.suspend_all_threads()
@@ -619,7 +498,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
         self.reflasher.show()
 
-
     def digidiag_slot(self):
         self.digiag_widget = DigiDiag()
         self.digiag_widget.show()
@@ -629,7 +507,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.digiag_widget.feed_with_data(frame)
         except AttributeError:
             pass
-
 
     def reflash_window_close_slot(self):
         self.setEnabled(True)
@@ -651,10 +528,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.banks_panel.bank1pushButton.setDisabled(False)
         self.banks_panel.bank2pushButton.setDisabled(False)
         self.banks_panel.bank3pushButton.setDisabled(False)
-        #self.console.command_line.setDisabled(False)
         self.console.reset_button.setDisabled(False)
         self.console.help_button.setDisabled(False)
-        #self.bank_in_use_monitor.resume()
 
     def update_config_file(self, kwargs):
         self.gui_communication_signal.emit("Updating:")
@@ -663,7 +538,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         ConfigWindow(self.config_file_path, apply_signal=self.config_window_apply_signal).update_config_file(**kwargs)
         self.port, self.address = self.read_emubt_config()
 
-
     def connect_signals(self):
         self.help_tip_signal.connect(self.help_text.setText)
         self.gui_communication_signal.connect(self.console_communication_pipe_slot)
@@ -671,45 +545,28 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.disable_objects_for_transmission_signal = to_signal(self.__disable_objects_for_transmission)
         self.enable_objects_after_transmission_signal = to_signal(self.__enable_objects_after_transmission)
         self.insert_new_file_signal.connect(self.bin_file_panel.insert_new_file)
-        #self.set_new_bank_name_signal.connect(self.set_new_bank_name_slot)
         self.set_banks_panel_bank_name_signal.connect(self.banks_panel.put_bank_name)
-
-    # def set_new_bank_name_slot(self, name):
-    #     self.banks_panel.put_bank_name(name)
-    #     GuiThread(self.set_bank_name, delay=0.5).start()
 
     def general_signal_slot(self, object):
         object()
         return
-        try:
-            object()
-        except TypeError:
-            error("{}:{} cant be executed in {}".format(type(object), object.__name__,  self.general_signal_slot.__name__))
-
 
     def console_communication_pipe_slot(self, msg):
         self.console.communication_pipe_slot(msg)
 
-
-    #@thread_this_method()
     def __connection_thread(self):
         self.blink_connect_thread = GuiThread(to_signal(self.control_panel.connect_button.blink), period=0.5)
         self.blink_connect_thread.start()
-        #self.blink_connect_btn.start()
         self.emulator.connect(self.port, self.address)
-
 
     @thread_this_method(period=0.5)
     def blink_discovery_btn(self):
         to_signal(self.control_panel.discover_button.blink)()
-        #self.control_panel.discover_button.blink()
-
 
     @thread_this_method(period=0.5)
     def blink_connect_btn(self):
         print 'blink'
         to_signal(self.control_panel.connect_button.blink)()
-
 
     def create_threads(self):
         """
@@ -723,9 +580,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.connection_thread = GuiThread(self.__connection_thread,
                                            action_when_done=to_signal(self.set_connection_status))
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1, trace=None)
-        #self.digidiag_on = GuiThread(self.__digidiag_on)
         self.heartbeat()
-        #self.heartbeat.start()
         self.send_sram_bytes()
 
     def set_connected(self):
@@ -759,7 +614,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if not self.emulator.connected:
             if not self.connection_thread.isRunning():
                 self.connection_thread = GuiThread(self.__connection_thread,
-                                                    action_when_done=to_signal(self.set_connection_status))
+                                                   action_when_done=to_signal(self.set_connection_status))
                 self.connection_thread.start()
             else:
                 self.blink_connect_thread.terminate()
@@ -768,9 +623,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.emulator.disconnect()
                 self.set_connection_status()
         else:
-            print 'point D'
-            #self.__digidiag_on()
-            #self.recevive_emulator_data_thread.kill()
             self.recevive_emulator_data_thread.suspend()
             self.emulator.disconnect()
             self.set_connection_status()
@@ -784,12 +636,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.config_window.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.config_window.x_siz, self.config_window.y_siz)
         self.config_window.show()
 
-
     def discovery_thread_teardown(self):
-        #self.blink_discovery_btn.kill()
+        # self.blink_discovery_btn.kill()
         self.blink_discovery_btn.terminate()
         self.control_panel.discover_button.set_default_style_sheet()
-
 
     def discover_emu_bt_slot(self):
         """
@@ -813,7 +663,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         except AttributeError:
             start_discovery()
 
-
     def emulate_button_slot(self):
         self.cnt = 0
         try:
@@ -833,7 +682,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     @thread_this_method()
     def send_sram_bytes(self):
-        #self.send_message(message_id=MessageSender.ID.rxflush)
         max_msg_len = 256 * 8   #single packet size
         msg_body = ''
         bytes_cnt = 0
@@ -844,11 +692,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 break
         result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=1)
         while result() is None:
-           time.sleep(0.001)
+            time.sleep(0.001)
         self.bin_tracker.resume()
-        # Message(id=Message.ID.send_sram_bytes, raw_msg=msg_body, positive_signal=self.console_msg_factory("Updated sram of {} bytes\nRemaining: {} bytes".format(bytes_cnt, len(self.bin_tracker.diffs))),
-        #         extra_action_on_nack=to_signal(self.bin_tracker.resume),
-        #         extra_action_on_ack=to_signal(self.bin_tracker.resume))
 
     def tear_down_main_app(self):
         self.update_app_status_file()
@@ -887,9 +732,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
            config.write(cf)
 
     def closeEvent(self, event):
-        # if self.emulator.connected and not self.__digidiag_on():
-        #     message_box("Digidiag not restored. Restart ECU for digifant diagnostics", detailed_msg="Does your Digifant BIN file contain DIGIDIAG feature ?\n"
-        #                                                                                             "Remember: Digidag works only if you upload BIN file from ravmiecznik !!!")
         if event.type() == QEvent.Close:
             self.tear_down_main_app()
             app = QtGui.QApplication.instance()
@@ -897,7 +739,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def destroyEvent(self, event):
         print "destroy"
-
 
 
 def main(dev_version=False):
