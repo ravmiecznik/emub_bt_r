@@ -55,6 +55,7 @@ class WritePackets:
         self.set_bank_name = parent.set_bank_name
         self.disable_objects_for_transmission_signal = parent.disable_objects_for_transmission_signal
         self.enable_objects_after_transmission_signal = parent.enable_objects_after_transmission_signal
+        self.reload_sram = parent.emulation_panel.reload_sram_checkbox.isChecked
 
     def check_repsonse(self, context):
         retx_timeout = 0.5
@@ -97,7 +98,7 @@ class WritePackets:
                 break
             self.check_resp_thr = GuiThread(self.check_repsonse, args=(MessageSender.context,))
             self.check_resp_thr.start()
-            context = self.send_packet(packet, packet_num=packet_num)
+            self.send_packet(packet, packet_num=packet_num)
             while self.check_resp_thr.returned() is None: time.sleep(0.001)
             response = self.check_resp_thr.returned()
 
@@ -115,12 +116,13 @@ class WritePackets:
                 self.__tear_down()
                 raise SendTimeout("TIMEOUT")
         else:
-            self.parent_send_msg(MessageSender.ID.reload_sram, timeout=1)
+            if self.reload_sram():
+                self.parent_send_msg(MessageSender.ID.reload_sram, timeout=1)
             self.gui_communication_signal.emit("File transmitted in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
+            self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
+            self.set_bank_name(bank_name.replace('_sram', ''))
         to_signal(self.progress_bar.hide).emit()
-        self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
-        self.set_bank_name(bank_name.replace('_sram', ''))
         self.enable_objects_after_transmission_signal.emit()
 
 
