@@ -14,6 +14,7 @@ logger_name = "thread_tracker"
 t_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format, log_to_file=True)
 info = t_logger.info
 
+
 def thread_this_method(**thread_kwargs):
     """
     This is decorator.
@@ -46,10 +47,11 @@ def thread_this_method(**thread_kwargs):
         method_call_wrap.__name__ = method.__name__
     return method_wraper
 
-class ThreadById():
-    def __init__(self, thread, id, alias=None):
+
+class ThreadById:
+    def __init__(self, thread, thread_id, alias=None):
         self.thread = thread
-        self.id = id
+        self.id = thread_id
         self.alias = alias
 
     def __str__(self):
@@ -133,7 +135,8 @@ class GuiThread(QThread):
         return self.__id
 
     def __run(self):
-        if self.__delay: time.sleep(self.__delay)
+        if self.__delay:
+            time.sleep(self.__delay)
         self.__is_terminated = False
         if not self.__suspend:
             if self.__trace == 'full':
@@ -143,13 +146,13 @@ class GuiThread(QThread):
             t_logger.debug("suspended: {}".format(self))
             self.__was_suspension_communicated = True
 
-
     def run(self):
         t_logger.debug("Run: {}, ARGS: {}, KWARGS: {}".format(self.target, self.__args, self.__kwargs))
         t_logger.debug("Num of threads: {}".format(len(GuiThread.threads)))
         self.__is_running = True
         self.__is_terminated = False
-        if self.__delay: time.sleep(self.__delay)
+        if self.__delay:
+            time.sleep(self.__delay)
         while self.__period != 0 and self.__is_terminated is not True:
             self.__run()
             time.sleep(self.__period)
@@ -158,12 +161,11 @@ class GuiThread(QThread):
         if self.__action_when_done:
             self.__action_when_done()
         self.__is_running = False
-        #self.kill()
+        # self.kill()
         try:
             GuiThread.threads.remove(self)
         except ValueError:
             pass
-
 
     def terminate_s(self):
         """
@@ -172,10 +174,6 @@ class GuiThread(QThread):
         """
         t_logger.debug("Terminating {}".format(self))
         self.__is_terminated = True
-        #self.__prev_period = self.__period
-        #self.__period = 0
-        #while not self.wait():
-        #    time.sleep(0.001)
 
     def terminate(self):
         t_logger.debug("Deleting: {}".format(self))
@@ -186,15 +184,13 @@ class GuiThread(QThread):
         t_logger.debug("Num of threads: {}".format(len(GuiThread.threads)))
         QThread.terminate(self)
 
-    def restart(self, period):
+    def restart(self):
         """
         Will resurect the thread if terminate was used
         :param period:
         :return:
         """
         self.__is_terminated = False
-        #self.__period = period if period else self.__prev_period
-
 
     def kill(self):
         """
@@ -207,7 +203,6 @@ class GuiThread(QThread):
         except ValueError:
             pass
         t_logger.debug("Num of threads: {}".format(len(GuiThread.threads)))
-
 
     def __repr__(self):
         return "{}.{} id:{}".format(GuiThread, self.target.__name__, self.__id)
@@ -241,7 +236,8 @@ if __name__ == "__main__":
 
         def start_thread(self):
             self.mt.start()
-            while self.mt.isRunning(): time.sleep(0.001)
+            while self.mt.isRunning():
+                time.sleep(0.001)
             return
 
 
