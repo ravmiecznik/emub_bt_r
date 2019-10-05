@@ -255,8 +255,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def read_bank_button_slot(self):
         self.message_handler.send(MessageSender.ID.rxflush)
-        self.read_sram = ReadBankProcedure(self)
-        self.read_sram.read_thread.start()
+        self.read_bank = ReadBankProcedure(self)
+        self.read_bank.read_thread.start()
 
     def save_button_slot(self):
         bin_path = self.bin_file_panel.get_current_file()
