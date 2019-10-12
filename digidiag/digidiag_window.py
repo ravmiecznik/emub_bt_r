@@ -9,7 +9,7 @@
 import pickle
 from PyQt4 import QtCore, QtGui, Qt
 from PyQt4.QtCore import QEvent, pyqtSignal
-from objects_with_help import PushButton
+from objects_with_help import PushButton, PushButtonCleckedOverriden
 import time, json, os
 import struct
 import traceback
@@ -60,7 +60,7 @@ def invalid_table_item(item, message):
 
 def valid_table_item(formula, message='field is valid'):
     item = QtGui.QTableWidgetItem(formula)
-    item.setBackgroundColor(QtGui.QColor(140, 208, 211))
+    item.setBackgroundColor(QtGui.QColor(213, 230, 237))
     item.setToolTip(message)
     return item
 
@@ -71,18 +71,21 @@ class ValuesEditor(QtGui.QWidget):
     display_value: will convert raw value according to formula and display in READING column
     """
     apply_button_singnal = pyqtSignal()
+    cell_button_clicked = pyqtSignal(object)
+
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        self.__table_header = ['NAME', 'UNITS', 'FRAME ID', 'BYTES SIZE', 'OFFSET', 'FORMULA', 'READING', 'RAW', 'REMOVE']
+        self.__values_info = ['NAME', 'UNITS', 'FRAME ID', 'BYTES SIZE', 'OFFSET', 'FORMULA', 'READING', 'RAW']
+        self.__table_header = list(self.__values_info)
+        self.__table_header.extend(['REMOVE'])
 
         self.valuesEditorLayout = QtGui.QGridLayout(self)
 
         self.table = QtGui.QTableWidget(self)
         self.table.setColumnCount(len(self.__table_header))
         self.table.setHorizontalHeaderLabels(self.__table_header)
-        self.add_button = QtGui.QPushButton('ADD NEW')
-        self.apply_button = QtGui.QPushButton('APPLY')
-        self.table.cellDoubleClicked.connect(self.cell_double_clicked)
+        self.add_button = PushButton('ADD NEW', tip_msg="Add new value")
+        self.apply_button = PushButton('APPLY', tip_msg="Verifies and saves values table")
 
         self.add_button.clicked.connect(self.add_row)
         self.apply_button.clicked.connect(self.table_save_slot)
@@ -93,15 +96,20 @@ class ValuesEditor(QtGui.QWidget):
         self.raw_values_display_dict = {}
 
         self.__values_file_path = os.path.join(DIGIDIAG_STATUS_DIR, VALUES_FILE_NAME)
-        #self.table.cellPressed.connect(self.table_save_slot)
 
         self.valuesEditorLayout.addWidget(self.table, 0, 0, 5, 5)
         self.valuesEditorLayout.addWidget(self.apply_button, 6, 3)
         self.valuesEditorLayout.addWidget(self.add_button, 6, 4)
 
-        #self.resize(1000, 600)
-        #self.show()
         self.read_status_file()
+
+    def delete_value_slot(self, button_id):
+        for row in xrange(self.table.rowCount()):
+            del_button = self.table.cellWidget(row, self.__coln('REMOVE'))
+            if del_button == button_id:
+                self.table.removeRow(row)
+                self.__update_values()
+                break
 
     def __validate_formula(self, formula_str):
         formula_str = formula_str.lower()
@@ -134,21 +142,8 @@ class ValuesEditor(QtGui.QWidget):
         with open(self.__values_file_path, 'w') as json_dump:
             json.dump(self.values_decoder, json_dump, indent=4)
 
-
     def __coln(self, col_name):
         return self.__table_header.index(col_name)
-
-    def cell_double_clicked(self, *cell, **kwargs):
-        if cell[1] == self.__table_header.index('REMOVE'):
-            value_name = self.table.item(cell[0], self.__table_header.index('NAME')).text()
-            value_name = str(value_name)
-            self.values_decoder.__delitem__(value_name)
-            self.values_calculator.__delitem__(value_name)
-            self.values_display_dict.__delitem__(value_name)
-            self.raw_values_display_dict.__delitem__(value_name)
-            self.table.removeRow(cell[0])
-
-        self.__update_values()
 
     def __assign_formula(self, row, col_name, value_name):
         """
@@ -198,7 +193,7 @@ class ValuesEditor(QtGui.QWidget):
             try:
                 value_name = str(self.table.item(row, self.__table_header.index('NAME')).text())
                 self.values_decoder[value_name] = {}
-                for col_name in self.__table_header:
+                for col_name in self.__values_info:
                     try:
                         val_property = str(self.table.item(row, self.__table_header.index(col_name)).text())
                         if col_name == 'FORMULA':
@@ -224,8 +219,6 @@ class ValuesEditor(QtGui.QWidget):
             except AttributeError as e:
                 traceback.print_exc()
 
-
-
     def table_save_slot(self):
         self.__update_values()
 
@@ -247,7 +240,9 @@ class ValuesEditor(QtGui.QWidget):
     def add_row(self):
         self.table.setRowCount(self.table.rowCount() + 1)
         current_row = self.table.rowCount() - 1
-        self.table.setItem(current_row, self.__coln('REMOVE'), delete_cell_button_table_item())
+        delete_button = PushButtonCleckedOverriden('delete')
+        delete_button.clicked_custom.connect(self.delete_value_slot)
+        self.table.setCellWidget(current_row, self.__coln('REMOVE'), delete_button)
         self.table.setItem(current_row, self.__coln('READING'), read_only_table_item())
         self.table.setItem(current_row, self.__coln('RAW'), read_only_table_item())
 
@@ -272,8 +267,8 @@ class DigidiagWindow(QtGui.QWidget):
         self.setWindowTitle("DIGIDIAG")
         self.__ord_to_int_vs_size = {
             1: lambda v: struct.unpack('B', v),
-            2: lambda v: struct.unpack('H', v),
-            4: lambda v: struct.unpack('I', v),
+            2: lambda v: struct.unpack('>H', v),
+            4: lambda v: struct.unpack('>I', v),
         }
 
         self.frames = dict()
@@ -332,7 +327,6 @@ class DigidiagWindow(QtGui.QWidget):
                 self.values_editor.display_value(value, raw_value, byte_size)
             except (KeyError, struct.error) as e:
                 pass
-                #traceback.print_exc()
 
 
 if __name__ == "__main__":
