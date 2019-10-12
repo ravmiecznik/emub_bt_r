@@ -9,10 +9,13 @@
 import pickle
 from PyQt4 import QtCore, QtGui, Qt
 from PyQt4.QtCore import QEvent, pyqtSignal
+from objects_with_help import PushButton
 import time, json, os
-from copy import copy
+import struct
+import traceback
+from setup_emubt import EMU_BT_PATH
 
-DIGIDIAG_STATUS_DIR = ''
+DIGIDIAG_STATUS_DIR = EMU_BT_PATH
 VALUES_FILE_NAME = 'values.json'
 
 try:
@@ -48,14 +51,14 @@ def delete_cell_button_table_item():
     return del_cell
 
 
-def invalid_formula_table_item(formula, message):
-    invalid_formula_item = QtGui.QTableWidgetItem(formula)
-    invalid_formula_item.setBackgroundColor(QtGui.QColor(180, 48, 45))
-    invalid_formula_item.setToolTip(message)
-    return invalid_formula_item
+def invalid_table_item(item, message):
+    invalid_item = QtGui.QTableWidgetItem(item)
+    invalid_item.setBackgroundColor(QtGui.QColor(180, 48, 45))
+    invalid_item.setToolTip(message)
+    return invalid_item
 
 
-def valid_formula_table_item(formula, message='formula is valid'):
+def valid_table_item(formula, message='field is valid'):
     item = QtGui.QTableWidgetItem(formula)
     item.setBackgroundColor(QtGui.QColor(140, 208, 211))
     item.setToolTip(message)
@@ -67,34 +70,38 @@ class ValuesEditor(QtGui.QWidget):
     Validates formula to calculate the value.
     display_value: will convert raw value according to formula and display in READING column
     """
+    apply_button_singnal = pyqtSignal()
     def __init__(self):
         QtGui.QWidget.__init__(self)
         self.__table_header = ['NAME', 'UNITS', 'FRAME ID', 'BYTES SIZE', 'OFFSET', 'FORMULA', 'READING', 'RAW', 'REMOVE']
+
+        self.valuesEditorLayout = QtGui.QGridLayout(self)
+
         self.table = QtGui.QTableWidget(self)
-
-
         self.table.setColumnCount(len(self.__table_header))
         self.table.setHorizontalHeaderLabels(self.__table_header)
         self.add_button = QtGui.QPushButton('ADD NEW')
         self.apply_button = QtGui.QPushButton('APPLY')
         self.table.cellDoubleClicked.connect(self.cell_double_clicked)
-        self.gridLayout = QtGui.QGridLayout(self)
-        self.gridLayout.addWidget(self.table, 0, 0, 5, 5)
-        self.gridLayout.addWidget(self.apply_button, 6, 3)
-        self.gridLayout.addWidget(self.add_button, 6, 4)
+
         self.add_button.clicked.connect(self.add_row)
         self.apply_button.clicked.connect(self.table_save_slot)
 
         self.values_decoder = {}
         self.values_calculator = {}
         self.values_display_dict = {}
+        self.raw_values_display_dict = {}
 
         self.__values_file_path = os.path.join(DIGIDIAG_STATUS_DIR, VALUES_FILE_NAME)
-        self.read_status_file()
-        self.table.cellPressed.connect(self.table_save_slot)
-        for d in dir(QtGui.QTableWidgetItem()):
-            print d
+        #self.table.cellPressed.connect(self.table_save_slot)
 
+        self.valuesEditorLayout.addWidget(self.table, 0, 0, 5, 5)
+        self.valuesEditorLayout.addWidget(self.apply_button, 6, 3)
+        self.valuesEditorLayout.addWidget(self.add_button, 6, 4)
+
+        #self.resize(1000, 600)
+        #self.show()
+        self.read_status_file()
 
     def __validate_formula(self, formula_str):
         formula_str = formula_str.lower()
@@ -133,7 +140,14 @@ class ValuesEditor(QtGui.QWidget):
 
     def cell_double_clicked(self, *cell, **kwargs):
         if cell[1] == self.__table_header.index('REMOVE'):
+            value_name = self.table.item(cell[0], self.__table_header.index('NAME')).text()
+            value_name = str(value_name)
+            self.values_decoder.__delitem__(value_name)
+            self.values_calculator.__delitem__(value_name)
+            self.values_display_dict.__delitem__(value_name)
+            self.raw_values_display_dict.__delitem__(value_name)
             self.table.removeRow(cell[0])
+
         self.__update_values()
 
     def __assign_formula(self, row, col_name, value_name):
@@ -149,9 +163,34 @@ class ValuesEditor(QtGui.QWidget):
             validated_formula = self.__validate_formula(formula)
             self.values_calculator[value_name] = validated_formula
         except Exception as e:
-            self.table.setItem(row, self.__coln(col_name), invalid_formula_table_item(formula, e.message))
+            self.table.setItem(row, self.__coln(col_name), invalid_table_item(formula, e.message))
         else:
-            self.table.setItem(row, self.__coln(col_name), valid_formula_table_item(formula, message=formula))
+            self.table.setItem(row, self.__coln(col_name), valid_table_item(formula, message=formula))
+
+    def __assign_frame_id(self, row, col_name, value_name):
+        frame_id = str(self.table.item(row, self.__table_header.index(col_name)).text()).lower()
+        validated_id = frame_id
+        try:
+            if '0x' in frame_id:
+                validated_id = int(frame_id, 16)
+            else:
+                validated_id = int(frame_id)
+        except Exception as e:
+            self.table.setItem(row, self.__coln(col_name), invalid_table_item(frame_id, e.message))
+        else:
+            self.table.setItem(row, self.__coln(col_name), valid_table_item(frame_id, message=frame_id))
+        return validated_id
+
+    def __is_field_integer(self, row, col_name):
+        frame_id = str(self.table.item(row, self.__table_header.index(col_name)).text()).lower()
+        validated_id = '0'
+        try:
+            validated_id = int(frame_id)
+        except Exception as e:
+            self.table.setItem(row, self.__coln(col_name), invalid_table_item(frame_id, e.message))
+        else:
+            self.table.setItem(row, self.__coln(col_name), valid_table_item(frame_id, message=frame_id))
+        return validated_id
 
     def __update_values(self):
         self.values_decoder = {}
@@ -161,28 +200,36 @@ class ValuesEditor(QtGui.QWidget):
                 self.values_decoder[value_name] = {}
                 for col_name in self.__table_header:
                     try:
+                        val_property = str(self.table.item(row, self.__table_header.index(col_name)).text())
                         if col_name == 'FORMULA':
                             self.__assign_formula(row, col_name, value_name)
                         elif col_name == 'READING':
                             val_display = read_only_table_item()
                             self.table.setItem(row, self.__coln(col_name), val_display)
                             self.values_display_dict[value_name] = val_display
-                        val_property = self.table.item(row, self.__table_header.index(col_name)).text()
-                        self.values_decoder[value_name][col_name] = str(val_property)
-                    except AttributeError:
-                        self.values_decoder[value_name][col_name] = None
-            except AttributeError:
-                pass
+                        elif col_name == 'RAW':
+                            val_display = read_only_table_item()
+                            self.table.setItem(row, self.__coln(col_name), val_display)
+                            self.raw_values_display_dict[value_name] = val_display
+                        elif col_name == 'FRAME ID':
+                            self.__assign_frame_id(row, col_name, value_name)
+                        elif col_name == 'OFFSET':
+                            self.__is_field_integer(row, col_name)
+                        self.values_decoder[value_name][col_name] = val_property
+                    except AttributeError as e:
+                        self.values_decoder[value_name][col_name] = '0'
+                        traceback.print_exc()
+                self.apply_button_singnal.emit()
+                self.dump_status_file()
+            except AttributeError as e:
+                traceback.print_exc()
+
+
 
     def table_save_slot(self):
         self.__update_values()
-        self.display_value('test', 2)
-        try:
-            self.display_value('test', 2)
-        except KeyError:
-            pass
 
-    def display_value(self, value_name, raw_value):
+    def display_value(self, value_name, raw_value, byte_size):
         """
         Fills column READING at given value_name with value
         :param value_name:
@@ -190,102 +237,102 @@ class ValuesEditor(QtGui.QWidget):
         :param raw_value: raw value
         :return:
         """
-        value = self.values_calculator[value_name](raw_value)
-        #value = str(value)
+        try:
+            value = self.values_calculator[value_name](raw_value)
+        except ZeroDivisionError:
+            value = 'NaN'
         self.values_display_dict[value_name].setData(Qt.Qt.DisplayRole, value)
+        self.raw_values_display_dict[value_name].setData(Qt.Qt.DisplayRole, '0x{val:0{bsiz}X}'.format(bsiz=byte_size*2, val=raw_value))
 
     def add_row(self):
         self.table.setRowCount(self.table.rowCount() + 1)
         current_row = self.table.rowCount() - 1
         self.table.setItem(current_row, self.__coln('REMOVE'), delete_cell_button_table_item())
         self.table.setItem(current_row, self.__coln('READING'), read_only_table_item())
+        self.table.setItem(current_row, self.__coln('RAW'), read_only_table_item())
 
     def __del__(self):
         self.dump_status_file()
 
+    def closeEvent(self, event):
+        if event.type() == QEvent.Close:
+            self.dump_status_file()
 
-class Ui_Form(object):
-    def setupUi(self, Form):
-        Form.setObjectName(_fromUtf8("Form"))
-        self.resize(1000, 600)
-        self.gridLayout = QtGui.QGridLayout(Form)
-        self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
+    def destroyEvent(self, event):
+        if event.type() == QEvent.Destroy:
+            self.dump_status_file()
+
+
+class DigidiagWindow(QtGui.QWidget):
+    def __init__(self):
+
+        QtGui.QWidget.__init__(self)
+        x_siz, y_siz = 1000, 600
+
+        self.setWindowTitle("DIGIDIAG")
+        self.__ord_to_int_vs_size = {
+            1: lambda v: struct.unpack('B', v),
+            2: lambda v: struct.unpack('H', v),
+            4: lambda v: struct.unpack('I', v),
+        }
+
+        self.frames = dict()
+        self.values_extractor = {}
+
+        self.gridLayout = QtGui.QGridLayout(self)
         self.horizontalLayout = QtGui.QHBoxLayout()
-        self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
 
-        self.pushButton_3 = QtGui.QPushButton(Form)
-        self.pushButton_3.setObjectName(_fromUtf8("pushButton_3"))
+        self.add_view_btn = PushButton('ADD VIEW', tip_msg="Add new view")
+        self.button2 = QtGui.QPushButton('B2')
+        self.button3 = QtGui.QPushButton('B3')
+
+        self.tabWidget = QtGui.QTabWidget(self)
+        self.values_editor = ValuesEditor()
+        self.values_editor.apply_button_singnal.connect(self.define_extraction_rules)
+
+        self.tabWidget.addTab(self.values_editor, 'VALUES')
+
+        self.horizontalLayout.addWidget(self.add_view_btn)
+        self.horizontalLayout.addWidget(self.button2)
+        self.horizontalLayout.addWidget(self.button3)
 
 
-
-        self.horizontalLayout.addWidget(self.pushButton_3)
-        self.pushButton_2 = QtGui.QPushButton(Form)
-        self.pushButton_2.setObjectName(_fromUtf8("pushButton_2"))
-
-        self.horizontalLayout.addWidget(self.pushButton_2)
-        self.pushButton = QtGui.QPushButton(Form)
-        self.pushButton.setObjectName(_fromUtf8("pushButton"))
-
-        self.horizontalLayout.addWidget(self.pushButton)
-        self.pushButton_4 = QtGui.QPushButton(Form)
-        self.pushButton_4.setObjectName(_fromUtf8("pushButton_4"))
-
-        self.horizontalLayout.addWidget(self.pushButton_4)
-        self.checkBox_2 = QtGui.QCheckBox(Form)
-        self.checkBox_2.setObjectName(_fromUtf8("checkBox_2"))
-
-        self.horizontalLayout.addWidget(self.checkBox_2)
-        self.checkBox = QtGui.QCheckBox(Form)
-        self.checkBox.setObjectName(_fromUtf8("checkBox"))
-
-        self.horizontalLayout.addWidget(self.checkBox)
         self.gridLayout.addLayout(self.horizontalLayout, 0, 0, 1, 1)
-
-        self.tabWidget = QtGui.QTabWidget(Form)
-
-        self.tabWidget.setObjectName(_fromUtf8("tabWidget"))
-        self.tab = QtGui.QWidget()
-
-
-        self.tab.setObjectName(_fromUtf8("tab"))
-        self.tabWidget.addTab(self.tab, _fromUtf8(""))
-
-        self.values = ValuesEditor()
-        self.values.setObjectName(_fromUtf8("values"))
-        self.tabWidget.addTab(self.values, _fromUtf8(""))
         self.gridLayout.addWidget(self.tabWidget, 1, 0, 1, 1)
 
-        self.retranslateUi(Form)
-        self.tabWidget.setCurrentIndex(1)
-        QtCore.QMetaObject.connectSlotsByName(Form)
-
-    def retranslateUi(self, Form):
-        Form.setWindowTitle(_translate("Form", "Form", None))
-        self.pushButton_3.setText(_translate("Form", "PushButton", None))
-        self.pushButton_2.setText(_translate("Form", "PushButton", None))
-        self.pushButton.setText(_translate("Form", "PushButton", None))
-        self.pushButton_4.setText(_translate("Form", "PushButton", None))
-        self.checkBox_2.setText(_translate("Form", "CheckBox", None))
-        self.checkBox.setText(_translate("Form", "CheckBox", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("Form", "Tab 1", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.values), _translate("Form", "VALUES", None))
-
-class MainWindow(QtGui.QMainWindow, Ui_Form):
-
-    def __init__(self):
-        QtGui.QMainWindow.__init__(self)
-        Ui_Form.__init__(self)
-        self.centralwidget = QtGui.QWidget(self)
-        self.setCentralWidget(self.centralwidget)
-        self.setupUi(self.centralwidget)
+        self.resize(x_siz, y_siz)
         self.show()
+        self.define_extraction_rules()
 
-        self.pushButton_3.clicked.connect(self.add_tab)
+    def define_extraction_rules(self):
+        #self.__table_header = ['NAME', 'UNITS', 'FRAME ID', 'BYTES SIZE', 'OFFSET', 'FORMULA', 'READING', 'RAW', 'REMOVE']
+        values_definition = self.values_editor.values_decoder
+        self.values_extractor = {}
+        for key in values_definition:
+            #self.values_extractor[key] = {}
+            frame_id = values_definition[key]['FRAME ID']
+            self.values_extractor[key] = {
+                'FRAME ID': int(frame_id, 16) if '0x' in frame_id else int(frame_id),
+                'OFFSET': int(values_definition[key]['OFFSET']),
+                'BYTES SIZE': int(values_definition[key]['BYTES SIZE']),
+            }
 
-    def add_tab(self):
-        count = self.tabWidget.count()
-        self.tabWidget.insertTab(count - 1, QtGui.QWidget(self), 'new {}'.format(count))
+    def feed_data(self, frame):
+        frame_id = ord(frame[1])
+        self.frames[frame_id] = frame[2:]
 
+    def refresh(self):
+        for value in self.values_extractor:
+            frame_id = self.values_extractor[value]['FRAME ID']
+            offset = self.values_extractor[value]['OFFSET']
+            byte_size = self.values_extractor[value]['BYTES SIZE']
+            try:
+                raw_value = self.frames[frame_id][offset:offset + byte_size]
+                raw_value = self.__ord_to_int_vs_size[byte_size](raw_value)[0]
+                self.values_editor.display_value(value, raw_value, byte_size)
+            except (KeyError, struct.error) as e:
+                pass
+                #traceback.print_exc()
 
 
 if __name__ == "__main__":

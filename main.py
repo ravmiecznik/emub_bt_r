@@ -31,13 +31,14 @@ from message_handler import MessageSender, MessageReceiver, RxMessage, TxTimeout
 from config_window import ConfigWindow, ConfigSettings
 from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
-from digidiag import DigiDiag
+from digidiag import DigiDiag, DigidiagWindow
 from message_box import message_box
 from bin_tracker import BinTracker
 import sys, os, subprocess
 import configparser
 import time
 import textwrap
+import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 
 
@@ -175,6 +176,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.blink_discovery_btn()
         # create discovery thread in init---------------------------------------------------------
 
+        self.digidiag_window = DigidiagWindow()
+
         self.connect_signals()
         self.setup_emulator()
 
@@ -221,6 +224,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
         self.digidiag_slot()
+
 
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
@@ -306,6 +310,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         except AttributeError:
             pass
         self.editor_subrpocess = subprocess.Popen([editor, self.bin_file_panel.get_current_file()])
+
+
+    @thread_this_method(period=0.1)
+    def refresh_digidiag_display(self):
+        self.digidiag_window.refresh()
+
 
     def get_raw_rx_buffer_slot(self):
         banks = ['bank1set', 'bank2set', 'bank3set']
@@ -505,8 +515,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def feed_digidiag(self, frame):
         try:
             self.digiag_widget.feed_with_data(frame)
+            self.digidiag_window.feed_data(frame)
+            if len(self.digidiag_window.frames) > 3 and not self.refresh_digidiag_display.isRunning():
+                self.refresh_digidiag_display.start()
         except AttributeError:
-            pass
+            traceback.print_exc()
 
     def reflash_window_close_slot(self):
         self.setEnabled(True)
@@ -565,7 +578,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     @thread_this_method(period=0.5)
     def blink_connect_btn(self):
-        print 'blink'
         to_signal(self.control_panel.connect_button.blink)()
 
     def create_threads(self):
@@ -582,6 +594,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data, period=0.1, trace=None)
         self.heartbeat()
         self.send_sram_bytes()
+        self.refresh_digidiag_display()
+
 
     def set_connected(self):
         self.blink_connect_thread.terminate()
