@@ -4,6 +4,8 @@ contact: ravmiecznk@gmail.com
 """
 
 from PyQt4 import QtCore, QtGui
+from PyQt4 import Qt
+from PyQt4.QtCore import pyqtSignal
 from event_handler import to_signal
 import textwrap
 
@@ -64,16 +66,16 @@ class HelpTip():
 
 
 class PushButton(QtGui.QPushButton, HelpTip):
+    clicked = pyqtSignal(object)
+
     def __init__(self, *args, **kwargs):
-        tip_msg = kwargs.pop('tip_msg')
+        tip_msg = kwargs.pop('tip_msg', '')
         QtGui.QPushButton.__init__(self, *args, **kwargs)
         HelpTip.__init__(self, tip_msg)
         self.setStyleSheet(self.styleSheet().append(TOOL_TIP_STYLE_SHEET))
         self._default_style_sheet = self.styleSheet()
         self.set_default_style_sheet()
         self._active_style = False
-
-
 
     def set_default_style_sheet(self):
         self.setStyleSheet(self._default_style_sheet)
@@ -88,6 +90,22 @@ class PushButton(QtGui.QPushButton, HelpTip):
         else:
             self.set_green_style_sheet()
         self._active_style ^= True
+
+    def mousePressEvent(self, event):
+        """
+        Emits clicked_s signal with self argument to identify buttons itentity.
+        Left click will emit clicked_custom signal.
+        It may by used to identify which button was clicked by its 'self' id.
+        Example uaseg: emit clicked_signal for button which is widget in QTable widget,
+        the slot will check at which cell the button resides at given moment, rows and cols number may change,
+        this is why it is solved like that.
+        To check at which position the button is use for loop over rows and cells and check 'if button == self'
+        :param event:
+        :return:
+        """
+        if event.button() == Qt.Qt.LeftButton:
+            self.clicked.emit(self)
+        QtGui.QPushButton.mousePressEvent(self, event)
 
 
 class SmallPushButton(PushButton):
