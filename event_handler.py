@@ -4,7 +4,8 @@ contact: ravmiecznk@gmail.com
 """
 
 #from call_tracker import method_call_track
-from setup_emubt import warn, info, error, debug
+#from setup_emubt import warn, info, error, debug
+from loggers import create_logger
 import setup_emubt
 
 DBG = False

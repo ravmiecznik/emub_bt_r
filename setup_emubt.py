@@ -20,6 +20,7 @@ def browse_for_directory():
     global EMU_BT_PATH
     EMU_BT_PATH = emu_bt_path
 
+
 try:
     EMU_BT_PATH = open(setup_file, 'r').read().strip()
     if not os.path.isdir(EMU_BT_PATH):

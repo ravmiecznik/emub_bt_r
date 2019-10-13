@@ -27,7 +27,7 @@ GREY_STYLE_SHEET = BACKGROUND.format(r=48, g=53, b=58)
 class HelpTip():
     enable_tool_tip = True
     help_tip_slot = None
-    def __init__(self, help_msg=None):
+    def __init__(self, help_msg=''):
         self.help_msg = help_msg
         self.tip_displayed = False
         if HelpTip.enable_tool_tip:
@@ -43,6 +43,7 @@ class HelpTip():
         self.help_tip_slot.emit(tip_msg)
         self.tip_displayed = True
         self.timer.stop()
+
 
     def enterEvent(self, QEvent):
         if self.help_msg:

@@ -9,11 +9,12 @@
 import pickle
 from PyQt4 import QtCore, QtGui, Qt
 from PyQt4.QtCore import QEvent, pyqtSignal
-from objects_with_help import PushButton
+from objects_with_help import PushButton, HelpTip
 import time, json, os
 import struct
 import traceback
 from setup_emubt import EMU_BT_PATH
+import types
 
 DIGIDIAG_STATUS_DIR = EMU_BT_PATH
 VALUES_FILE_NAME = 'values.json'
@@ -35,6 +36,7 @@ except AttributeError:
 
 def read_only_table_item():
     item = QtGui.QTableWidgetItem()
+    item.setBackgroundColor(QtGui.QColor(204, 227, 240))
     item.setFlags(item.flags() ^ Qt.Qt.ItemIsEditable)
     return item
 
@@ -64,6 +66,116 @@ def valid_table_item(formula, message='field is valid'):
     item.setToolTip(message)
     return item
 
+def class_attr_to_colname(attr):
+    return attr.upper().replace('_', ' ')
+
+def colname_to_class_attr(colname):
+    return colname.lower().replace(' ', '_')
+
+class PublicAttrsAbstract():
+    """
+    This is abstract class
+    """
+    @classmethod
+    def p_attrs(cls):
+        """
+        Return public (non pseudo-private attrs)
+        :return:
+        """
+        return [ v for v in cls.__dict__.keys() if '__' not in v and type(getattr(cls, v)) is not types.ClassType and not callable(getattr(cls, v))]
+
+    @classmethod
+    def p_attrs_as_column_names(cls):
+        """
+        Return public (non pseudo-private attrs)
+        :return:
+        """
+        return [class_attr_to_colname(i) for i in cls.p_attrs()]
+
+class Value(PublicAttrsAbstract):
+    name = None,
+    delete = None,
+
+    class decode_info(PublicAttrsAbstract):
+        units = None,
+        frame_id= None,
+        bytes_size = None,
+        offset = None,
+        formula = None,
+        def __init__(self, units, frame_id, bytes_size, offset, formula):
+            self.units = units
+            self.frame_id = frame_id
+            self.bytes_size = bytes_size
+            self.offset = offset
+            self.formula = formula
+
+        def to_json(self):
+            return {k: getattr(self, k) for k in self.p_attrs()}
+
+    class display_attrs(PublicAttrsAbstract):
+        reading = None,
+        raw = None,
+        def __init__(self):
+            self.reading = ''
+            self.raw = ''
+
+    def __init__(self, name, units, frame_id, bytes_size, offset, formula, delete_button):
+        self.decode_info = Value.decode_info(units, frame_id, bytes_size, offset, formula)
+        self.name = name
+        self.delete = delete_button
+
+    def __repr__(self):
+        return '' \
+            'name: {name}\n' \
+            'units: {units}\n' \
+            'frame_id: {frame_id}\n' \
+            'bytes_size: {bytes_size}\n' \
+            'offset: {offset}\n' \
+            'formula: {formula}'.format(
+            name=self.name,
+            units=self.decode_info.units,
+            frame_id=self.decode_info.frame_id,
+            bytes_size=self.decode_info.bytes_size,
+            offset=self.decode_info.offset,
+            formula=self.decode_info.formula)
+
+
+class Table(QtGui.QTableWidget):
+    def __init__(self, header_labels, *args, **kwargs):
+        self.horizonatal_header_labels = header_labels
+        QtGui.QTableWidget.__init__(self, *args, **kwargs)
+
+    def column_index(self, column_string):
+        return self.horizonatal_header_labels.index(column_string)
+
+    def delete_value_slot(self, button_id):
+        del_button_col_index = self.column_index('DELETE')
+        for row in xrange(self.rowCount()):
+            del_button = self.cellWidget(row, del_button_col_index)
+            if del_button == button_id:
+                self.removeRow(row)
+                #self.__update_values()
+                break
+
+    def create_delete_row_button(self):
+        delete_button = PushButton('delete')
+        delete_button.clicked_s.connect(self.delete_value_slot)
+        return delete_button
+
+    def add_row(self):
+        self.setRowCount(self.rowCount() + 1)
+        current_row = self.rowCount() - 1
+        delete_button = self.create_delete_row_button()
+        del_index = self.column_index('DELETE')
+        self.setCellWidget(current_row, del_index, delete_button)
+
+        reading_index = self.column_index('READING')
+        self.setItem(current_row, reading_index, read_only_table_item())
+
+        raw_index = self.column_index('RAW')
+        self.setItem(current_row, raw_index, read_only_table_item())
+
+
 class ValuesEditor(QtGui.QWidget):
     """
     Creates decoding info for values received in digiframes.
@@ -75,25 +187,24 @@ class ValuesEditor(QtGui.QWidget):
 
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        self.__values_info = ['NAME', 'UNITS', 'FRAME ID', 'BYTES SIZE', 'OFFSET', 'FORMULA', 'READING', 'RAW']
-        self.__table_header = list(self.__values_info)
-        self.__table_header.extend(['REMOVE'])
+
+        self.__table_header = Value.p_attrs_as_column_names() + Value.decode_info.p_attrs_as_column_names() + Value.display_attrs.p_attrs_as_column_names()
+        #self.__table_header = map(lambda i: i.upper().replace('_', ' '), self.__table_header)
+        self.__table_header.sort(key='DELETE'.__eq__)       #move delete column to the end
+
 
         self.valuesEditorLayout = QtGui.QGridLayout(self)
 
-        self.table = QtGui.QTableWidget(self)
+        self.table = Table(self.__table_header)
         self.table.setColumnCount(len(self.__table_header))
         self.table.setHorizontalHeaderLabels(self.__table_header)
         self.add_button = PushButton('ADD NEW', tip_msg="Add new value")
         self.apply_button = PushButton('APPLY', tip_msg="Verifies and saves values table")
 
-        self.add_button.clicked.connect(self.add_row)
-        self.apply_button.clicked.connect(self.table_save_slot)
+        self.add_button.clicked.connect(self.table.add_row)
+        self.apply_button.clicked.connect(self.apply_button_slot)
 
-        self.values_decoder = {}
-        self.values_calculator = {}
-        self.values_display_dict = {}
-        self.raw_values_display_dict = {}
+        self.values = dict()
 
         self.__values_file_path = os.path.join(DIGIDIAG_STATUS_DIR, VALUES_FILE_NAME)
 
@@ -103,13 +214,6 @@ class ValuesEditor(QtGui.QWidget):
 
         self.read_status_file()
 
-    def delete_value_slot(self, button_id):
-        for row in xrange(self.table.rowCount()):
-            del_button = self.table.cellWidget(row, self.__coln('REMOVE'))
-            if del_button == button_id:
-                self.table.removeRow(row)
-                self.__update_values()
-                break
 
     def __validate_formula(self, formula_str):
         formula_str = formula_str.lower()
@@ -121,105 +225,98 @@ class ValuesEditor(QtGui.QWidget):
     def read_status_file(self):
         try:
             with open(self.__values_file_path, 'r') as json_str:
-                self.values_decoder = json.loads(json_str.read())
+                values = json.loads(json_str.read())
         except (IOError, ValueError):
-            self.values_decoder = {}
+            values = dict()
+
+        self.values = {}
 
         row = 0
-        for value_name in sorted(self.values_decoder.keys(), key=lambda s: s.lower()):
-            self.add_row()
-            for value_property_name in self.values_decoder[value_name]:
-                col_name = self.values_decoder[value_name][str(value_property_name)]
-                if col_name:
-                    if col_name == 'DELETE':
-                        self.table.setItem(row, self.__coln(value_property_name), delete_cell_button_table_item())
-                    else:
-                        self.table.setItem(row, self.__coln(value_property_name), QtGui.QTableWidgetItem(col_name))
+        for value_name in values:
+            self.table.add_row()
+            self.table.setItem(row, self.table.column_index('NAME'), QtGui.QTableWidgetItem(value_name))
+            value_dict = {}
+            for column in values[value_name]:
+                cell_value = QtGui.QTableWidgetItem(values[value_name][column])
+                value_dict[column] = values[value_name][column]
+                column = class_attr_to_colname(column)
+                self.table.setItem(row, self.table.column_index(column), cell_value)
+            value = Value(name=value_name, delete_button=self.table.create_delete_row_button(), **value_dict)
+            self.values[value_name] = value
+            print self.values
             row += 1
-        self.__update_values()
+        #self.__update_values()
 
-    def dump_status_file(self):
+    def dump_values_to_file(self):
+        json_friendly_values = {}
+        for v in self.values:
+            json_friendly_values[v] = self.values[v].decode_info.to_json()
         with open(self.__values_file_path, 'w') as json_dump:
-            json.dump(self.values_decoder, json_dump, indent=4)
+            json.dump(json_friendly_values, json_dump, indent=4)
+            print 'json dumped to', self.__values_file_path
 
-    def __coln(self, col_name):
-        return self.__table_header.index(col_name)
+    # def __coln(self, col_name):
+    #     return self.__table_header.index(col_name)
 
-    def __assign_formula(self, row, col_name, value_name):
-        """
-        assigns decoding formula for given value
-        :param row:
-        :param col_name:
-        :param value_name:
-        :return:
-        """
-        formula = str(self.table.item(row, self.__table_header.index(col_name)).text())
-        try:
-            validated_formula = self.__validate_formula(formula)
-            self.values_calculator[value_name] = validated_formula
-        except Exception as e:
-            self.table.setItem(row, self.__coln(col_name), invalid_table_item(formula, e.message))
-        else:
-            self.table.setItem(row, self.__coln(col_name), valid_table_item(formula, message=formula))
+    # def __assign_formula(self, row, col_name, value_name):
+    #     """
+    #     assigns decoding formula for given value
+    #     :param row:
+    #     :param col_name:
+    #     :param value_name:
+    #     :return:
+    #     """
+    #     formula = str(self.table.item(row, self.__table_header.index(col_name)).text())
+    #     try:
+    #         validated_formula = self.__validate_formula(formula)
+    #         self.values_calculator[value_name] = validated_formula
+    #     except Exception as e:
+    #         self.table.setItem(row, self.__coln(col_name), invalid_table_item(formula, e.message))
+    #     else:
+    #         self.table.setItem(row, self.__coln(col_name), valid_table_item(formula, message=formula))
 
-    def __assign_frame_id(self, row, col_name, value_name):
-        frame_id = str(self.table.item(row, self.__table_header.index(col_name)).text()).lower()
-        validated_id = frame_id
-        try:
-            if '0x' in frame_id:
-                validated_id = int(frame_id, 16)
-            else:
-                validated_id = int(frame_id)
-        except Exception as e:
-            self.table.setItem(row, self.__coln(col_name), invalid_table_item(frame_id, e.message))
-        else:
-            self.table.setItem(row, self.__coln(col_name), valid_table_item(frame_id, message=frame_id))
-        return validated_id
-
-    def __is_field_integer(self, row, col_name):
-        frame_id = str(self.table.item(row, self.__table_header.index(col_name)).text()).lower()
-        validated_id = '0'
-        try:
-            validated_id = int(frame_id)
-        except Exception as e:
-            self.table.setItem(row, self.__coln(col_name), invalid_table_item(frame_id, e.message))
-        else:
-            self.table.setItem(row, self.__coln(col_name), valid_table_item(frame_id, message=frame_id))
-        return validated_id
+    # def __assign_frame_id(self, row, col_name, value_name):
+    #     frame_id = str(self.table.item(row, self.__table_header.index(col_name)).text()).lower()
+    #     validated_id = frame_id
+    #     try:
+    #         if '0x' in frame_id:
+    #             validated_id = int(frame_id, 16)
+    #         else:
+    #             validated_id = int(frame_id)
+    #     except Exception as e:
+    #         self.table.setItem(row, self.__coln(col_name), invalid_table_item(frame_id, e.message))
+    #     else:
+    #         self.table.setItem(row, self.__coln(col_name), valid_table_item(frame_id, message=frame_id))
+    #     return validated_id
+    #
+    # def __is_field_integer(self, row, col_name):
+    #     frame_id = str(self.table.item(row, self.__table_header.index(col_name)).text()).lower()
+    #     validated_id = '0'
+    #     try:
+    #         validated_id = int(frame_id)
+    #     except Exception as e:
+    #         self.table.setItem(row, self.__coln(col_name), invalid_table_item(frame_id, e.message))
+    #     else:
+    #         self.table.setItem(row, self.__coln(col_name), valid_table_item(frame_id, message=frame_id))
+    #     return validated_id
 
     def __update_values(self):
-        self.values_decoder = {}
         for row in xrange(self.table.rowCount()):
-            try:
-                value_name = str(self.table.item(row, self.__table_header.index('NAME')).text())
-                self.values_decoder[value_name] = {}
-                for col_name in self.__values_info:
-                    try:
-                        val_property = str(self.table.item(row, self.__table_header.index(col_name)).text())
-                        if col_name == 'FORMULA':
-                            self.__assign_formula(row, col_name, value_name)
-                        elif col_name == 'READING':
-                            val_display = read_only_table_item()
-                            self.table.setItem(row, self.__coln(col_name), val_display)
-                            self.values_display_dict[value_name] = val_display
-                        elif col_name == 'RAW':
-                            val_display = read_only_table_item()
-                            self.table.setItem(row, self.__coln(col_name), val_display)
-                            self.raw_values_display_dict[value_name] = val_display
-                        elif col_name == 'FRAME ID':
-                            self.__assign_frame_id(row, col_name, value_name)
-                        elif col_name == 'OFFSET':
-                            self.__is_field_integer(row, col_name)
-                        self.values_decoder[value_name][col_name] = val_property
-                    except AttributeError as e:
-                        self.values_decoder[value_name][col_name] = '0'
-                        traceback.print_exc()
-                self.apply_button_singnal.emit()
-                self.dump_status_file()
-            except AttributeError as e:
-                traceback.print_exc()
+            value_descriptor = {}
+            for column in self.table.horizonatal_header_labels:
+                try:
+                    item = self.table.item(row, self.table.column_index(column))
+                    if item.flags() & Qt.Qt.ItemIsEditable:
+                        value_descriptor[colname_to_class_attr(column)] = str(item.text())
+                except AttributeError as e:
+                    print column, e
+            value = Value(delete_button=self.table.cellWidget(row, self.table.column_index('DELETE')), **value_descriptor)
+            self.values[value.name] = value
 
-    def table_save_slot(self):
+        self.dump_values_to_file()
+        return
+
+    def apply_button_slot(self):
         self.__update_values()
 
     def display_value(self, value_name, raw_value, byte_size):
@@ -237,25 +334,30 @@ class ValuesEditor(QtGui.QWidget):
         self.values_display_dict[value_name].setData(Qt.Qt.DisplayRole, value)
         self.raw_values_display_dict[value_name].setData(Qt.Qt.DisplayRole, '0x{val:0{bsiz}X}'.format(bsiz=byte_size*2, val=raw_value))
 
-    def add_row(self):
-        self.table.setRowCount(self.table.rowCount() + 1)
-        current_row = self.table.rowCount() - 1
-        delete_button = PushButton('delete')
-        delete_button.clicked_s.connect(self.delete_value_slot)
-        self.table.setCellWidget(current_row, self.__coln('REMOVE'), delete_button)
-        self.table.setItem(current_row, self.__coln('READING'), read_only_table_item())
-        self.table.setItem(current_row, self.__coln('RAW'), read_only_table_item())
+    # def add_row(self):
+    #     self.table.setRowCount(self.table.rowCount() + 1)
+    #     current_row = self.table.rowCount() - 1
+    #     delete_button = self.table.create_delete_row_button()
+    #     del_index = self.table.column_index('DELETE')
+    #     self.table.setCellWidget(current_row, del_index, delete_button)
+    #
+    #     reading_index = self.table.column_index('READING')
+    #     self.table.setItem(current_row, reading_index, read_only_table_item())
+    #
+    #     raw_index = self.table.column_index('RAW')
+    #     self.table.setItem(current_row, raw_index, read_only_table_item())
+
 
     def __del__(self):
-        self.dump_status_file()
+        self.dump_values_to_file()
 
     def closeEvent(self, event):
         if event.type() == QEvent.Close:
-            self.dump_status_file()
+            self.dump_values_to_file()
 
     def destroyEvent(self, event):
         if event.type() == QEvent.Destroy:
-            self.dump_status_file()
+            self.dump_values_to_file()
 
 
 class DigidiagWindow(QtGui.QWidget):
@@ -332,8 +434,26 @@ class DigidiagWindow(QtGui.QWidget):
 if __name__ == "__main__":
     import sys
 
+    class MainW(QtGui.QMainWindow):
+        hlp_sig = pyqtSignal(object)
+        def __init__(self):
+            QtGui.QMainWindow.__init__(self)
+            HelpTip.set_static_help_tip_slot_signal(self.hlp_sig)
+            self.hlp_sig.connect(self.tip)
+
+            self.centralwidget = QtGui.QWidget(self)
+            self.setCentralWidget(self.centralwidget)
+            self.values = ValuesEditor()
+            self.values.resize(1000, 500)
+            self.values.show()
+            self.resize(400, 400)
+            self.show()
+
+        def tip(self, *args):
+            print args
+
     app = QtGui.QApplication(sys.argv)
-    myapp = MainWindow()
+    myapp = MainW()
     # myapp.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
     myapp.setWindowIcon(QtGui.QIcon('icon.png'))
     # app.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
