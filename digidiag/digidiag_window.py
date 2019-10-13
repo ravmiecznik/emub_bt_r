@@ -9,7 +9,7 @@
 import pickle
 from PyQt4 import QtCore, QtGui, Qt
 from PyQt4.QtCore import QEvent, pyqtSignal
-from objects_with_help import PushButton, PushButtonCleckedOverriden
+from objects_with_help import PushButton
 import time, json, os
 import struct
 import traceback
@@ -240,8 +240,8 @@ class ValuesEditor(QtGui.QWidget):
     def add_row(self):
         self.table.setRowCount(self.table.rowCount() + 1)
         current_row = self.table.rowCount() - 1
-        delete_button = PushButtonCleckedOverriden('delete')
-        delete_button.clicked_custom.connect(self.delete_value_slot)
+        delete_button = PushButton('delete')
+        delete_button.clicked.connect(self.delete_value_slot)
         self.table.setCellWidget(current_row, self.__coln('REMOVE'), delete_button)
         self.table.setItem(current_row, self.__coln('READING'), read_only_table_item())
         self.table.setItem(current_row, self.__coln('RAW'), read_only_table_item())
