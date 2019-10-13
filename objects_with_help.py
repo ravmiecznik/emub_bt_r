@@ -66,7 +66,7 @@ class HelpTip():
 
 
 class PushButton(QtGui.QPushButton, HelpTip):
-    clicked = pyqtSignal(object)
+    clicked_s = pyqtSignal(object)
 
     def __init__(self, *args, **kwargs):
         tip_msg = kwargs.pop('tip_msg', '')
@@ -103,9 +103,10 @@ class PushButton(QtGui.QPushButton, HelpTip):
         :param event:
         :return:
         """
-        if event.button() == Qt.Qt.LeftButton:
-            self.clicked.emit(self)
         QtGui.QPushButton.mousePressEvent(self, event)
+        if event.button() == Qt.Qt.LeftButton:
+            self.clicked_s.emit(self)
+
 
 
 class SmallPushButton(PushButton):

@@ -241,7 +241,7 @@ class ValuesEditor(QtGui.QWidget):
         self.table.setRowCount(self.table.rowCount() + 1)
         current_row = self.table.rowCount() - 1
         delete_button = PushButton('delete')
-        delete_button.clicked.connect(self.delete_value_slot)
+        delete_button.clicked_s.connect(self.delete_value_slot)
         self.table.setCellWidget(current_row, self.__coln('REMOVE'), delete_button)
         self.table.setItem(current_row, self.__coln('READING'), read_only_table_item())
         self.table.setItem(current_row, self.__coln('RAW'), read_only_table_item())
