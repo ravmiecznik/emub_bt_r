@@ -6,19 +6,24 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-import pickle
+
 from PyQt4 import QtCore, QtGui, Qt
 from PyQt4.QtCore import QEvent, pyqtSignal
 from objects_with_help import PushButton, HelpTip
 import time, json, os
 import struct
 import traceback
-from setup_emubt import EMU_BT_PATH
+from setup_emubt import EMU_BT_PATH, LOG_PATH
 import types
 from collections import OrderedDict
+from loggers import create_logger
+import logging
+import sys
 
 DIGIDIAG_STATUS_DIR = EMU_BT_PATH
 VALUES_FILE_NAME = 'values.json'
+
+digidiag_logger = create_logger(name=__file__, log_path=LOG_PATH)
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -41,7 +46,7 @@ BLUE_COLOR = QtGui.QColor(213, 230, 237)
 
 def read_only_table_item():
     item = QtGui.QTableWidgetItem()
-    item.setBackgroundColor(QtGui.QColor(204, 227, 240))
+    item.setBackgroundColor(QtGui.QColor(204, 250, 250))
     item.setFlags(item.flags() ^ Qt.Qt.ItemIsEditable)
     return item
 
@@ -65,11 +70,11 @@ def delete_cell_button_table_item():
 #     return invalid_item
 #
 #
-# def valid_table_item(value, message='field is valid'):
-#     item = QtGui.QTableWidgetItem(value)
-#     item.setBackgroundColor(QtGui.QColor(213, 230, 237))
-#     item.setToolTip(message)
-#     return item
+def valid_table_item(value, message='field is valid'):
+    item = QtGui.QTableWidgetItem(value)
+    item.setBackgroundColor(QtGui.QColor(213, 230, 237))
+    item.setToolTip(message)
+    return item
 
 
 def class_attr_to_colname(attr):
@@ -101,41 +106,46 @@ class PublicAttrsAbstract():
         return [class_attr_to_colname(i) for i in cls.p_attrs()]
 
 
-class ValueTableRow(object, PublicAttrsAbstract):
+class DisplayAttrs(PublicAttrsAbstract):
+    def __init__(self):
+        self.reading = ''
+        self.raw = ''
+
+
+class DecodeInfo(object, PublicAttrsAbstract):
+    units = None
+    frame_id = None
+    bytes_size = None
+    offset = None
+    formula = None
+
+    def __init__(self, units, frame_id, bytes_size, offset, formula):
+        self.units = units
+        self.frame_id = frame_id
+        self.bytes_size = bytes_size
+        self.offset = offset
+        self.formula = formula
+
+    def to_json(self):
+        json_dict = {k: str(getattr(self, k).text()) for k in self.p_attrs()}
+        return json_dict
+
+class ValueDecoder(object, PublicAttrsAbstract):
     """
     This class decodes each value
     """
     name = ''
     delete = None
 
-    class decode_info(object, PublicAttrsAbstract):
-        units = None
-        frame_id = None
-        bytes_size = None
-        offset = None
-        formula = None
-        def __init__(self, units, frame_id, bytes_size, offset, formula):
-            self.units = units
-            self.frame_id = frame_id
-            self.bytes_size = bytes_size
-            self.offset = offset
-            self.formula = formula
-
-        def to_json(self):
-            json_dict = {k: getattr(self, k) for k in self.p_attrs()}
-            return json_dict
-
-    class display_attrs(PublicAttrsAbstract):
-        reading = None
-        raw = None
-        def __init__(self):
-            self.reading = ''
-            self.raw = ''
-
     def __init__(self, name, units, frame_id, bytes_size, offset, formula, delete_button):
-        self.decode_info = ValueTableRow.decode_info(units, frame_id, bytes_size, offset, formula)
+        self.decode_info = DecodeInfo(units, frame_id, bytes_size, offset, formula)
         self.name = name
         self.delete = delete_button
+        self.display_attrs = DisplayAttrs()
+
+    def set_display_attrs(self, reading, raw):
+        self.display_attrs.reading = reading
+        self.display_attrs.raw = raw
 
     def __repr__(self):
         return '' \
@@ -145,20 +155,21 @@ class ValueTableRow(object, PublicAttrsAbstract):
             'bytes_size: {bytes_size}\n' \
             'offset: {offset}\n' \
             'formula: {formula}'.format(
-            name=self.name,
-            units=self.decode_info.units,
-            frame_id=self.decode_info.frame_id,
-            bytes_size=self.decode_info.bytes_size,
-            offset=self.decode_info.offset,
-            formula=self.decode_info.formula)
+            name=self.name.text(),
+            units=self.decode_info.units.text(),
+            frame_id=self.decode_info.frame_id.text(),
+            bytes_size=self.decode_info.bytes_size.text(),
+            offset=self.decode_info.offset.text(),
+            formula=self.decode_info.formula.text())
 
 
 class TableItemValidProperty():
     """
     This is abstract class
     """
-    def set_valid(self, value=None, tool_tip=None):
+    def set_valid(self, value=None, tool_tip=None, validated_value=None):
         tool_tip = self.text() if tool_tip is None else tool_tip
+        self.validated_value = validated_value if validated_value is not None else value
         self.setBackgroundColor(BLUE_COLOR)
         self.setToolTip(tool_tip)
         if value:
@@ -167,6 +178,12 @@ class TableItemValidProperty():
     def set_invalid(self, error_msg):
         self.setBackgroundColor(RED_COLOR)
         self.setToolTip(error_msg)
+
+    def get(self):
+        try:
+            return self.validated_value
+        except AttributeError:
+            return None
 
 
 class OffsetTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
@@ -182,7 +199,7 @@ class OffsetTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
                 return
         try:
             if value_int < 255:
-                self.set_valid(str(value_int))
+                self.set_valid(value=str(value_int), tool_tip=str(value_int), validated_value=int(value_int))
             else:
                 self.set_invalid("Offset exceeds 255")
         except UnboundLocalError as e:
@@ -192,22 +209,16 @@ class OffsetTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
 class ByteSizeTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
     def validate(self):
         value = str(self.text())
-        print value
         try:
-            print 't1'
             value_int = int(value)
         except ValueError:
-            print 't2'
             try:
                 value_int = int(value, 16)
             except Exception as e:
-                print 'except'
                 self.set_invalid(e.message)
                 return
-
-        print 'else'
         if value_int < 5:
-            self.set_valid('0x{:02X}'.format(value_int), str(value_int))
+            self.set_valid('0x{:02X}'.format(value_int), str(value_int), validated_value=value_int)
         else:
             self.set_invalid("Value exceeds 4")
 
@@ -216,16 +227,16 @@ class FormulaTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
     def validate(self):
         formula = str(self.text())
         try:
-            l = eval('lambda x:{}'.format(formula))
+            formula_lambda = eval('lambda x:{}'.format(formula))
         except SyntaxError as e:
             self.set_invalid(e.message)
             return
         try:
-            l(1)
+            formula_lambda(1)
         except Exception as e:
             self.set_invalid(e.message)
             return
-        self.set_valid()
+        self.set_valid(validated_value=formula_lambda)
 
 
 class FrameIdTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
@@ -241,8 +252,8 @@ class FrameIdTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
                 return
 
         try:
-            if value_int < 255:
-                self.set_valid('0x{:02X}'.format(value_int), str(value_int))
+            if value_int <= 255:
+                self.set_valid(value='0x{:02X}'.format(value_int), tool_tip=str(value_int), validated_value=value_int)
             else:
                 self.set_invalid("Frame Id can't exceed 255")
         except UnboundLocalError as e:
@@ -252,7 +263,7 @@ class FrameIdTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
 class NameTableItem(QtGui.QTableWidgetItem, TableItemValidProperty):
     def validate(self):
         value = str(self.text())
-        self.set_valid()
+        self.set_valid(validated_value=value)
         if isinstance(value, str) and len(value) > 0:
             self.table_item = value
         else:
@@ -323,9 +334,10 @@ class Table(QtGui.QTableWidget):
         self.setItem(row, self.column_index(column), item)
 
 
-    def set_validated_values(self, row):
-        for column, cls in self.__editable_fields:
-            self.__put_validable_field(column, cls, row)
+    def validate_values(self):
+        for row in xrange(self.rowCount()):
+            for column, cls in self.__editable_fields:
+                self.__put_validable_field(column, cls, row)
 
 
 class ValuesEditor(QtGui.QWidget):
@@ -348,7 +360,7 @@ class ValuesEditor(QtGui.QWidget):
         self.add_button.clicked.connect(self.table.add_row)
         self.apply_button.clicked.connect(self.apply_button_slot)
 
-        self.values = dict()
+        self.values_decoder = dict()
 
         self.__values_file_path = os.path.join(DIGIDIAG_STATUS_DIR, VALUES_FILE_NAME)
 
@@ -363,9 +375,10 @@ class ValuesEditor(QtGui.QWidget):
             values = json.load(open(self.__values_file_path), object_pairs_hook=OrderedDict)
         except (IOError, ValueError):
             values = dict()
-        self.values = {}
+        #self.values_decoder = {}
         row = 0
-        for value_name in values:
+        value_keys = sorted(values.keys())
+        for value_name in value_keys:
             self.table.add_row()
             self.table.setItem(row, self.table.column_index('NAME'), valid_table_item(value_name))
             value_dict = {}
@@ -374,43 +387,45 @@ class ValuesEditor(QtGui.QWidget):
                 value_dict[column] = values[value_name][column]
                 column = class_attr_to_colname(column)
                 self.table.setItem(row, self.table.column_index(column), valid_table_item(cell_value))
-            value = ValueTableRow(name=value_name, delete_button=self.table.create_delete_row_button(), **value_dict)
-            self.table.set_validated_values(row)
-            self.values[value_name] = value
             row += 1
+        self.table.validate_values()
         self.__update_values()
 
     def dump_values_to_file(self):
         json_friendly_values = {}
-        for v in sorted(self.values):
-            json_friendly_values[v] = self.values[v].decode_info.to_json()
+        for v in sorted(self.values_decoder):
+            json_friendly_values[v] = self.values_decoder[v].decode_info.to_json()
         with open(self.__values_file_path, 'w') as json_dump:
             json.dump(json_friendly_values, json_dump, indent=4)
-            print 'json dumped to', self.__values_file_path
+            digidiag_logger.debug('json dumped to {}'.format(self.__values_file_path))
 
     def __update_values(self):
-        self.values = {}
+        self.table.validate_values()
+        self.values_decoder = {}
         for row in xrange(self.table.rowCount()):
             value_descriptor = {}
             for column in self.table.horizonatal_header_labels:
                 try:
                     item = self.table.item(row, self.table.column_index(column))
                     if item.flags() & Qt.Qt.ItemIsEditable:
-                        value_descriptor[colname_to_class_attr(column)] = str(item.text())
-                except AttributeError as e:
-                    print column, e
+                        value_descriptor[colname_to_class_attr(column)] = item
+                except AttributeError:
+                    pass
+                    #traceback.print_exc()
             try:
-                value = ValueTableRow(delete_button=self.table.cellWidget(row, self.table.column_index('DELETE')), **value_descriptor)
-                self.table.set_validated_values(row)
-                self.values[value.name] = value
-            except TypeError as e:
-                print 'ERROR', e.message
-
+                value = ValueDecoder(delete_button=self.table.cellWidget(row, self.table.column_index('DELETE')), **value_descriptor)
+                value.set_display_attrs(reading=self.table.item(row, self.table.column_index('READING')),
+                                        raw=self.table.item(row, self.table.column_index('RAW')))
+                self.values_decoder[value.name.get()] = value
+            except TypeError:
+                pass
+                #traceback.print_exc()
         self.dump_values_to_file()
         return
 
     def apply_button_slot(self):
         self.__update_values()
+        self.apply_button_singnal.emit()
 
     def display_value(self, value_name, raw_value, byte_size):
         """
@@ -421,11 +436,15 @@ class ValuesEditor(QtGui.QWidget):
         :return:
         """
         try:
-            value = self.values_calculator[value_name](raw_value)
-        except ZeroDivisionError:
+            value = self.values_decoder[value_name].decode_info.formula.get()(raw_value)
+        except Exception as e:
             value = 'NaN'
-        self.values_display_dict[value_name].setData(Qt.Qt.DisplayRole, value)
-        self.raw_values_display_dict[value_name].setData(Qt.Qt.DisplayRole, '0x{val:0{bsiz}X}'.format(bsiz=byte_size*2, val=raw_value))
+            tool_tip = e.message
+        else:
+            tool_tip = str(value)
+        self.values_decoder[value_name].display_attrs.reading.setToolTip(tool_tip)
+        self.values_decoder[value_name].display_attrs.reading.setData(Qt.Qt.DisplayRole, value)
+        self.values_decoder[value_name].display_attrs.raw.setData(Qt.Qt.DisplayRole, '0x{val:0{bsiz}X}'.format(bsiz=byte_size*2, val=raw_value))
 
     def __del__(self):
         self.dump_values_to_file()
@@ -484,11 +503,11 @@ class DigidiagWindow(QtGui.QWidget):
         values_definition = self.values_editor.values_decoder
         self.values_extractor = {}
         for key in values_definition:
-            frame_id = values_definition[key]['FRAME ID']
+            frame_id = values_definition[key].decode_info.frame_id
             self.values_extractor[key] = {
-                'FRAME ID': int(frame_id, 16) if '0x' in frame_id else int(frame_id),
-                'OFFSET': int(values_definition[key]['OFFSET']),
-                'BYTES SIZE': int(values_definition[key]['BYTES SIZE']),
+                'FRAME ID': values_definition[key].decode_info.frame_id.get(),
+                'OFFSET': values_definition[key].decode_info.offset.get(),
+                'BYTES SIZE': values_definition[key].decode_info.bytes_size.get(),
             }
 
     def feed_data(self, frame):
@@ -500,11 +519,13 @@ class DigidiagWindow(QtGui.QWidget):
             frame_id = self.values_extractor[value]['FRAME ID']
             offset = self.values_extractor[value]['OFFSET']
             byte_size = self.values_extractor[value]['BYTES SIZE']
+            #print value, frame_id, offset, byte_size
             try:
                 raw_value = self.frames[frame_id][offset:offset + byte_size]
                 raw_value = self.__ord_to_int_vs_size[byte_size](raw_value)[0]
                 self.values_editor.display_value(value, raw_value, byte_size)
             except (KeyError, struct.error) as e:
+                traceback.print_exc()
                 pass
 
 
