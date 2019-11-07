@@ -246,7 +246,9 @@ class SignalThread(GuiThread):
 
 if __name__ == "__main__":
     from PyQt4 import QtGui
+    from PyQt4.QtCore import QMutex
     import sys
+    from circ_io_buffer import CircIoBuffer
     class MainW(QtGui.QMainWindow):
         """
         Mainw to host and run one single thread
@@ -254,34 +256,38 @@ if __name__ == "__main__":
 
         def __init__(self):
             QtGui.QMainWindow.__init__(self)
-            self.thr = GuiThread(process=fun, period=0.2)
-            GuiThread.threads[0].start()
-            time.sleep(1)
-            print id(self.thr)
-            #self.thr.kill()
-            print id(self.thr)
-            print 'is running', self.thr.isRunning()
-            self.thr.kill()
-
-        def fetch_thread(self, mt):
-            self.mt = mt
-            return self.mt
-
-        def get_thread(self):
-            return self.mt
-
-        def start_thread(self):
-            self.mt.start()
-            while self.mt.isRunning():
-                time.sleep(0.001)
-            return
+            self.mutex = QMutex()
+            self.thr = GuiThread(process=self.fun, period=0.1)
+            self.thr2 = GuiThread(process=self.fun2, period=0.1)
+            self.buff = CircIoBuffer(byte_size=15*len('rafal miecznik'))
+            self.thr.start()
+            self.thr2.start()
+            time.sleep(2)
+            print self.buff.read()
+            for d in dir(self.mutex):
+                print d
 
 
-    def fun():
-        print fun.__name__
+        def fun(self):
+            print self.mutex.tryLock()
+            self.buff.write(' rafal')
+            self.mutex.unlock()
+            #print self.thr.currentThreadId()
+
+        def fun2(self):
+            self.mutex.lock()
+            self.buff.write(' miecznik')
+            #self.mutex.unlock()
+
+                # try:
+            #     print "TID", self.thr.currentThreadId()
+            # except AttributeError:
+            #     pass
 
     app = QtGui.QApplication(sys.argv)
+    thr = app.thread()
     myapp = MainW()
+    myapp.thr = thr
     myapp.show()
     app.exec_()
     print 'bye'
