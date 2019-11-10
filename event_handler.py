@@ -12,6 +12,8 @@ DBG = False
 
 logger_name = "event_handler"
 evh_logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.EMU_BT_PATH, log_to_file=True)
+error = evh_logger.error
+debug = evh_logger.debug
 
 class EventHandler(object):
 
