@@ -6,6 +6,8 @@ https://www.youtube.com/watch?v=0i5L0DQhbt8
 
 https://www.youtube.com/watch?v=bxWkzQrnqo4
     
+    11.11.2019: New branch. Reflash procedure fixed, first version of data monitoring and configuration available.
+                Save button ranamed to UPLOAD (more resonable name)
     29.09.2019: Full and independent bi-directional communication. APP to BOARD message uses message with header (id, context, len, crc),
                 BOARD to APP message uses tail which is attached to message (id, context, len). Rx messages are stored in rx buffer and are
                 filtered after its id and context. It allows to much more flexible transmission schemes like receiving random data (digifant
