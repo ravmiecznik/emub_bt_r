@@ -256,28 +256,22 @@ class Reflasher(QtGui.QWidget):
         self.cancel_button.setText("CLOSE")
         self.cancel_button.setFocus(True)
         time.sleep(0.5)
-        self.message_handler.send(m_id=MessageSender.ID.disable_btlrd)
 
     def verify_version(self):
-        self.text_browser.append("Check if reflash suceeded")
+        self.text_browser.append("Reflashing done")
         time.sleep(1)
         self._prepare_to_quit()
-        #self.rx_buffer.flush()
-        #Message('digidiag_off', positive_signal=to_signal(self.__get_version))
 
-    # def __get_version(self):
-    #     Message(id=Message.ID.rxflush, positive_signal=to_signal(self.get_version))
-
-    def get_version(self):
-        context = self.message_handler.send(m_id=MessageSender.ID.handshake)
-        if self.wait_for_resp(self.expected_version, timeout=1):
-            self.text_browser.append("Found installed version: {}".format(self.expected_version))
-            self.text_browser.append("Reflashing OK")
-            self.text_browser.append("You can close Reflasher window")
-            self.flash_succeeded = True
-            self._prepare_to_quit()
-        else:
-            self.text_browser.append("Reflash FAIL, bootloader will remain active after reset")
+    # def get_version(self):
+    #     context = self.message_handler.send(m_id=MessageSender.ID.handshake)
+    #     if self.wait_for_resp(self.expected_version, timeout=1):
+    #         self.text_browser.append("Found installed version: {}".format(self.expected_version))
+    #         self.text_browser.append("Reflashing OK")
+    #         self.text_browser.append("You can close Reflasher window")
+    #         self.flash_succeeded = True
+    #         self._prepare_to_quit()
+    #     else:
+    #         self.text_browser.append("Reflash FAIL, bootloader will remain active after reset")
 
 
     def _find_version_of_hex_to_reflash(self, bin_file):
