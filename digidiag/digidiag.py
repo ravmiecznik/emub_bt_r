@@ -109,7 +109,7 @@ class DigiDiag(QtGui.QWidget):
     def refresh(self):
         o = ''
         for frame_id in sorted(self.frames.keys(), reverse=True):
-            o+= self.template.format(*[frame_id] + [ord(i) for i in self.frames[frame_id]])
+            o += self.template.format(*[frame_id] + [ord(i) for i in self.frames[frame_id]])
         o += '\n {:<03.2f}'.format(time.time()*10000 - self.tmp)
         self.tmp = time.time()*10000
         self.ktextbrowser.setText(o)
