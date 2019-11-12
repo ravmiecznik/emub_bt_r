@@ -146,7 +146,7 @@ class Reflasher(QtGui.QWidget):
         #if not self.flash_succeeded:
         #    self.send('run_main_app')
         self.send('run_main_app')
-        time.sleep(0.5)
+        time.sleep(1)
         self.emulator.raw_buffer.read()
         self.emulator.set_event_handler(self.old_event_handler)
         self.signal_on_close()
@@ -255,11 +255,11 @@ class Reflasher(QtGui.QWidget):
         self.reflash_button.setDisabled(True)
         self.cancel_button.setText("CLOSE")
         self.cancel_button.setFocus(True)
-        time.sleep(0.5)
+        #time.sleep(0.5)
 
     def verify_version(self):
         self.text_browser.append("Reflashing done")
-        time.sleep(1)
+        #time.sleep(1)
         self._prepare_to_quit()
 
     # def get_version(self):
