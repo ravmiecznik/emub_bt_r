@@ -325,6 +325,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         while msg:
             if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
                 self.gui_communication_signal.emit("E: {}".format(msg.msg))
+            elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
+                debug("Emulator: {}".format(msg.msg))
+                print "emulator debug: {}".format(msg.msg)
             elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
                 self.set_bank_in_use(banks.index(msg.msg))
             elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
