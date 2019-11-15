@@ -138,8 +138,8 @@ class Reflasher(QtGui.QWidget):
         self.emulator.set_event_handler(self.reflasher_event_handler)
 
 
-    def close(self):
-        QtGui.QWidget.close(self)
+    # def close(self):
+    #     QtGui.QWidget.close(self)
 
 
     def __close(self):
@@ -255,6 +255,7 @@ class Reflasher(QtGui.QWidget):
         self.reflash_button.setDisabled(True)
         self.cancel_button.setText("CLOSE")
         self.cancel_button.setFocus(True)
+        to_signal(self.close).emit()
         #time.sleep(0.5)
 
     def verify_version(self):
