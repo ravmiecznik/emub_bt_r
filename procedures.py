@@ -15,6 +15,7 @@ from message_handler import TransmissionStats, MessageSender, MessageReceiver, R
 from io import BytesIO
 import platform, os
 
+
 EEPROM_SIZE = 0x8000
 PACKET_SIZE = 256 * 8
 PACKETS_NUM = EEPROM_SIZE / PACKET_SIZE
@@ -187,7 +188,8 @@ class ReadPackets:
             self.check_resp_thr = GuiThread(self.check_response, args=(MessageSender.context,))
             self.check_resp_thr.start()
             self.get_packet(packet_num=packet_num)
-            while self.check_resp_thr.returned() is None: time.sleep(0.001)
+            while self.check_resp_thr.returned() is None:
+                time.sleep(0.001)
             response = self.check_resp_thr.returned()
             if response == RxMessage.rx_id_tuple.index('ack'):
                 self.tx_stats.ack()
