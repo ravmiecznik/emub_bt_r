@@ -147,7 +147,6 @@ class Emulator():
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
-            print self.__calculate_mean_extraction_time
             if self.__calculate_mean_extraction_time is True:
                 self.mean_data_extraction_time.count(time.time() - t0)
                 debug("data extraction time: {}/{}".format(time.time() - t0, 0))
