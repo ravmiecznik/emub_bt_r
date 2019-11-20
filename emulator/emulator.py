@@ -117,6 +117,7 @@ class Emulator():
             return rcv
         except (bluetooth.btcommon.BluetoothError, IOError) as e:
             #Linux and Windows support different exceptions here
+            print e
             return None
 
     def receive_data(self):
@@ -128,13 +129,17 @@ class Emulator():
         t0 = time.time()
         tmp_buff = self.__try_get_data()
         while tmp_buff:
-            while not self.raw_buffer.write(tmp_buff): time.sleep(0.001)
+            while not self.raw_buffer.write(tmp_buff):
+                time.sleep(0.0001)
             tmp_buff = self.__try_get_data()
             if time.time() - t0 > 1:
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
+            #debug("data extraction time: {}/{}".format(time.time() - t0, 0))
             self.event_handler.get_raw_rx_buffer_slot()
+
+
 
     def send(self, data):
         if not self.__lock:
