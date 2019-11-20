@@ -6,6 +6,7 @@ contact: ravmiecznk@gmail.com
 import configparser
 from setup_emubt import info, warn, debug, error, create_logger, LOG_PATH
 import bluetooth
+from auxiliary_module import MeanCalculator
 from circ_io_buffer import CircIoBuffer
 import time
 
@@ -24,8 +25,18 @@ class Emulator():
         self.port = port
         self.address = address
         self.init_rxbuffers()
+        self.mean_data_extraction_time = MeanCalculator()
+        self.__calculate_mean_extraction_time = False
         #self.rx_buffer = CircIoBuffer(byte_size=256*16)
         #self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
+
+    def mean_data_extraction_time_set(self):
+        self.mean_data_extraction_time = MeanCalculator()
+        self.__calculate_mean_extraction_time = True
+
+    def get_mean_rx_time(self):
+        self.__calculate_mean_extraction_time = False
+        return self.mean_data_extraction_time.calc()
 
     def init_rxbuffers(self):
         #self.rx_buffer = CircIoBuffer(byte_size=256*16)
@@ -117,7 +128,7 @@ class Emulator():
             return rcv
         except (bluetooth.btcommon.BluetoothError, IOError) as e:
             #Linux and Windows support different exceptions here
-            print e
+            #print e
             return None
 
     def receive_data(self):
@@ -136,7 +147,11 @@ class Emulator():
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
-            #debug("data extraction time: {}/{}".format(time.time() - t0, 0))
+            print self.__calculate_mean_extraction_time
+            if self.__calculate_mean_extraction_time is True:
+                self.mean_data_extraction_time.count(time.time() - t0)
+                debug("data extraction time: {}/{}".format(time.time() - t0, 0))
+                debug("mean {}".format(self.mean_data_extraction_time.calc()))
             self.event_handler.get_raw_rx_buffer_slot()
 
 

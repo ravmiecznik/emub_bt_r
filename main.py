@@ -36,7 +36,7 @@ from message_box import message_box
 from bin_tracker import BinTracker
 import sys, os, subprocess
 import configparser
-import time
+import time, struct
 import textwrap
 import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
@@ -235,7 +235,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def __send_message(self, m_id, body='NULL', timeout=0.3):
         re_tx = 3
         self.rx_buffer.flush()
-        context = self.message_handler.send(m_id)
+        context = self.message_handler.send(m_id, body=body)
         time.sleep(timeout)
         while context not in self.rx_message_buffer and re_tx >= 0:
             context = self.message_handler.send(m_id, body=body)
@@ -248,10 +248,20 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             except KeyError:
                 return None
 
+    @thread_this_method()
+    def test_mean_read_packet_time(self):
+        self.emulator.mean_data_extraction_time_set()
+        for i in xrange(5):
+            #time.sleep(2)
+            #self.send_message(message_id=MessageSender.ID.get_sram_packet, body=struct.pack('B', 2), timeout=2)
+            self.message_handler.send(m_id=MessageSender.ID.get_sram_packet, body=struct.pack('B', 2))
+        print "mean", self.emulator.get_mean_rx_time()
+
     def send_message(self, message_id, body='NULL', timeout=1):
         self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, timeout))
         self.send_message_thread.start()
-        return self.send_message_thread.returned
+        #return self.send_message_thread.returned()
+        return self.send_message_thread
 
     def read_sram_button_slot(self):
         self.message_handler.send(MessageSender.ID.rxflush)
@@ -343,7 +353,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             #self.gui_communication_signal.emit((10*' {:02X}').format(*[ord(i) for i in msg.msg]))
         self.rx_message_buffer[msg.context] = msg
         #msg = self.message_receiver.get_message()
-        debug("handle done")
         # if time.time() - t0 > 1:
         #     debug('guard periodic break')
         #     break
@@ -437,6 +446,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.send_message(MessageSender.ID.set_bank_name, body='rafal')
         elif cmd == 'i':
             self.digidiag_slot()
+        elif cmd == 'tt':
+            self.test_mean_read_packet_time.start()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -605,6 +616,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.heartbeat()
         self.send_sram_bytes()
         self.refresh_digidiag_display()
+        self.test_mean_read_packet_time()
 
 
     def set_connected(self):
