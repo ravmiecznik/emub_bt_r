@@ -44,7 +44,8 @@ class RetxCount():
 
 
 class WritePackets:
-    def __init__(self, parent, bin_packets):
+    def __init__(self, parent, bin_packets, retx_timeout=1.2):
+        self.__retx_timeout = retx_timeout
         self.rx_message_buffer = parent.rx_message_buffer
         self.message_handler = parent.message_handler
         self.gui_communication_signal = parent.gui_communication_signal
@@ -59,7 +60,7 @@ class WritePackets:
         self.reload_sram = parent.emulation_panel.reload_sram_checkbox.isChecked
 
     def check_repsonse(self, context):
-        retx_timeout = 0.5
+        retx_timeout = self.__retx_timeout
         t0 = time.time()
         while context not in self.rx_message_buffer:
             if time.time() - t0 > retx_timeout:
@@ -128,7 +129,8 @@ class WritePackets:
 
 
 class ReadPackets:
-    def __init__(self, parent, message_id):
+    def __init__(self, parent, message_id, retx_timeout=1.2):
+        self.__retx_timeout = retx_timeout
         self.message_id = message_id
         self.rx_message_buffer = parent.rx_message_buffer
         self.message_handler = parent.message_handler
@@ -148,7 +150,7 @@ class ReadPackets:
         pass
 
     def check_response(self, context):
-        retx_timeout = 0.5
+        retx_timeout = self.__retx_timeout
         t0 = time.time()
         while context not in self.rx_message_buffer:
             if time.time() - t0 > retx_timeout:
