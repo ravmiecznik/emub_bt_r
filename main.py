@@ -108,10 +108,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     set_banks_panel_bank_name_signal = pyqtSignal(object)
     config_window_apply_signal = pyqtSignal()
     general_signal = pyqtSignal(object)
+    handle_rx_message_signal = pyqtSignal(object)
 
     def __init__(self, is_test=False):
         print 'PATH', EMU_BT_PATH
-        self.__receive_data_period = 0.01
+        self.__receive_data_period = 0.001
         self.bank_in_use = None
         self.is_test = is_test
         self.config_path = SETTINGS_PATH
@@ -138,6 +139,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.update_config_file_signal.connect(self.update_config_file)
         self.config_window_apply_signal.connect(self.config_window_apply_slot)
         self.event_handler.message = self.gui_communication_signal.emit
+        self.handle_rx_message_signal.connect(self.handle_rx_message)
+
         self.event_handler.add_event(self.update_config_file_signal.emit, self.update_config_file.__name__)
         self.event_handler.add_event(self.gui_communication_signal.emit, 'communicate')
         self.event_handler.add_event(self.command_line_slot)
@@ -230,12 +233,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
 
     def __send_message(self, m_id, body='NULL', timeout=0.3):
-        self.message_handler.send(m_id=MessageSender.ID.rxflush, body=body)
-        time.sleep(0.1)
         re_tx = 3
-        self.message_handler.send(MessageSender.ID.rxflush)
         self.rx_buffer.flush()
         context = self.message_handler.send(m_id)
+        time.sleep(timeout)
         while context not in self.rx_message_buffer and re_tx >= 0:
             context = self.message_handler.send(m_id, body=body)
             re_tx -= 1
@@ -247,7 +248,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             except KeyError:
                 return None
 
-    def send_message(self, message_id, body='NULL', timeout=0.3):
+    def send_message(self, message_id, body='NULL', timeout=1):
         self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, timeout))
         self.send_message_thread.start()
         return self.send_message_thread.returned
@@ -318,30 +319,36 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
 
     def get_raw_rx_buffer_slot(self):
-        banks = ['bank1set', 'bank2set', 'bank3set']
-        cnt = 0
-        t0 = time.time()
         msg = self.message_receiver.get_message()
-        while msg:
-            if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
-                self.gui_communication_signal.emit("E: {}".format(msg.msg))
-            elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
-                debug("Emulator: {}".format(msg.msg))
-                print "emulator debug: {}".format(msg.msg)
-            elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
-                self.set_bank_in_use(banks.index(msg.msg))
-            elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
-                self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
-            elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
-                #self.digidag_frames[ord(msg.msg[1])] = msg.msg
-                self.feed_digidiag(msg.msg)
-                #self.gui_communication_signal.emit((10*' {:02X}').format(*[ord(i) for i in msg.msg]))
-            self.rx_message_buffer[msg.context] = msg
-            msg = self.message_receiver.get_message()
-            if time.time() - t0 > 1:
-                debug('guard periodic break')
-                break
-            cnt += 1
+        if msg:
+            self.handle_rx_message_signal.emit(msg)
+
+    def handle_rx_message(self, msg):
+        banks = ['bank1set', 'bank2set', 'bank3set']
+        #cnt = 0
+        #t0 = time.time()
+        #while msg:
+        if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
+            self.gui_communication_signal.emit("E: {}".format(msg.msg))
+        elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
+            debug("Emulator: {}".format(msg.msg))
+            print "emulator debug: {}".format(msg.msg)
+        elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
+            self.set_bank_in_use(banks.index(msg.msg))
+        elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
+            self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
+        elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
+            #self.digidag_frames[ord(msg.msg[1])] = msg.msg
+            self.feed_digidiag(msg.msg)
+            #self.gui_communication_signal.emit((10*' {:02X}').format(*[ord(i) for i in msg.msg]))
+        self.rx_message_buffer[msg.context] = msg
+        #msg = self.message_receiver.get_message()
+        debug("handle done")
+        # if time.time() - t0 > 1:
+        #     debug('guard periodic break')
+        #     break
+            #debug('get raw rx buffer time: {:.10f}'.format(time.time() - t0))
+            #cnt += 1
 
     # BANKS PROCEDURES
     def bank1set_slot(self):
