@@ -24,6 +24,7 @@ from auxiliary_module import Uint16, MeanCalculator
 from loggers import create_logger
 import time, os, sys
 from setup_emubt import LOG_PATH
+from PyQt4.QtCore import QMutex
 
 log_format = '[%(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
 logger_name = "message_handler"
@@ -117,6 +118,7 @@ class MessageSender:
                 return None
 
     def __init__(self, tx_interface, rx_buffer):
+        self.mutex = QMutex()
         self.__transmit = tx_interface
         self.__rx_buffer = rx_buffer
 
@@ -150,17 +152,19 @@ class MessageSender:
     def __send(self, m_id=None, body='NULL'):
         timeout = 4
         t0 = time.time()
-        if MessageSender.lock: m_logger.debug("message sending locked, waiting")
-        while MessageSender.lock:
-            time.sleep(0.001)
-            if time.time() - t0 > timeout:
-                m_logger.error("TIMEOUT in wait for unlock")
-                MessageSender.lock = False
-                raise TxTimeout
-        MessageSender.lock = True
         msg = create_message(msg_id=m_id, body=body, context=MessageSender.context) if m_id is not None else body
+        # if MessageSender.lock: m_logger.debug("message sending locked, waiting")
+        # while MessageSender.lock:
+        #     time.sleep(0.001)
+        #     if time.time() - t0 > timeout:
+        #         m_logger.error("TIMEOUT in wait for unlock")
+        #         MessageSender.lock = False
+        #         raise TxTimeout
+        m_logger.debug("{}".format(self.mutex.tryLock()))
+        #MessageSender.lock = True
         context = self.__send_m(msg, m_id)
-        MessageSender.lock = False
+        #MessageSender.lock = False
+        self.mutex.unlock()
         m_logger.debug("message sending unlocked")
         return context
 
@@ -287,6 +291,8 @@ class MessageReceiver:
     def __init__(self, rx_buffer):
         self.rx_buffer = rx_buffer
         self.__mean_rx_time = MeanCalculator()
+        self.mutex = QMutex()
+        self.t0 = time.time()
 
     def check_tail(self, peek_buff):
         init_find = peek_buff.find(MessageReceiver.TAIL_START_MARK)
@@ -320,24 +326,33 @@ class MessageReceiver:
 
     def get_message(self):
         t0 = time.time()
-        if not MessageReceiver.LOCKED and (self.rx_buffer.available() >= MessageReceiver.TAIL_LEN):
-            MessageReceiver.LOCKED = True
+        #if not MessageReceiver.LOCKED and (self.rx_buffer.available() >= MessageReceiver.TAIL_LEN):
+        ret_rxmsg = None
+        if self.rx_buffer.available() >= MessageReceiver.TAIL_LEN:
+            #MessageReceiver.LOCKED = True
             peek_buff = self.rx_buffer.peek()
             check_tail_result = self.check_tail(peek_buff)
             if check_tail_result:
                 _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
+                self.mutex.lock()
                 msg_body = self.rx_buffer.read(tail_end_mark_pos + 1 + 2)
+                self.mutex.unlock()
                 msg_body = msg_body[:tail_start_mark_pos]
                 MessageReceiver.ts = time.time()
                 crc_check = RxMessage.CRC_result.ack if _crc == crc(msg_body) else RxMessage.CRC_result.nack
                 rxmsg = RxMessage(msg_id=_id, crc_check=crc_check, length=len(msg_body), context=_context, body=msg_body)
+                m_logger.debug("Period: {}".format(time.time() - self.t0))
                 m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
-                MessageReceiver.LOCKED = False
+                self.t0 = time.time()
+                #MessageReceiver.LOCKED = False
                 if _crc == crc(msg_body):
                     self.__mean_rx_time.count(time.time() - t0)
                     m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
-                    return rxmsg
-        MessageReceiver.LOCKED = False
+                    ret_rxmsg = rxmsg
+                    #return rxmsg
+        #MessageReceiver.LOCKED = False
+        return ret_rxmsg
+
 
 
 def create_message(msg_id, body, context=0, max_packet_size=MAX_PACKET_SIZE, fail_crc_factor=None):
