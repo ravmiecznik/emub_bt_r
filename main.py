@@ -109,7 +109,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     config_window_apply_signal = pyqtSignal()
     general_signal = pyqtSignal(object)
     handle_rx_message_signal = pyqtSignal(object)
-
+    #TODO: create a procedure which will examine timeout in rx/tx procedure, according to its output set timeouts in procedures and send messange, this should be perofremd once in first start of application
     def __init__(self, is_test=False):
         print 'PATH', EMU_BT_PATH
         self.__receive_data_period = 0.001
@@ -384,10 +384,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         try:
             if self.__tmp_bank_name != bank_name:
                 self.banks_panel.disable_active_button()
-                self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=0.5)
+                self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
         except AttributeError:
             self.banks_panel.disable_active_button()
-            self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=0.5)
+            self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
         self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
 
     def bank_name_line_focus_out_event(self):
