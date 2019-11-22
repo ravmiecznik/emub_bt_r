@@ -44,7 +44,7 @@ class RetxCount():
 
 
 class WritePackets:
-    def __init__(self, parent, bin_packets, retx_timeout=1.2):
+    def __init__(self, parent, bin_packets, retx_timeout=0.5):
         self.__retx_timeout = retx_timeout
         self.rx_message_buffer = parent.rx_message_buffer
         self.message_handler = parent.message_handler
@@ -129,7 +129,7 @@ class WritePackets:
 
 
 class ReadPackets:
-    def __init__(self, parent, message_id, retx_timeout=1.2):
+    def __init__(self, parent, message_id, retx_timeout=1):
         self.__retx_timeout = retx_timeout
         self.message_id = message_id
         self.rx_message_buffer = parent.rx_message_buffer
@@ -153,16 +153,16 @@ class ReadPackets:
         retx_timeout = self.__retx_timeout
         t0 = time.time()
         while context not in self.rx_message_buffer:
+            time.sleep(0.1)
             if time.time() - t0 > retx_timeout:
                 return RxMessage.rx_id_tuple.index('dtx')
-            time.sleep(0.0001)
         else:
             msg = self.rx_message_buffer.pop(context)  # gets message and returns id from buffer
             self.received.write(msg.msg)
             result = msg.id
         return result
 
-    def get_packet(self, packet_num):
+    def send_request(self, packet_num):
         msg_body = struct.pack('B', packet_num)
         _context = self.message_handler.send(self.message_id, body=msg_body)
         return _context
@@ -189,7 +189,7 @@ class ReadPackets:
 
             self.check_resp_thr = GuiThread(self.check_response, args=(MessageSender.context,))
             self.check_resp_thr.start()
-            self.get_packet(packet_num=packet_num)
+            self.send_request(packet_num=packet_num)
             while self.check_resp_thr.returned() is None:
                 time.sleep(0.001)
             response = self.check_resp_thr.returned()
@@ -214,8 +214,8 @@ class ReadPackets:
 
 
 class ReadSramProcedure(ReadPackets):
-    def __init__(self, parent):
-        ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_sram_packet)
+    def __init__(self, parent, retx_timeout=0.5):
+        ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_sram_packet, retx_timeout=retx_timeout)
         self.parent_send_msg = parent.send_message
 
     def extra_teardown(self):
@@ -233,8 +233,8 @@ class ReadSramProcedure(ReadPackets):
 
 
 class ReadBankProcedure(ReadPackets):
-    def __init__(self, parent):
-        ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_bank_packet)
+    def __init__(self, parent, retx_timeout=0.5):
+        ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_bank_packet, retx_timeout=retx_timeout)
 
     def extra_teardown(self):
         rx_file_name = self.get_bank_name()
