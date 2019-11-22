@@ -97,10 +97,13 @@ class ConfigWindow(QtGui.QWidget):
             debug("Adding missing APPSETTINGS section to: {}".format(self.config_file_path))
             self.config['APPSETTINGS'] = {
                 'allow_read_sram': 'False',
+                'response_time': '',
             }
         for config_section in self.config:
             for sub_key in self.config[config_section]:
                 self.add_entry_to_grid(option=sub_key, value=self.config[config_section][sub_key])
+
+        return self.config
 
     def apply_slot(self):
         for config_section in self.config:
@@ -113,7 +116,23 @@ class ConfigWindow(QtGui.QWidget):
             self.close()
         self.apply_signal.emit()
 
-    def update_config_file(self, **kwargs):
+    def updade_config_file(self, config_section, sub_key, value):
+        """
+        Updates config file according to config_section entry
+        :param config_section:
+        :param sub_key:
+        :param value:
+        :return:
+        """
+        if config_section not in self.config:
+            debug("Adding missing {} section to: {}".format(config_section, self.config_file_path))
+            self.config[config_section] = {}
+        self.config.set(config_section, sub_key, value)
+        if self.validate():
+            with open(self.config_file_path, 'w') as cf:
+                self.config.write(cf)
+
+    def update_config_file_BLUETOOTH(self, **kwargs):
         self.config['BLUETOOTH'] = kwargs
         with open(self.config_file_path, 'w') as cf:
             self.config.write(cf)
