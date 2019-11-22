@@ -16,7 +16,8 @@ rx_debug = rx_logger.debug
 class Emulator():
     def __init__(self, port, address, event_handler=None, timeout=1):
         debug("Init of {}".format(Emulator.__name__))
-        self.__rcv_chunk_size = 128
+        #TODO: add procedure in main window to estiamte best rcv_chunksize in loop
+        self.__rcv_chunk_size = 32
         self.__lock = False
         self.connected = False
         self.event_handler = event_handler
@@ -147,6 +148,7 @@ class Emulator():
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
+            debug("data extraction time: {}/{}".format(time.time() - t0, 0))
             if self.__calculate_mean_extraction_time is True:
                 self.mean_data_extraction_time.count(time.time() - t0)
                 debug("data extraction time: {}/{}".format(time.time() - t0, 0))
