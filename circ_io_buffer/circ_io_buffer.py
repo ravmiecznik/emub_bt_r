@@ -42,6 +42,11 @@ class CircIoBuffer(BytesIO):
         self._set_tail(bytes_len)
 
     def write(self, bytes):
+        """
+        bytes_1 and bytes_2: this split avoids scenario when head reaches the tail
+        :param bytes:
+        :return:
+        """
         if not self.__write_locked:
             bytes = bytes[-self._limit:]
             bytes_1 = bytes[0: self._limit - self._tail]

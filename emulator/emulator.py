@@ -6,6 +6,7 @@ contact: ravmiecznk@gmail.com
 import configparser
 from setup_emubt import info, warn, debug, error, create_logger, LOG_PATH
 import bluetooth
+from auxiliary_module import MeanCalculator
 from circ_io_buffer import CircIoBuffer
 import time
 
@@ -15,7 +16,8 @@ rx_debug = rx_logger.debug
 class Emulator():
     def __init__(self, port, address, event_handler=None, timeout=1):
         debug("Init of {}".format(Emulator.__name__))
-        self.__rcv_chunk_size = 128
+        #TODO: add procedure in main window to estiamte best rcv_chunksize in loop
+        self.__rcv_chunk_size = 32
         self.__lock = False
         self.connected = False
         self.event_handler = event_handler
@@ -24,8 +26,18 @@ class Emulator():
         self.port = port
         self.address = address
         self.init_rxbuffers()
+        self.mean_data_extraction_time = MeanCalculator()
+        self.__calculate_mean_extraction_time = False
         #self.rx_buffer = CircIoBuffer(byte_size=256*16)
         #self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
+
+    def mean_data_extraction_time_set(self):
+        self.mean_data_extraction_time = MeanCalculator()
+        self.__calculate_mean_extraction_time = True
+
+    def get_mean_rx_time(self):
+        self.__calculate_mean_extraction_time = False
+        return self.mean_data_extraction_time.calc()
 
     def init_rxbuffers(self):
         #self.rx_buffer = CircIoBuffer(byte_size=256*16)
@@ -117,6 +129,7 @@ class Emulator():
             return rcv
         except (bluetooth.btcommon.BluetoothError, IOError) as e:
             #Linux and Windows support different exceptions here
+            #print e
             return None
 
     def receive_data(self):
@@ -128,13 +141,21 @@ class Emulator():
         t0 = time.time()
         tmp_buff = self.__try_get_data()
         while tmp_buff:
-            while not self.raw_buffer.write(tmp_buff): time.sleep(0.001)
+            while not self.raw_buffer.write(tmp_buff):
+                time.sleep(0.0001)
             tmp_buff = self.__try_get_data()
             if time.time() - t0 > 1:
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
+            debug("data extraction time: {}/{}".format(time.time() - t0, 0))
+            if self.__calculate_mean_extraction_time is True:
+                self.mean_data_extraction_time.count(time.time() - t0)
+                debug("data extraction time: {}/{}".format(time.time() - t0, 0))
+                debug("mean {}".format(self.mean_data_extraction_time.calc()))
             self.event_handler.get_raw_rx_buffer_slot()
+
+
 
     def send(self, data):
         if not self.__lock:
