@@ -119,7 +119,7 @@ class WritePackets:
                 raise SendTimeout("TIMEOUT")
         else:
             if self.reload_sram():
-                self.parent_send_msg(MessageSender.ID.reload_sram, timeout=1)
+                self.parent_send_msg(MessageSender.ID.reload_sram)
             self.gui_communication_signal.emit("File transmitted in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
             self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
