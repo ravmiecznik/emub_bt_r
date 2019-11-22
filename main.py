@@ -13,10 +13,14 @@ platform = platform.system()
 
 
 from collections import namedtuple
+from io import BytesIO
+from bin_handler import bin_repr
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
+from PyQt4.Qt import PYQT_VERSION_STR
 from PyQt4 import QtCore, QtGui
+from PyQt4.QtGui import QGestureRecognizer #gestures: https://srinikom.github.io/pyside-docs/PySide/QtGui/QGestureRecognizer.html#PySide.QtGui.QGestureRecognizer
 from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
 from main_window import ColorProgressBar
@@ -34,6 +38,7 @@ from test_module import TestInterface
 from digidiag import DigiDiag, DigidiagWindow
 from message_box import message_box
 from bin_tracker import BinTracker
+from auxiliary_module import MeanCalculator
 import sys, os, subprocess
 import configparser
 import time, struct
@@ -41,6 +46,7 @@ import textwrap
 import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 
+print "PYQT: {}".format(PYQT_VERSION_STR)
 
 BACKGROUND = "background-color: rgb({},{},{})"
 GREEN_STYLE_SHEET = BACKGROUND.format(154, 252, 41)
@@ -112,7 +118,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     #TODO: create a procedure which will examine timeout in rx/tx procedure, according to its output set timeouts in procedures and send messange, this should be perofremd once in first start of application
     def __init__(self, is_test=False):
         print 'PATH', EMU_BT_PATH
-        self.__receive_data_period = 0.001
+        self.__response_time = 5    #big overhead
+        self.__receive_data_period = 0.0001
         self.bank_in_use = None
         self.is_test = is_test
         self.config_path = SETTINGS_PATH
@@ -147,6 +154,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.connect_button_slot))
         self.event_handler.add_event(to_signal(self.reflash_button_slot))
         self.event_handler.add_event(to_signal(self.discover_emu_bt_slot))
+        self.event_handler.add_event(to_signal(self.estimate_response_time_slot))
         self.event_handler.add_event(to_signal(self.lost_connection_slot))
         self.event_handler.add_event(to_signal(self.config_button_slot))
         self.event_handler.add_event(to_signal(self.emulate_button_slot))
@@ -248,29 +256,56 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             except KeyError:
                 return None
 
-    @thread_this_method()
-    def test_mean_read_packet_time(self):
-        self.emulator.mean_data_extraction_time_set()
-        for i in xrange(5):
-            #time.sleep(2)
-            #self.send_message(message_id=MessageSender.ID.get_sram_packet, body=struct.pack('B', 2), timeout=2)
-            self.message_handler.send(m_id=MessageSender.ID.get_sram_packet, body=struct.pack('B', 2))
-        print "mean", self.emulator.get_mean_rx_time()
+    def estimate_response_time_slot(self):
+        self.disable_objects_for_transmission_signal()
+        self.estimate_response_time.start()
 
-    def send_message(self, message_id, body='NULL', timeout=1):
-        self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, timeout))
+    @thread_this_method(delay=1)
+    def estimate_response_time(self):
+        self.gui_communication_signal.emit("Response time was not calculated")
+        self.gui_communication_signal.emit("Calculating response time...\n")
+        self.disable_objects_for_transmission_signal()
+        self.progress_bar.set_title("CHECKING RESPONSE TIME")
+        to_signal(self.progress_bar.display).emit()
+        timeout = 5
+        mean = MeanCalculator()
+        for i in xrange(16):
+            t0 = time.time()
+            context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', i))
+            self.gui_communication_signal.emit("\n{}:{}".format(self.estimate_response_time, context))
+            while context not in self.rx_message_buffer:
+                time.sleep(0.1)
+                if time.time() - t0 > timeout:
+                    self.gui_communication_signal.emit("{}: timeout exceeded".format(self.estimate_response_time.__name__))
+                    self.progress_bar.hide()
+                    return
+            self.progress_bar.set_val_signal.emit((16.0-i)/16*100)
+            mean.count(time.time() - t0)
+            self.gui_communication_signal.emit(self.rx_message_buffer[context])
+            self.gui_communication_signal.emit("Response time: {}\n".format(mean.calc()))
+        mean_response_time = mean.calc() * 1.1
+        self.gui_communication_signal.emit("\nMEAN RESPONSE TIME: {}".format(mean_response_time))
+        config = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
+        config.updade_config_file('APPSETTINGS', 'response_time', "{:.2f}".format(mean_response_time))
+        self.__response_time = mean_response_time
+        to_signal(self.progress_bar.hide).emit()
+        self.enable_objects_after_transmission_signal()
+
+
+    def send_message(self, message_id, body='NULL'):
+        self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, self.__response_time))
         self.send_message_thread.start()
         #return self.send_message_thread.returned()
         return self.send_message_thread
 
     def read_sram_button_slot(self):
         self.message_handler.send(MessageSender.ID.rxflush)
-        self.read_sram = ReadSramProcedure(self)
+        self.read_sram = ReadSramProcedure(self, retx_timeout=self.__response_time)
         self.read_sram.read_thread.start()
 
     def read_bank_button_slot(self):
         self.message_handler.send(MessageSender.ID.rxflush)
-        self.read_bank = ReadBankProcedure(self)
+        self.read_bank = ReadBankProcedure(self, retx_timeout=self.__response_time)
         self.read_bank.read_thread.start()
 
     def save_button_slot(self):
@@ -286,7 +321,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.bin_file_panel.update_app_status_file()
             message_box("This is not 27c256 bin image: {}".format(bin_path))
             raise e
-        self.write_packets = WritePackets(self, bin_packets)
+        self.write_packets = WritePackets(self, bin_packets, retx_timeout=self.__response_time)
         self.write_packets.write_thread.start()
 
     def setup_emulator(self):
@@ -300,11 +335,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         reload emulator related objects
         :return:
         """
-        self.setup_emulator()
-        self.connection_thread = GuiThread(self.__connection_thread,
-                                           action_when_done=to_signal(self.set_connection_status))
-        self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data,
-                                                       period=self.__receive_data_period)
+        if not self.emulator.connected:
+            self.setup_emulator()
+            self.connection_thread = GuiThread(self.__connection_thread,
+                                               action_when_done=to_signal(self.set_connection_status))
+            self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data,
+                                                           period=self.__receive_data_period)
+        self.__response_time = float(self.config_window.config['APPSETTINGS']['response_time'].replace(',','.'))
 
     def get_current_bin_file(self):
         self.current_bin_file = self.bin_file_panel.get_current_file()
@@ -335,9 +372,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def handle_rx_message(self, msg):
         banks = ['bank1set', 'bank2set', 'bank3set']
-        #cnt = 0
-        #t0 = time.time()
-        #while msg:
         if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
             self.gui_communication_signal.emit("E: {}".format(msg.msg))
         elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
@@ -348,16 +382,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
             self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
         elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
-            #self.digidag_frames[ord(msg.msg[1])] = msg.msg
             self.feed_digidiag(msg.msg)
-            #self.gui_communication_signal.emit((10*' {:02X}').format(*[ord(i) for i in msg.msg]))
         self.rx_message_buffer[msg.context] = msg
-        #msg = self.message_receiver.get_message()
-        # if time.time() - t0 > 1:
-        #     debug('guard periodic break')
-        #     break
-            #debug('get raw rx buffer time: {:.10f}'.format(time.time() - t0))
-            #cnt += 1
 
     # BANKS PROCEDURES
     def bank1set_slot(self):
@@ -384,10 +410,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         try:
             if self.__tmp_bank_name != bank_name:
                 self.banks_panel.disable_active_button()
-                self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
+                self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
         except AttributeError:
             self.banks_panel.disable_active_button()
-            self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
+            self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
         self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
 
     def bank_name_line_focus_out_event(self):
@@ -447,7 +473,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif cmd == 'i':
             self.digidiag_slot()
         elif cmd == 'tt':
-            self.test_mean_read_packet_time.start()
+            self.estimate_response_time.start()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -477,6 +503,20 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.gui_communication_signal.emit("Trying autodiscovery")
             self.discover_emu_bt_slot()
             return None, None
+
+    def read_calculated_response_time_config(self):
+        config = configparser.ConfigParser()
+        config.read(self.config_file_path)
+        response_time = None
+        try:
+            response_time = float(config['APPSETTINGS']['response_time'].replace(',','.'))
+        except (KeyError, ValueError) as e:
+            print e
+            self.estimate_response_time.start()
+        if response_time >= 5:
+            self.estimate_response_time.start()
+        return response_time
+
 
     def read_allow_read_sram_option(self):
         config = configparser.ConfigParser()
@@ -569,7 +609,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.gui_communication_signal.emit("Updating:")
         for k in kwargs:
             self.gui_communication_signal.emit("{} {}".format(k, kwargs[k])),
-        ConfigWindow(self.config_file_path, apply_signal=self.config_window_apply_signal).update_config_file(**kwargs)
+        ConfigWindow(self.config_file_path, apply_signal=self.config_window_apply_signal).update_config_file_BLUETOOTH(**kwargs)
         self.port, self.address = self.read_emubt_config()
 
     def connect_signals(self):
@@ -616,7 +656,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.heartbeat()
         self.send_sram_bytes()
         self.refresh_digidiag_display()
-        self.test_mean_read_packet_time()
+        self.estimate_response_time()
 
 
     def set_connected(self):
@@ -628,6 +668,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.tmp_thread = GuiThread(process=to_signal(self.connect_button.set_green_style_sheet))
         self.tmp_thread.start()
         self.send_message(message_id=MessageSender.ID.get_bank_in_use)
+        self.__response_time = self.read_calculated_response_time_config()
 
     def set_disconnected(self):
         self.disable_objects_for_transmission_signal()
@@ -716,6 +757,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     @thread_this_method()
     def send_sram_bytes(self):
+        """
+        Thread for LIVE emulation
+        :return:
+        """
         max_msg_len = 256 * 8   #single packet size
         msg_body = ''
         bytes_cnt = 0
@@ -724,7 +769,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             bytes_cnt += 1
             if len(msg_body) >= max_msg_len - 3:
                 break
-        result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=1)
+        result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=self.__response_time)
         while result() is None:
             time.sleep(0.001)
         self.bin_tracker.resume()
