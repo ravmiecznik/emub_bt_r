@@ -1,6 +1,6 @@
 # emub_bt_r
 
-EMU_BT_R V2.0
+EMU_BT_R V2.2
 
 https://www.youtube.com/watch?v=0i5L0DQhbt8
 
