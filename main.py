@@ -32,7 +32,7 @@ from call_tracker import method_call_track
 from reflasher import Reflasher
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageSender, MessageReceiver, RxMessage, TxTimeout
-from config_window import ConfigWindow, ConfigSettings
+from config_window import ConfigWindow, Config, ConfigSettings
 from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
 from digidiag import DigiDiag, DigidiagWindow
@@ -277,16 +277,17 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 time.sleep(0.1)
                 if time.time() - t0 > timeout:
                     self.gui_communication_signal.emit("{}: timeout exceeded".format(self.estimate_response_time.__name__))
-                    self.progress_bar.hide()
+                    to_signal(self.progress_bar.hide)()
                     return
-            self.progress_bar.set_val_signal.emit((16.0-i)/16*100)
+            self.progress_bar.set_val_signal.emit(int((16.0-i)/16*100))
             mean.count(time.time() - t0)
             self.gui_communication_signal.emit(self.rx_message_buffer[context])
             self.gui_communication_signal.emit("Response time: {}\n".format(mean.calc()))
-        mean_response_time = mean.calc() * 1.1
+        mean_response_time = mean.calc() * 1.3
         self.gui_communication_signal.emit("\nMEAN RESPONSE TIME: {}".format(mean_response_time))
-        config = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
-        config.updade_config_file('APPSETTINGS', 'response_time', "{:.2f}".format(mean_response_time))
+
+        Config(self.config_file_path).updade_config_file('APPSETTINGS', 'response_time', "{:.2f}".format(mean_response_time))
+
         self.__response_time = mean_response_time
         to_signal(self.progress_bar.hide).emit()
         self.enable_objects_after_transmission_signal()
