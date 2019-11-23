@@ -314,42 +314,42 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         to_signal(self.progress_bar.display).emit()
 
         def update_thread():
-            try:
-                for x in xrange(1, max_tests, 4):
-                    tmean = MeanCalculator()
-                    chunk_size = x
-                    self.emulator.set_rcv_chunk_size(chunk_size)
-                    result_ok = True
-                    for _ in xrange(3):
-                        t0 = time.time()
-                        context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', 1))
-                        while context not in self.rx_message_buffer:
-                            time.sleep(0.01)
-                            if time.time() - t0 > timeout:
-                                print 'timeout'
-                                result_ok = False
-                                break
-                        time_elapsed = time.time() - t0
-                        tmean.count(time_elapsed)
-                    self.progress_bar.set_val_signal.emit(int((float(max_tests) - x) / max_tests * 100))
-                    if result_ok:
-                        self.plotter.update_plot_xy_signal.emit(chunk_size, tmean.calc()*1000)
-            except TxTimeout:
-                self.gui_communication_signal.emit(
-                    "{}: timeout exceeded".format(self.estimate_response_time.__name__))
-            finally:
-                to_signal(self.progress_bar.hide)()
-                self.emulator.set_rcv_chunk_size(old_chunk_size)
+            for x in xrange(1, max_tests, 4):
+                if self.plotter.isHidden():
+                    self.gui_communication_signal.emit("Check chunk size terminated")
+                    return
+                tmean = MeanCalculator()
+                chunk_size = x
+                self.emulator.set_rcv_chunk_size(chunk_size)
+                result_ok = True
+                for _ in xrange(3):
+                    t0 = time.time()
+                    context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', 1))
+                    while context not in self.rx_message_buffer:
+                        time.sleep(0.01)
+                        if time.time() - t0 > timeout:
+                            self.gui_communication_signal.emit("Chunk size check failed for: {}".format(x))
+                            result_ok = False
+                            break
+                    time_elapsed = time.time() - t0
+                    tmean.count(time_elapsed)
+                self.progress_bar.set_val_signal.emit(int((float(max_tests) - x) / max_tests * 100))
+                if result_ok:
+                    self.plotter.update_plot_xy_signal.emit(chunk_size, tmean.calc()*1000)
             try:
                 self.gui_communication_signal.emit("MAX: {}".format(self.plotter.get_max()))
                 self.gui_communication_signal.emit("MIN: {}".format(self.plotter.get_min()))
             except ValueError:
                 pass
+            to_signal(self.progress_bar.hide)()
+            self.emulator.set_rcv_chunk_size(old_chunk_size)
         self.tmp = GuiThread(update_thread)
         self.tmp.start()
 
-    def send_message(self, message_id, body='NULL'):
-        self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, self.__response_time))
+    def send_message(self, message_id, body='NULL', timeout=None):
+        if timeout is None:
+            timeout = self.__response_time
+        self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, timeout))
         self.send_message_thread.start()
         return self.send_message_thread
 
@@ -474,7 +474,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
         except AttributeError:
             self.banks_panel.disable_active_button()
-            self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
+            self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
         self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
 
     def bank_name_line_focus_out_event(self):
