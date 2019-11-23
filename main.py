@@ -128,7 +128,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.config_path = self.config_path.replace('/', '\\')
         QtGui.QMainWindow.__init__(self)
         self.setWindowTitle("EMU BT")
-        x_siz, y_siz = 500, 700
+        x_siz, y_siz = 600, 700
+
+        #self.horizontalLayout = QtGui.QHBoxLayout()
         main_grid = QtGui.QGridLayout()
         main_grid.setSpacing(10)
         self.centralwidget = QtGui.QWidget(self)
@@ -142,6 +144,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.setCentralWidget(self.centralwidget)
 
         self.help_text = QLabel(self.centralwidget, max_text_size=(x_siz/4.8, 4))
+        self.help_text.setMaximumWidth(x_siz)
         self.help_text.raise_()
 
         self.update_config_file_signal.connect(self.update_config_file)
@@ -179,7 +182,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
 
-        self.bin_file_panel = BinFilePanel(self.centralwidget, event_handler=self.event_handler, app_status_file=self.app_status_file)
+        self.bin_file_panel = BinFilePanel(self.centralwidget, event_handler=self.event_handler,
+                                           app_status_file=self.app_status_file, max_width=x_siz+10)
 
         # create discovery thread in init---------------------------------------------------------
         bt_device_to_search = 'EMUBT'
@@ -213,12 +217,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.connect_button = self.control_panel.connect_button
 
         HelpTip.set_static_help_tip_slot_signal(self.help_tip_signal)
+        #self.horizontalLayout.addWidget(self.bin_file_panel)
 
         main_grid.addWidget(self.control_panel,   0, 0, 2, 1)
         main_grid.addWidget(self.emulation_panel, 0, 2, 2, 1)
         main_grid.addWidget(self.banks_panel,     0, 4, 2, 1)
         main_grid.addWidget(self.bin_file_panel,  5, 0, 1, 6)
-        main_grid.addWidget(self.console,         6, 0, 6, 6)
+        #main_grid.addLayout(self.horizontalLayout, 5, 0, 1, 6)
+        main_grid.addWidget(self.console,         6, 0, 4, 6)
         main_grid.addWidget(self.help_text,      13, 0, 1, 6)
         self.centralwidget.setLayout(main_grid)
 
@@ -229,14 +235,18 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.read_sram_button_slot), 'read_sram_button_slot')
         self.emulation_panel.set_event_handler(self.event_handler)
 
-        self.resize(x_siz, y_siz)
+
         self.disable_objects_for_transmission_signal()
         self.load_last_status()
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
-        self.digidiag_slot()
+        #self.digidiag_slot()
+        self.resize(x_siz, y_siz)
 
+
+    def resizeEvent(self, event):
+        self.bin_file_panel.combo_box.setFixedWidth(event.size().width()*0.7)
 
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
@@ -309,17 +319,21 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                     tmean = MeanCalculator()
                     chunk_size = x
                     self.emulator.set_rcv_chunk_size(chunk_size)
+                    result_ok = True
                     for _ in xrange(3):
                         t0 = time.time()
                         context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', 1))
                         while context not in self.rx_message_buffer:
                             time.sleep(0.01)
                             if time.time() - t0 > timeout:
-                                raise TxTimeout
+                                print 'timeout'
+                                result_ok = False
+                                break
                         time_elapsed = time.time() - t0
                         tmean.count(time_elapsed)
                     self.progress_bar.set_val_signal.emit(int((float(max_tests) - x) / max_tests * 100))
-                    self.plotter.update_plot_xy_signal.emit(chunk_size, tmean.calc()*1000)
+                    if result_ok:
+                        self.plotter.update_plot_xy_signal.emit(chunk_size, tmean.calc()*1000)
             except TxTimeout:
                 self.gui_communication_signal.emit(
                     "{}: timeout exceeded".format(self.estimate_response_time.__name__))
