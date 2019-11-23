@@ -110,6 +110,9 @@ class GuiThread(QThread):
         self.__is_terminated = False
         self.__trace = trace
 
+    def set_delay(self, value):
+        self.__delay = value
+
     def set_args(self, args):
         if not type(args) is tuple:
             raise Exception("Args must be tuple, got: {} type of: {}".format(args, type(args)))
