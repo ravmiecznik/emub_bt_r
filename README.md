@@ -6,6 +6,10 @@ https://www.youtube.com/watch?v=0i5L0DQhbt8
 
 https://www.youtube.com/watch?v=bxWkzQrnqo4
     
+    23.11.2019: EXE file is created according to operating system name.
+    		Support for WIN7
+		Application estimates average response time from BT to set optimal maximum timeouts
+		Display location of new windows updated
     11.11.2019: New branch. Reflash procedure fixed, first version of data monitoring and configuration available.
                 Save button ranamed to UPLOAD (more resonable name)
     29.09.2019: Full and independent bi-directional communication. APP to BOARD message uses message with header (id, context, len, crc),
