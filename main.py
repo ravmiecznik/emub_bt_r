@@ -269,9 +269,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def estimate_response_time_slot(self):
         self.disable_objects_for_transmission_signal()
+        self.estimate_response_time.set_delay(0)
         self.estimate_response_time.start()
 
-    @thread_this_method(delay=0)
+    @thread_this_method(delay=2)
     def estimate_response_time(self):
         num_of_checks = 16
         self.gui_communication_signal.emit("Response time was not calculated")
@@ -840,8 +841,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             bytes_cnt += 1
             if len(msg_body) >= max_msg_len - 3:
                 break
-        result = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=self.__response_time)
-        while result() is None:
+        thread = self.send_message(message_id=MessageSender.ID.send_sram_bytes, body=msg_body, timeout=self.__response_time)
+        while thread.returned() is None:
             time.sleep(0.001)
         self.bin_tracker.resume()
 
