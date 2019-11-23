@@ -326,7 +326,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.write_packets.write_thread.start()
 
     def setup_emulator(self):
-        self.port, self.address = self.read_emubt_config()
+        self.port, self.address = self.read_emubt_port_address_config()
         self.emulator = Emulator(self.port, self.address, timeout=self.__receive_data_period/2)
         self.emulator.set_event_handler(self.event_handler)
         self.message_handler = MessageSender(self.emulator.send, self.emulator.raw_buffer)
@@ -487,7 +487,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def send_resetemu_slot(self):
         self.send_message(MessageSender.ID.reset)
 
-    def read_emubt_config(self):
+    def read_emubt_port_address_config(self):
         config = configparser.ConfigParser()
         config.read(self.config_file_path)
         try:
@@ -611,7 +611,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         for k in kwargs:
             self.gui_communication_signal.emit("{} {}".format(k, kwargs[k])),
         ConfigWindow(self.config_file_path, apply_signal=self.config_window_apply_signal).update_config_file_BLUETOOTH(**kwargs)
-        self.port, self.address = self.read_emubt_config()
+        self.port, self.address = self.read_emubt_port_address_config()
 
     def connect_signals(self):
         self.help_tip_signal.connect(self.help_text.setText)
