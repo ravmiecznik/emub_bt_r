@@ -55,7 +55,8 @@ class Config():
             debug("Adding missing BLUETOOTH section to: {}".format(self.config_file_path))
             self.config['BLUETOOTH'] = {
                 'bt_device_port': '',
-                'bt_device_address': ''
+                'bt_device_address': '',
+                'rcv_chunk_size': '258',
             }
         if 'EDITORS' not in self.config:
             debug("Adding missing EDITORS section to: {}".format(self.config_file_path))
