@@ -37,6 +37,7 @@ from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
 from digidiag import DigiDiag, DigidiagWindow
 from message_box import message_box
+from plotter import Plotter
 from bin_tracker import BinTracker
 from auxiliary_module import MeanCalculator
 import sys, os, subprocess
@@ -260,16 +261,17 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.disable_objects_for_transmission_signal()
         self.estimate_response_time.start()
 
-    @thread_this_method(delay=1)
+    @thread_this_method(delay=0)
     def estimate_response_time(self):
+        num_of_checks = 16
         self.gui_communication_signal.emit("Response time was not calculated")
         self.gui_communication_signal.emit("Calculating response time...\n")
         self.disable_objects_for_transmission_signal()
         self.progress_bar.set_title("CHECKING RESPONSE TIME")
         to_signal(self.progress_bar.display).emit()
-        timeout = 5
+        timeout = 5     #maximum allowed timeout, if it is exceeded there must be something wrong about bluetooth connection
         mean = MeanCalculator()
-        for i in xrange(16):
+        for i in xrange(num_of_checks):
             t0 = time.time()
             context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', i))
             self.gui_communication_signal.emit("\n{}:{}".format(self.estimate_response_time, context))
@@ -279,24 +281,62 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                     self.gui_communication_signal.emit("{}: timeout exceeded".format(self.estimate_response_time.__name__))
                     to_signal(self.progress_bar.hide)()
                     return
-            self.progress_bar.set_val_signal.emit(int((16.0-i)/16*100))
+            self.progress_bar.set_val_signal.emit(int((float(num_of_checks)-i)/num_of_checks*100))
             mean.count(time.time() - t0)
             self.gui_communication_signal.emit(self.rx_message_buffer[context])
             self.gui_communication_signal.emit("Response time: {}\n".format(mean.calc()))
         mean_response_time = mean.calc() * 1.3
+
         self.gui_communication_signal.emit("\nMEAN RESPONSE TIME: {}".format(mean_response_time))
-
         Config(self.config_file_path).updade_config_file('APPSETTINGS', 'response_time', "{:.2f}".format(mean_response_time))
-
         self.__response_time = mean_response_time
         to_signal(self.progress_bar.hide).emit()
         self.enable_objects_after_transmission_signal()
 
+    def estimate_rcv_chunk_size_for_emulator(self):
+        timeout = 5
+        max_tests = 2048
+        old_chunk_size = self.emulator.get_rcv_chunk_size()
+        self.plotter = Plotter(self, title="ESTIMATE RCV CHUNK SIZE", x_label="chunk size", y_label="time [ms]")
+        self.plotter.set_max_x(max_tests + 10)
+        self.plotter.show()
+        self.progress_bar.set_title("Remaining...")
+        to_signal(self.progress_bar.display).emit()
+
+        def update_thread():
+            try:
+                for x in xrange(1, max_tests, 16):
+                    tmean = MeanCalculator()
+                    chunk_size = x
+                    self.emulator.set_rcv_chunk_size(chunk_size)
+                    for _ in xrange(1):
+                        t0 = time.time()
+                        context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', 1))
+                        while context not in self.rx_message_buffer:
+                            time.sleep(0.01)
+                            if time.time() - t0 > timeout:
+                                raise TxTimeout
+                        time_elapsed = time.time() - t0
+                        tmean.count(time_elapsed)
+                    self.progress_bar.set_val_signal.emit(int((float(max_tests) - x) / max_tests * 100))
+                    self.plotter.update_plot_xy_signal.emit(chunk_size, tmean.calc()*1000)
+            except TxTimeout:
+                self.gui_communication_signal.emit(
+                    "{}: timeout exceeded".format(self.estimate_response_time.__name__))
+            finally:
+                to_signal(self.progress_bar.hide)()
+                self.emulator.set_rcv_chunk_size(old_chunk_size)
+            try:
+                self.gui_communication_signal.emit("MAX: {}".format(self.plotter.get_max()))
+                self.gui_communication_signal.emit("MIN: {}".format(self.plotter.get_min()))
+            except ValueError:
+                pass
+        self.tmp = GuiThread(update_thread)
+        self.tmp.start()
 
     def send_message(self, message_id, body='NULL'):
         self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, self.__response_time))
         self.send_message_thread.start()
-        #return self.send_message_thread.returned()
         return self.send_message_thread
 
     def read_sram_button_slot(self):
@@ -327,7 +367,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def setup_emulator(self):
         self.port, self.address = self.read_emubt_port_address_config()
-        self.emulator = Emulator(self.port, self.address, timeout=self.__receive_data_period/2)
+        rcv_chunk_size = self.read_emubt_rcv_chunk_size()
+        self.emulator = Emulator(self.port, self.address, timeout=self.__receive_data_period/2, rcv_chunk_size=rcv_chunk_size)
         self.emulator.set_event_handler(self.event_handler)
         self.message_handler = MessageSender(self.emulator.send, self.emulator.raw_buffer)
 
@@ -342,7 +383,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                                                action_when_done=to_signal(self.set_connection_status))
             self.recevive_emulator_data_thread = GuiThread(process=self.emulator.receive_data,
                                                            period=self.__receive_data_period)
+        else:
+            rcv_chunk_size = self.read_emubt_rcv_chunk_size()
+            self.emulator.set_rcv_chunk_size(rcv_chunk_size)
         self.__response_time = float(self.config_window.config['APPSETTINGS']['response_time'].replace(',','.'))
+
+
 
     def get_current_bin_file(self):
         self.current_bin_file = self.bin_file_panel.get_current_file()
@@ -473,8 +519,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.send_message(MessageSender.ID.set_bank_name, body='rafal')
         elif cmd == 'i':
             self.digidiag_slot()
-        elif cmd == 'tt':
-            self.estimate_response_time.start()
+        elif cmd == 'check chunk size':
+            self.estimate_rcv_chunk_size_for_emulator()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -486,6 +532,15 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def send_resetemu_slot(self):
         self.send_message(MessageSender.ID.reset)
+
+    def read_emubt_rcv_chunk_size(self):
+        config = Config(self.config_file_path)
+        try:
+            rcv_chunk_size = int(config.read_config()['BLUETOOTH']['rcv_chunk_size'])
+        except (KeyError, ValueError):
+            config.updade_config_file('BLUETOOTH', 'rcv_chunk_size', '258')
+            return self.read_emubt_rcv_chunk_size()
+        return rcv_chunk_size
 
     def read_emubt_port_address_config(self):
         config = configparser.ConfigParser()
