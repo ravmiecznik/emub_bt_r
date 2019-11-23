@@ -679,7 +679,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.gui_communication_signal.emit("Updating:")
         for k in kwargs:
             self.gui_communication_signal.emit("{} {}".format(k, kwargs[k])),
-        ConfigWindow(self.config_file_path, apply_signal=self.config_window_apply_signal).update_config_file_BLUETOOTH(**kwargs)
+        ConfigWindow(self.config_file_path,
+                     apply_signal=self.config_window_apply_signal).update_config_file_BLUETOOTH(**kwargs)
         self.port, self.address = self.read_emubt_port_address_config()
 
     def connect_signals(self):
@@ -776,7 +777,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def config_button_slot(self):
         self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
-        x_offset = 15
+        x_offset = -400
         y_offset = 100
         current_position_and_size = WindowGeometry(self)
         x_pos = current_position_and_size.get_position_to_the_right()
