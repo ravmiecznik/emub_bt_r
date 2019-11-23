@@ -42,7 +42,7 @@ class DigidiagWindow(QtGui.QWidget):
     def __init__(self):
 
         QtGui.QWidget.__init__(self)
-        x_siz, y_siz = 1000, 600
+        x_siz, y_siz = 700, 600
 
         self.setWindowTitle("DIGIDIAG")
         self.__ord_to_int_vs_size = {
@@ -79,7 +79,7 @@ class DigidiagWindow(QtGui.QWidget):
         self.gridLayout.addWidget(self.tabWidget, 1, 0, 1, 1)
 
         self.resize(x_siz, y_siz)
-        self.show()
+        #self.show()
         self.define_extraction_rules()
 
     def define_extraction_rules(self):
