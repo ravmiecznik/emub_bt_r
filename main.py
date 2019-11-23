@@ -305,11 +305,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
         def update_thread():
             try:
-                for x in xrange(1, max_tests, 16):
+                for x in xrange(1, max_tests, 4):
                     tmean = MeanCalculator()
                     chunk_size = x
                     self.emulator.set_rcv_chunk_size(chunk_size)
-                    for _ in xrange(1):
+                    for _ in xrange(3):
                         t0 = time.time()
                         context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', 1))
                         while context not in self.rx_message_buffer:
