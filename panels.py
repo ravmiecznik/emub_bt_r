@@ -54,8 +54,8 @@ class ControlPanel(QtGui.QGroupBox):
         control_frame_FrameGrid.addWidget(self.reflash_button, 0, 1)
         control_frame_FrameGrid.addWidget(self.discover_button, 1, 0)
         control_frame_FrameGrid.addWidget(self.config_button, 1, 1)
-        control_frame_FrameGrid.addWidget(self.autoconnect_checkbox, 2, 0, 1, 2)
         control_frame_FrameGrid.addWidget(self.resp_time_button, 2, 1)
+        control_frame_FrameGrid.addWidget(self.autoconnect_checkbox, 3, 0, 1, 2)
 
         #connect buttons
         self.connect_button.clicked.connect(event_handler.connect_button_slot)
