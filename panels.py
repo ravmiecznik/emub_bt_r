@@ -245,12 +245,14 @@ class BanksPanel(QtGui.QGroupBox):
 
 
 class BinFilePanel(QtGui.QGroupBox):
-    def __init__(self, parent, app_status_file, event_handler=DummyEventHandler()):
+    def __init__(self, parent, app_status_file, event_handler=DummyEventHandler(), max_width=600):
         super(BinFilePanel, self).__init__(parent)
         frame_grid = QtGui.QGridLayout()
         frame_grid.setSpacing(1)
 
         self.combo_box = ComboBox(self, tip_msg="???")
+        self.combo_box.setFixedWidth(max_width)
+        #self.combo_box.size
 
         self.browse_btn = PushButton("...", tip_msg="browse for file")
         self.open_btn = PushButton("open", tip_msg="open file in editor")
