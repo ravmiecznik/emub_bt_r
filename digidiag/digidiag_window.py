@@ -19,7 +19,7 @@ from lookup_table import LookupTableEditor
 
 
 
-digidiag_logger = create_logger(name=__file__, log_path=LOG_PATH)
+digidiag_logger = create_logger(name="digidiag", log_path=LOG_PATH)
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
