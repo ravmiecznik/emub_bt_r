@@ -14,10 +14,10 @@ rx_logger = create_logger('rx_data', log_path=LOG_PATH)
 rx_debug = rx_logger.debug
 
 class Emulator():
-    def __init__(self, port, address, event_handler=None, timeout=1):
+    def __init__(self, port, address, event_handler=None, timeout=1, rcv_chunk_size=256):
         debug("Init of {}".format(Emulator.__name__))
         #TODO: add procedure in main window to estiamte best rcv_chunksize in loop
-        self.__rcv_chunk_size = 32
+        self.__rcv_chunk_size = rcv_chunk_size
         self.__lock = False
         self.connected = False
         self.event_handler = event_handler
@@ -28,8 +28,13 @@ class Emulator():
         self.init_rxbuffers()
         self.mean_data_extraction_time = MeanCalculator()
         self.__calculate_mean_extraction_time = False
-        #self.rx_buffer = CircIoBuffer(byte_size=256*16)
-        #self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
+
+
+    def set_rcv_chunk_size(self, value):
+        self.__rcv_chunk_size = value
+
+    def get_rcv_chunk_size(self):
+        return self.__rcv_chunk_size
 
     def mean_data_extraction_time_set(self):
         self.mean_data_extraction_time = MeanCalculator()
@@ -113,6 +118,10 @@ class Emulator():
                 self.event_handler.message("Connection fail. Try: {}".format(try_num))
         self.event_handler.message("Could not connect")
 
+
+    def set_timeout(self, value):
+        self.bt_connection.settimeout(value)
+
     def get_connection_status(self):
         return self.connected
 
@@ -148,7 +157,7 @@ class Emulator():
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
-            debug("data extraction time: {}/{}".format(time.time() - t0, 0))
+            debug("data extraction time: {}/{}".format(time.time() - t0, self.__rcv_chunk_size))
             if self.__calculate_mean_extraction_time is True:
                 self.mean_data_extraction_time.count(time.time() - t0)
                 debug("data extraction time: {}/{}".format(time.time() - t0, 0))
