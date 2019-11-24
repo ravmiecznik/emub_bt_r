@@ -154,7 +154,7 @@ class Emulator():
         tmp_buff = self.__try_get_data()
         while tmp_buff:
             while not self.raw_buffer.write(tmp_buff):
-                time.sleep(0.001)
+                time.sleep(self.emu_timeout/10)
             tmp_buff = self.__try_get_data()
             if time.time() - t0 > 1:
                 debug('guard periodic break')
