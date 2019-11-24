@@ -154,18 +154,19 @@ class Emulator():
         tmp_buff = self.__try_get_data()
         while tmp_buff:
             while not self.raw_buffer.write(tmp_buff):
-                time.sleep(0.0001)
+                time.sleep(0.001)
             tmp_buff = self.__try_get_data()
             if time.time() - t0 > 1:
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
-            debug("data extraction time: {}/{}".format(time.time() - t0, self.__rcv_chunk_size))
-            if self.__calculate_mean_extraction_time is True:
-                self.mean_data_extraction_time.count(time.time() - t0)
-                debug("data extraction time: {}/{}".format(time.time() - t0, 0))
-                debug("mean {}".format(self.mean_data_extraction_time.calc()))
             self.event_handler.get_raw_rx_buffer_slot()
+            # debug("data extraction time: {}/{}".format(time.time() - t0, self.__rcv_chunk_size))
+            # if self.__calculate_mean_extraction_time is True:
+            #     self.mean_data_extraction_time.count(time.time() - t0)
+            #     debug("data extraction time: {}/{}".format(time.time() - t0, 0))
+            #     debug("mean {}".format(self.mean_data_extraction_time.calc()))
+            #
 
 
 
