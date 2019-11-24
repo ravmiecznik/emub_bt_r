@@ -120,7 +120,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def __init__(self, is_test=False):
         print 'PATH', EMU_BT_PATH
         self.__response_time = 5    #big overhead
-        self.__receive_data_period = 0.0001
+        self.__receive_data_period = 0.001
         self.bank_in_use = None
         self.is_test = is_test
         self.config_path = SETTINGS_PATH
@@ -241,7 +241,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
-        #self.digidiag_slot()
+        self.digidiag_slot()
         self.resize(x_siz, y_siz)
 
 
@@ -270,6 +270,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def estimate_response_time_slot(self):
         self.disable_objects_for_transmission_signal()
         self.estimate_response_time.set_delay(0)
+        self.send_message(message_id=MessageSender.ID.dummy)
+        time.sleep(0.5)
         self.estimate_response_time.start()
 
     @thread_this_method(delay=2)
