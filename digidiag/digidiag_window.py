@@ -107,7 +107,7 @@ class DigidiagWindow(QtGui.QWidget):
                 raw_value = self.__ord_to_int_vs_size[byte_size](raw_value)[0]
                 self.values_editor.display_value(value, raw_value, byte_size)
             except (KeyError, struct.error) as e:
-                print e.message
+                #print e.message
                 #traceback.print_exc()
                 pass
 
