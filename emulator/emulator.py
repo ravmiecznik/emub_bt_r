@@ -160,6 +160,11 @@ class Emulator():
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
+            debug("data extraction time: {}/{}".format(time.time() - t0, self.__rcv_chunk_size))
+            if self.__calculate_mean_extraction_time is True:
+                self.mean_data_extraction_time.count(time.time() - t0)
+                debug("data extraction time: {}/{}".format(time.time() - t0, 0))
+                debug("mean {}".format(self.mean_data_extraction_time.calc()))
             self.event_handler.get_raw_rx_buffer_slot()
             # debug("data extraction time: {}/{}".format(time.time() - t0, self.__rcv_chunk_size))
             # if self.__calculate_mean_extraction_time is True:
@@ -167,6 +172,8 @@ class Emulator():
             #     debug("data extraction time: {}/{}".format(time.time() - t0, 0))
             #     debug("mean {}".format(self.mean_data_extraction_time.calc()))
             #
+
+
 
 
 

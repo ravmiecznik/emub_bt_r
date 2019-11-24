@@ -162,7 +162,11 @@ class MessageSender:
         #         raise TxTimeout
         #m_logger.debug("{}".format(self.mutex.tryLock()))
         #MessageSender.lock = True
+
         self.mutex.lock()
+        m_logger.debug("{}".format(self.mutex.tryLock()))
+        #MessageSender.lock = True
+
         context = self.__send_m(msg, m_id)
         #MessageSender.lock = False
         self.mutex.unlock()
@@ -327,8 +331,7 @@ class MessageReceiver:
 
     def get_message(self):
         t0 = time.time()
-        self.mutex.lock()
-        #if not MessageReceiver.LOCKED and (self.rx_buffer.available() >= MessageReceiver.TAIL_LEN):
+
         ret_rxmsg = None
         if self.rx_buffer.available() >= MessageReceiver.TAIL_LEN:
             #MessageReceiver.LOCKED = True
@@ -336,25 +339,24 @@ class MessageReceiver:
             check_tail_result = self.check_tail(peek_buff)
             if check_tail_result:
                 _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
-
                 msg_body = self.rx_buffer.read(tail_end_mark_pos + 1 + 2)
-                #msg_body = self.rx_buffer.read()
                 msg_body = msg_body[:tail_start_mark_pos]
                 MessageReceiver.ts = time.time()
                 crc_check = RxMessage.CRC_result.ack if _crc == crc(msg_body) else RxMessage.CRC_result.nack
                 rxmsg = RxMessage(msg_id=_id, crc_check=crc_check, length=len(msg_body), context=_context, body=msg_body)
-                #m_logger.debug("Period: {}".format(time.time() - self.t0))
-                #m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
+
                 m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
                 m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
+
+                m_logger.debug("Period: {}".format(time.time() - self.t0))
+                m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
+
                 self.t0 = time.time()
                 #MessageReceiver.LOCKED = False
                 if _crc == crc(msg_body):
                     self.__mean_rx_time.count(time.time() - t0)
-
+                    m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
                     ret_rxmsg = rxmsg
-                    #return rxmsg
-        #MessageReceiver.LOCKED = False
         self.mutex.unlock()
         return ret_rxmsg
 

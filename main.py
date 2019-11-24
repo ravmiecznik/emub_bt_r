@@ -241,7 +241,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
-        self.digidiag_slot()
+        #self.digidiag_slot()
         self.resize(x_siz, y_siz)
 
 
@@ -649,6 +649,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.digiag_widget.show()
 
     def feed_digidiag(self, frame):
+        return
         try:
             self.digiag_widget.feed_with_data(frame)
             self.digidiag_window.feed_data(frame)
