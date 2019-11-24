@@ -435,19 +435,21 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.handle_rx_message_signal.emit(msg)
 
     def handle_rx_message(self, msg):
-        banks = ['bank1set', 'bank2set', 'bank3set']
-        if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
-            self.gui_communication_signal.emit("E: {}".format(msg.msg))
-        elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
-            debug("Emulator: {}".format(msg.msg))
-            print "emulator debug: {}".format(msg.msg)
-        elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
-            self.set_bank_in_use(banks.index(msg.msg))
-        elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
-            self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
-        elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
-            self.feed_digidiag(msg.msg)
-        self.rx_message_buffer[msg.context] = msg
+        while msg:
+            banks = ['bank1set', 'bank2set', 'bank3set']
+            if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
+                self.gui_communication_signal.emit("E: {}".format(msg.msg))
+            elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
+                debug("Emulator: {}".format(msg.msg))
+                print "emulator debug: {}".format(msg.msg)
+            elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
+                self.set_bank_in_use(banks.index(msg.msg))
+            elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
+                self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
+            elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
+                self.feed_digidiag(msg.msg)
+            self.rx_message_buffer[msg.context] = msg
+            msg = self.message_receiver.get_message()
 
     # BANKS PROCEDURES
     def bank1set_slot(self):
