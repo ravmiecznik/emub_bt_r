@@ -8,10 +8,11 @@ from setup_emubt import info, warn, debug, error, create_logger, LOG_PATH
 import bluetooth
 from auxiliary_module import MeanCalculator
 from circ_io_buffer import CircIoBuffer
-import time
+import time, os
 
 rx_logger = create_logger('rx_data', log_path=LOG_PATH)
 rx_debug = rx_logger.debug
+
 
 class Emulator():
     def __init__(self, port, address, event_handler=None, timeout=1, rcv_chunk_size=256):
@@ -28,6 +29,7 @@ class Emulator():
         self.init_rxbuffers()
         self.mean_data_extraction_time = MeanCalculator()
         self.__calculate_mean_extraction_time = False
+        #self.__dump_file = open(os.path.join(LOG_PATH, 'rx_dump.dmp'), 'w')
 
 
     def set_rcv_chunk_size(self, value):
@@ -135,6 +137,7 @@ class Emulator():
             rcv = self.bt_connection.recv(self.__rcv_chunk_size)
             rx_debug("Received data amount: {}".format(len(rcv)))
             rx_debug("rcv: {} ..".format(rcv[0:50]))
+            #self.__dump_file.write(rcv)
             return rcv
         except (bluetooth.btcommon.BluetoothError, IOError) as e:
             #Linux and Windows support different exceptions here
