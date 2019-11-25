@@ -16,6 +16,7 @@ from collections import namedtuple
 from io import BytesIO
 from bin_handler import bin_repr
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
+from loggers import create_logger
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
 from PyQt4.Qt import PYQT_VERSION_STR
@@ -55,6 +56,7 @@ GREY_STYLE_SHEET = BACKGROUND.format(48, 53, 58)
 
 SETTINGS_PATH = EMU_BT_PATH
 
+emu_dbg = create_logger('emubt_dbg')
 
 class WindowGeometry(object):
     def __init__(self, QtGuiobject):
@@ -241,7 +243,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
-        #self.digidiag_slot()
+        self.digidiag_slot()
         self.resize(x_siz, y_siz)
 
 
@@ -441,7 +443,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.gui_communication_signal.emit("E: {}".format(msg.msg))
             elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
                 debug("Emulator: {}".format(msg.msg))
-                print "emulator debug: {}".format(msg.msg)
+                emu_dbg.debug("emulator debug: {}".format(msg.msg))
             elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
                 self.set_bank_in_use(banks.index(msg.msg))
             elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
@@ -649,7 +651,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.digiag_widget.show()
 
     def feed_digidiag(self, frame):
-        return
         try:
             self.digiag_widget.feed_with_data(frame)
             self.digidiag_window.feed_data(frame)

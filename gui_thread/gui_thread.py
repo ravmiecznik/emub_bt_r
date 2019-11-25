@@ -12,7 +12,7 @@ from PyQt4.QtCore import pyqtSignal
 log_format = '[%(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
 logger_name = "thread_tracker"
 
-t_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format, log_to_file=True)
+t_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format)
 info = t_logger.info
 
 

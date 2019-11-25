@@ -28,7 +28,7 @@ from PyQt4.QtCore import QMutex
 
 log_format = '[%(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
 logger_name = "message_handler"
-m_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format, log_to_file=True)
+m_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format)
 
 
 MAX_PACKET_SIZE = 256*8 + 20
@@ -150,25 +150,10 @@ class MessageSender:
         return self.__send(m_id=None, body=body)
 
     def __send(self, m_id=None, body='NULL'):
-        timeout = 4
-        t0 = time.time()
         msg = create_message(msg_id=m_id, body=body, context=MessageSender.context) if m_id is not None else body
-        # if MessageSender.lock: m_logger.debug("message sending locked, waiting")
-        # while MessageSender.lock:
-        #     time.sleep(0.001)
-        #     if time.time() - t0 > timeout:
-        #         m_logger.error("TIMEOUT in wait for unlock")
-        #         MessageSender.lock = False
-        #         raise TxTimeout
-        #m_logger.debug("{}".format(self.mutex.tryLock()))
-        #MessageSender.lock = True
 
         self.mutex.lock()
-        m_logger.debug("{}".format(self.mutex.tryLock()))
-        #MessageSender.lock = True
-
         context = self.__send_m(msg, m_id)
-        #MessageSender.lock = False
         self.mutex.unlock()
         m_logger.debug("message sending unlocked")
         return context
@@ -334,12 +319,13 @@ class MessageReceiver:
 
         ret_rxmsg = None
         if self.rx_buffer.available() >= MessageReceiver.TAIL_LEN:
-            #MessageReceiver.LOCKED = True
             peek_buff = self.rx_buffer.peek()
             check_tail_result = self.check_tail(peek_buff)
             if check_tail_result:
                 _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
+                self.mutex.lock()
                 msg_body = self.rx_buffer.read(tail_end_mark_pos + 1 + 2)
+                self.mutex.unlock()
                 msg_body = msg_body[:tail_start_mark_pos]
                 MessageReceiver.ts = time.time()
                 crc_check = RxMessage.CRC_result.ack if _crc == crc(msg_body) else RxMessage.CRC_result.nack
@@ -352,12 +338,11 @@ class MessageReceiver:
                 m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
 
                 self.t0 = time.time()
-                #MessageReceiver.LOCKED = False
                 if _crc == crc(msg_body):
                     self.__mean_rx_time.count(time.time() - t0)
                     m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
                     ret_rxmsg = rxmsg
-        self.mutex.unlock()
+
         return ret_rxmsg
 
 

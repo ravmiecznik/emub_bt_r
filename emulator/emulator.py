@@ -27,8 +27,6 @@ class Emulator():
         self.port = port
         self.address = address
         self.init_rxbuffers()
-        self.mean_data_extraction_time = MeanCalculator()
-        self.__calculate_mean_extraction_time = False
         #self.__dump_file = open(os.path.join(LOG_PATH, 'rx_dump.dmp'), 'w')
 
 
@@ -38,16 +36,7 @@ class Emulator():
     def get_rcv_chunk_size(self):
         return self.__rcv_chunk_size
 
-    def mean_data_extraction_time_set(self):
-        self.mean_data_extraction_time = MeanCalculator()
-        self.__calculate_mean_extraction_time = True
-
-    def get_mean_rx_time(self):
-        self.__calculate_mean_extraction_time = False
-        return self.mean_data_extraction_time.calc()
-
     def init_rxbuffers(self):
-        #self.rx_buffer = CircIoBuffer(byte_size=256*16)
         self.raw_buffer = CircIoBuffer(byte_size=256 * 16 + 2)
 
     def lock(self):
@@ -109,7 +98,6 @@ class Emulator():
                 emu = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                 emu.connect((self.address, int(self.port)))
                 self.bt_connection = emu
-                #emu.settimeout(self.emu_timeout)
                 emu.settimeout((float(self.__rcv_chunk_size) * 9)/115200)
                 self.event_handler.message("connected to emu device")
                 self.connected = True
@@ -160,21 +148,7 @@ class Emulator():
                 debug('guard periodic break')
                 break
         if self.raw_buffer.available():
-            debug("data extraction time: {}/{}".format(time.time() - t0, self.__rcv_chunk_size))
-            if self.__calculate_mean_extraction_time is True:
-                self.mean_data_extraction_time.count(time.time() - t0)
-                debug("data extraction time: {}/{}".format(time.time() - t0, 0))
-                debug("mean {}".format(self.mean_data_extraction_time.calc()))
             self.event_handler.get_raw_rx_buffer_slot()
-            # debug("data extraction time: {}/{}".format(time.time() - t0, self.__rcv_chunk_size))
-            # if self.__calculate_mean_extraction_time is True:
-            #     self.mean_data_extraction_time.count(time.time() - t0)
-            #     debug("data extraction time: {}/{}".format(time.time() - t0, 0))
-            #     debug("mean {}".format(self.mean_data_extraction_time.calc()))
-            #
-
-
-
 
 
     def send(self, data):
