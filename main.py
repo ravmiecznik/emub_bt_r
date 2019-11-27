@@ -540,6 +540,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.send_message(MessageSender.ID.set_bank_name, body='rafal')
         elif cmd == 'i':
             self.digidiag_slot()
+        elif cmd == 'dfc':
+            self.send_message(MessageSender.ID.dgf_code_check, timeout=1)
         elif cmd == 'check chunk size':
             self.estimate_rcv_chunk_size_for_emulator()
         else:

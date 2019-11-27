@@ -109,6 +109,7 @@ class MessageSender:
         bank3_set       = 17
         get_bank_in_use = 18
         set_bank_name   = 19
+        dgf_code_check  = 20
 
         @classmethod
         def translate_id(cls, m_id):
