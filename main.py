@@ -555,6 +555,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def send_resetemu_slot(self):
         self.send_message(MessageSender.ID.reset)
+        self.digiag_widget.frames = dict()
 
     def read_emubt_rcv_chunk_size(self):
         config = Config(self.config_file_path)
