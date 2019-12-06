@@ -29,6 +29,7 @@ AUTOCONNECT_CHECKBOX_HELP = "Autoconnect at startup"
 CONFIG_BTN_HELP = "Update config file"
 CHECK_RESPONSE_TIME_BTN_HELP = "Measure average response time, required to optimize transimission timings. Check " \
                                "Config button to see current value"
+SET_PIN_BTN_HELP = "Sets/changes PIN for bluetooth device"
 
 #@method_call_track
 class ControlPanel(QtGui.QGroupBox):
@@ -46,6 +47,7 @@ class ControlPanel(QtGui.QGroupBox):
         self.discover_button = PushButton("Discover", tip_msg=DISCOVER_BTN_HELP)
         self.config_button = PushButton("Config", tip_msg=CONFIG_BTN_HELP)
         self.resp_time_button = PushButton("RespTime", tip_msg=CHECK_RESPONSE_TIME_BTN_HELP)
+        self.set_pin_button = PushButton("Set PIN", tip_msg=SET_PIN_BTN_HELP)
         self.setLayout(control_frame_FrameGrid)
         self.autoconnect_checkbox = CheckBox("Autoconnect", tip_msg=AUTOCONNECT_CHECKBOX_HELP)
 
@@ -54,6 +56,7 @@ class ControlPanel(QtGui.QGroupBox):
         control_frame_FrameGrid.addWidget(self.reflash_button, 0, 1)
         control_frame_FrameGrid.addWidget(self.discover_button, 1, 0)
         control_frame_FrameGrid.addWidget(self.config_button, 1, 1)
+        control_frame_FrameGrid.addWidget(self.set_pin_button, 2, 0)
         control_frame_FrameGrid.addWidget(self.resp_time_button, 2, 1)
         control_frame_FrameGrid.addWidget(self.autoconnect_checkbox, 3, 0, 1, 2)
 
@@ -63,6 +66,7 @@ class ControlPanel(QtGui.QGroupBox):
         self.reflash_button.clicked.connect(event_handler.reflash_button_slot)
         self.config_button.clicked.connect(event_handler.config_button_slot)
         self.resp_time_button.clicked.connect(event_handler.estimate_response_time_slot)
+        self.set_pin_button.clicked.connect(event_handler.set_pin_button_slot)
         self.event_handler = event_handler
         self.event_handler.add_event(self.set_connected)
         self.event_handler.add_event(self.set_disconnected)
