@@ -47,6 +47,7 @@ import time, struct
 import textwrap
 import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
+from set_pin_form import SetPinWindow
 
 print "PYQT: {}".format(PYQT_VERSION_STR)
 
@@ -118,6 +119,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     config_window_apply_signal = pyqtSignal()
     general_signal = pyqtSignal(object)
     handle_rx_message_signal = pyqtSignal(object)
+    set_pin_signal = pyqtSignal(object)
     #TODO: create a procedure which will examine timeout in rx/tx procedure, according to its output set timeouts in procedures and send messange, this should be perofremd once in first start of application
     def __init__(self, is_test=False):
         print 'PATH', EMU_BT_PATH
@@ -175,6 +177,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.bank_name_line_focus_out_event))
         self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
         self.event_handler.add_event(to_signal(self.open_bin_file))
+        self.event_handler.add_event(to_signal(self.set_pin_button_slot))
+
+        self.set_pin_signal.connect(self.set_pin_slot)
 
         ConfigSettings.__init__(self)
 
@@ -358,6 +363,21 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.send_message_thread.start()
         return self.send_message_thread
 
+    def set_pin_button_slot(self):
+        """
+        Opens pin setup window
+        :return:
+        """
+        if self.emulator.connected:
+            self.tmp = SetPinWindow(self.set_pin_signal)
+
+    def set_pin_slot(self, pin):
+        """
+        Sends acutal pin
+        :return:
+        """
+        self.message_handler.send(MessageSender.ID.set_pin, body=pin)
+
     def read_sram_button_slot(self):
         self.message_handler.send(MessageSender.ID.rxflush)
         self.read_sram = ReadSramProcedure(self, retx_timeout=self.__response_time)
@@ -448,8 +468,20 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.set_bank_in_use(banks.index(msg.msg))
             elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
                 self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
-            elif msg.id == RxMessage.rx_id_tuple.index('dgframe'):
+            elif msg.id == RxMessage.RxId.dgframe:
                 self.feed_digidiag(msg.msg)
+            elif msg.id == RxMessage.RxId.pin_change_pending:
+                self.gui_communication_signal.emit(msg.msg)
+                self.gui_communication_signal.emit("   ")
+                self.gui_communication_signal.emit("----------------------------------------------------------------------")
+                self.gui_communication_signal.emit("            !!Going to disconnect to set the PIN!!")
+                self.gui_communication_signal.emit("1) YOU NEED TO RESTART EMUBT BOARD (ignition off->2seconds->on)")
+                self.gui_communication_signal.emit("2) AFTER BOARD WAS RESTARTED YOU NEED TO REMOVE EMUBT FROM YOUR SYSTEM")
+                self.gui_communication_signal.emit("   AND CONNECT BACK, THE SYSTEM WILL PROMPT FOR NEW PIN")
+                self.gui_communication_signal.emit("----------------------------------------------------------------------")
+                self.gui_communication_signal.emit("   ")
+                time.sleep(1)
+                self.connect_button_slot()
             self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
 
