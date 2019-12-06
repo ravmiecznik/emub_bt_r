@@ -110,6 +110,7 @@ class MessageSender:
         get_bank_in_use = 18
         set_bank_name   = 19
         dgf_code_check  = 20
+        set_pin         = 21
 
         @classmethod
         def translate_id(cls, m_id):
@@ -185,16 +186,17 @@ class RxMessage(object):
         nak_feedback,
     };
     """
-    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dbg', 'dgframe')
+    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dbg', 'dgframe', 'pin_change_pending')
     rx_id = RxId(rx_id_tuple)
 
-    class CRC_result():
-        ack     = 0
-        nack    = 1
-        dtx     = 2
-        txt     = 3
-        dbg     = 4
-        dgframe = 5
+    class RxId():
+        ack                 = 0
+        nack                = 1
+        dtx                 = 2
+        txt                 = 3
+        dbg                 = 4
+        dgframe             = 5
+        pin_change_pending  = 6
 
     def __init__(self, msg_id, context, crc_check, body, length):
         self.__id = msg_id
@@ -215,7 +217,7 @@ class RxMessage(object):
             raise Exception("body is not iterable")
 
     def __set_result(self, result):
-        valid_results = [RxMessage.CRC_result.ack, RxMessage.CRC_result.nack, RxMessage.CRC_result.dtx]
+        valid_results = [RxMessage.RxId.ack, RxMessage.RxId.nack, RxMessage.RxId.dtx]
         if result not in valid_results:
             raise Exception("Result must be ACK {} | NACK {} | DTX {}".format(*valid_results))
         return result
@@ -329,7 +331,7 @@ class MessageReceiver:
                 self.mutex.unlock()
                 msg_body = msg_body[:tail_start_mark_pos]
                 MessageReceiver.ts = time.time()
-                crc_check = RxMessage.CRC_result.ack if _crc == crc(msg_body) else RxMessage.CRC_result.nack
+                crc_check = RxMessage.RxId.ack if _crc == crc(msg_body) else RxMessage.RxId.nack
                 rxmsg = RxMessage(msg_id=_id, crc_check=crc_check, length=len(msg_body), context=_context, body=msg_body)
 
                 m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
