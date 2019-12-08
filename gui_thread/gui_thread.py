@@ -145,8 +145,8 @@ class GuiThread(QThread):
             time.sleep(self.__delay)
         self.__is_terminated = False
         if not self.__suspend:
-            if self.__trace == 'full':
-                t_logger.debug("start of: {}, period: {}".format(self, self.__period))
+            # if self.__trace == 'full':
+            #     t_logger.debug("start of: {}, period: {}".format(self, self.__period))
             self.result = self.target(*self.__args, **self.__kwargs)
         elif not self.__was_suspension_communicated:
             t_logger.debug("suspended: {}".format(self))
@@ -161,7 +161,10 @@ class GuiThread(QThread):
             time.sleep(self.__delay)
         while self.__period != 0 and self.__is_terminated is not True:
             self.__run()
-            time.sleep(self.__period)
+            try:
+                time.sleep(self.__period)
+            except AttributeError:
+                pass
         else:
             self.__run()
         if self.__action_when_done:

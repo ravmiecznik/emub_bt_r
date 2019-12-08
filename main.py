@@ -123,7 +123,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     #TODO: create a procedure which will examine timeout in rx/tx procedure, according to its output set timeouts in procedures and send messange, this should be perofremd once in first start of application
     def __init__(self, is_test=False):
         print 'PATH', EMU_BT_PATH
-        self.__response_time = 5    #big overhead
+        self.__response_time = 5    #big overhead for initial value
         self.__receive_data_period = 0.001
         self.bank_in_use = None
         self.is_test = is_test

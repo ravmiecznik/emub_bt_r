@@ -322,8 +322,10 @@ class MessageReceiver:
 
         ret_rxmsg = None
         if self.rx_buffer.available() >= MessageReceiver.TAIL_LEN:
+            self.mutex.lock()
             peek_buff = self.rx_buffer.peek()
             check_tail_result = self.check_tail(peek_buff)
+            self.mutex.unlock()
             if check_tail_result:
                 _id, _context, _msg_len, _crc, tail_start_mark_pos, tail_end_mark_pos = check_tail_result
                 self.mutex.lock()
