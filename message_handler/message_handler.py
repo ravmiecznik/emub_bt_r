@@ -111,6 +111,8 @@ class MessageSender:
         set_bank_name   = 19
         dgf_code_check  = 20
         set_pin         = 21
+        digidag_enable  = 22
+        digidag_disable = 23
 
         @classmethod
         def translate_id(cls, m_id):
