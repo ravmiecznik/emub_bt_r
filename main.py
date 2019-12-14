@@ -21,6 +21,7 @@ from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
 from PyQt4.Qt import PYQT_VERSION_STR
 from PyQt4 import QtCore, QtGui
+from PyQt4.QtCore import QMutex
 from PyQt4.QtGui import QGestureRecognizer #gestures: https://srinikom.github.io/pyside-docs/PySide/QtGui/QGestureRecognizer.html#PySide.QtGui.QGestureRecognizer
 from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
@@ -109,6 +110,31 @@ class QLabel(QLabel):
         return textwrap.fill(string, self._max_line_len)
 
 
+class SentMessageContainer():
+    """
+    A buffer with limited size to store sent messages threads
+    It protects to destroy sent message thread while it is running
+    """
+    def __init__(self, size=20):
+        self.container = size * [None]
+        self.__index = 0
+        self.__size = size
+
+
+    def append(self, message_thread):
+        for i, thread in enumerate(self.container):
+            debug("{}: {}".format(i, thread))
+            if not isinstance(thread, GuiThread):
+                self.container[i] = message_thread
+                debug("add new tx msg thread at index {}: {}".format(i, thread))
+                return message_thread
+            elif thread.isFinished() is True:
+                debug("replace old tx msg thread at index {}: {}".format(i, thread))
+                self.container[i] = message_thread
+                return message_thread
+        return None
+
+
 @method_call_track
 class MainWindow(QtGui.QMainWindow, ConfigSettings):
     help_tip_signal = pyqtSignal(object)
@@ -123,6 +149,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     #TODO: create a procedure which will examine timeout in rx/tx procedure, according to its output set timeouts in procedures and send messange, this should be perofremd once in first start of application
     def __init__(self, is_test=False):
         print 'PATH', EMU_BT_PATH
+        self.sent_message_container = SentMessageContainer()
+        self.mutex = QMutex()
         self.__response_time = 5    #big overhead for initial value
         self.__receive_data_period = 0.001
         self.bank_in_use = None
@@ -359,9 +387,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def send_message(self, message_id, body='NULL', timeout=None):
         if timeout is None:
             timeout = self.__response_time
-        self.send_message_thread = GuiThread(self.__send_message, args=(message_id, body, timeout))
-        self.send_message_thread.start()
-        return self.send_message_thread
+        message_thread = self.sent_message_container.append(GuiThread(self.__send_message, args=(message_id, body, timeout)))
+        if message_thread is None:
+            self.gui_communication_signal.emit("TX message buffer overflow...")
+            return None
+        else:
+            message_thread.start()
+        return message_thread
 
     def set_pin_button_slot(self):
         """
