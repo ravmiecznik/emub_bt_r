@@ -106,7 +106,6 @@ class GuiThread(QThread):
         self.__suspend = False
         self.__action_when_done = action_when_done
         self.__was_suspension_communicated = False
-        self.__is_running = False
         self.__is_terminated = False
         self.__trace = trace
 
@@ -133,8 +132,6 @@ class GuiThread(QThread):
     def returned(self):
         return self.result
 
-    def is_running(self):
-        return self.__is_running
 
     @property
     def t_id(self):
@@ -155,7 +152,6 @@ class GuiThread(QThread):
     def run(self):
         t_logger.debug("Run: {}, ARGS: {}, KWARGS: {}".format(self.target, self.__args, self.__kwargs))
         t_logger.debug("Num of threads: {}".format(len(GuiThread.threads)))
-        self.__is_running = True
         self.__is_terminated = False
         if self.__delay:
             time.sleep(self.__delay)
@@ -169,7 +165,6 @@ class GuiThread(QThread):
             self.__run()
         if self.__action_when_done:
             self.__action_when_done()
-        self.__is_running = False
         # self.kill()
         try:
             GuiThread.threads.remove(self)
