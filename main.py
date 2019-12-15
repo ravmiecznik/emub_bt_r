@@ -595,7 +595,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.recevive_emulator_data_thread.start()
             self.console.console_text_browser.clear()
         elif cmd == 'digidiag_on':
-            self.digidiag_on_slot()
+            self.digiag_widget.show()
+            self.digidiag_window.show()
         elif cmd == 'hsk':
             self.message_handler.send(id=MessageSender.ID.handshake)
         elif cmd == 'd':
@@ -719,7 +720,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def digidiag_slot(self):
         self.digiag_widget = DigiDiag()
-        self.digiag_widget.show()
 
     def feed_digidiag(self, frame):
         try:
