@@ -32,6 +32,7 @@ from bt_discover import bt_search
 from console import Console
 from call_tracker import method_call_track
 from reflasher import Reflasher
+from reflasher2 import Reflasher as Reflasher2
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageSender, MessageReceiver, RxMessage, TxTimeout
 from config_window import ConfigWindow, Config, ConfigSettings
@@ -289,10 +290,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def __send_message(self, m_id, body='NULL', timeout=0.3):
         re_tx = 3
         self.rx_buffer.flush()
-        context = self.message_handler.send(m_id, body=body)
+        context = self.message_sender.send(m_id, body=body)
         time.sleep(timeout)
         while context not in self.rx_message_buffer and re_tx >= 0:
-            context = self.message_handler.send(m_id, body=body)
+            context = self.message_sender.send(m_id, body=body)
             re_tx -= 1
             debug("ReTx: {}".format(MessageSender.ID.translate_id(m_id)))
             time.sleep(timeout)
@@ -321,7 +322,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         mean = MeanCalculator()
         for i in xrange(num_of_checks):
             t0 = time.time()
-            context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', i))
+            context = self.message_sender.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', i))
             self.gui_communication_signal.emit("\n{}:{}".format(self.estimate_response_time, context))
             while context not in self.rx_message_buffer:
                 time.sleep(0.1)
@@ -362,7 +363,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 result_ok = True
                 for _ in xrange(3):
                     t0 = time.time()
-                    context = self.message_handler.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', 1))
+                    context = self.message_sender.send(MessageSender.ID.get_bank_packet, body=struct.pack('B', 1))
                     while context not in self.rx_message_buffer:
                         time.sleep(0.01)
                         if time.time() - t0 > timeout:
@@ -408,15 +409,15 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         Sends acutal pin
         :return:
         """
-        self.message_handler.send(MessageSender.ID.set_pin, body=pin)
+        self.message_sender.send(MessageSender.ID.set_pin, body=pin)
 
     def read_sram_button_slot(self):
-        self.message_handler.send(MessageSender.ID.rxflush)
+        self.message_sender.send(MessageSender.ID.rxflush)
         self.read_sram = ReadSramProcedure(self, retx_timeout=self.__response_time)
         self.read_sram.read_thread.start()
 
     def read_bank_button_slot(self):
-        self.message_handler.send(MessageSender.ID.rxflush)
+        self.message_sender.send(MessageSender.ID.rxflush)
         self.read_bank = ReadBankProcedure(self, retx_timeout=self.__response_time)
         self.read_bank.read_thread.start()
 
@@ -441,7 +442,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         rcv_chunk_size = self.read_emubt_rcv_chunk_size()
         self.emulator = Emulator(self.port, self.address, timeout=self.__receive_data_period/2, rcv_chunk_size=rcv_chunk_size)
         self.emulator.set_event_handler(self.event_handler)
-        self.message_handler = MessageSender(self.emulator.send, self.emulator.raw_buffer)
+        self.message_sender = MessageSender(self.emulator.send, self.emulator.raw_buffer)
 
     def config_window_apply_slot(self):
         """
@@ -491,14 +492,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def handle_rx_message(self, msg):
         while msg:
             banks = ['bank1set', 'bank2set', 'bank3set']
-            if msg.id == RxMessage.rx_id_tuple.index('txt'):   #free text
-                self.gui_communication_signal.emit("E: {}".format(msg.msg))
-            elif msg.id == RxMessage.rx_id_tuple.index('dbg'):
+            if msg.id == RxMessage.RxId.txt:   #free text
+                self.handle_rx_txt_message(msg.msg)
+            elif msg.id == RxMessage.RxId.dbg:
                 debug("Emulator: {}".format(msg.msg))
                 emu_dbg.debug("emulator debug: {}".format(msg.msg))
-            elif msg.id == RxMessage.rx_id_tuple.index('ack') and msg.msg in banks:
+            elif msg.id == RxMessage.RxId.ack and msg.msg in banks:
                 self.set_bank_in_use(banks.index(msg.msg))
-            elif msg.id == RxMessage.rx_id_tuple.index('ack') and 'bankname:' in msg.msg:
+            elif msg.id == RxMessage.RxId.ack and 'bankname:' in msg.msg:
                 self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
             elif msg.id == RxMessage.RxId.dgframe:
                 self.feed_digidiag(msg.msg)
@@ -516,6 +517,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.connect_button_slot()
             self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
+
+    def handle_rx_txt_message(self, txt_message):
+        self.gui_communication_signal.emit("E: {}".format(txt_message))
+        if txt_message == "bootloader3\n":
+            self.reflash_app_slot()
+
 
     # BANKS PROCEDURES
     def bank1set_slot(self):
@@ -576,7 +583,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if cmd[0:2] == 'E:':
             self.handle_command(cmd.split('E:')[1])
         elif self.emulation_panel.isEnabled():
-            self.message_handler.send(m_id=MessageSender.ID.txt_message, body=cmd)
+            self.message_sender.send(m_id=MessageSender.ID.txt_message, body=cmd)
 
     def handle_command(self, cmd):
         cnt = 0
@@ -598,9 +605,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.digiag_widget.show()
             self.digidiag_window.show()
         elif cmd == 'hsk':
-            self.message_handler.send(id=MessageSender.ID.handshake)
+            self.message_sender.send(id=MessageSender.ID.handshake)
         elif cmd == 'd':
-            self.message_handler.send(m_id=MessageSender.ID.disable_btlrd)
+            self.message_sender.send(m_id=MessageSender.ID.disable_btlrd)
         elif cmd == 's':
             self.send_message(MessageSender.ID.set_bank_name, body='rafal')
         elif cmd == 'i':
@@ -677,9 +684,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             return False
 
     def reflash_button_slot(self):
+        self.send_message(MessageSender.ID.bootloader)
+
+    def reflash_button_slot_old(self):
         debug("Check if bootloader already active")
         self.emulator.raw_buffer.flush()
-        self.message_handler.send(m_id=MessageSender.ID.bootloader)
+        self.message_sender.send(m_id=MessageSender.ID.bootloader)
         t0 = time.time()
         while ('BOOTLOADER' not in self.rx_buffer) and ('command unknown' not in self.rx_buffer):
             time.sleep(0.01)
@@ -706,13 +716,22 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         Will call and display new reflasher window
         :return:
         """
+        #self.reflasher = Reflasher2(app_status_file=self.app_status_file, emulator=self.emulator, message_handler=self.message_sender)
+        self.reflasher = Reflasher2(app_status_file=self.app_status_file, emulator=self.emulator)
+        self.reflasher.show()
+
+    def reflash_app_slot_old(self):
+        """
+        Will call and display new reflasher window
+        :return:
+        """
         self.setEnabled(False)
         self.suspend_all_threads_bt_rx_thread()
         self.recevive_emulator_data_thread.start()
         self.emulator.raw_buffer.read()
         current_position_and_size = WindowGeometry(self)
         x_pos = current_position_and_size.get_position_to_the_right()
-        self.reflasher = Reflasher(self.app_status_file, self.emulator, receive_data_thread=self.recevive_emulator_data_thread, signal_on_close=to_signal(self.reflash_window_close_slot), message_handler=self.message_handler)
+        self.reflasher = Reflasher(self.app_status_file, self.emulator, receive_data_thread=self.recevive_emulator_data_thread, signal_on_close=to_signal(self.reflash_window_close_slot), message_handler=self.message_sender)
         x_offset = -400
         y_offset = 100
         self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)

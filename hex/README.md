@@ -3,10 +3,22 @@ EMUBT V2
 Refactor of message sender.
 EMUBT V2 works only with EMUBT.py >= V2.0
 
+------------TAG: emubt_V2.2_191512------------------------------------------------------------------------------------------------------------------------------------------
+
+15.12.2019: -Dynamic injection of Digidiag program works for 1 and 3 map digifant program
+            -Detection if program is 1 or 3 map version and apply appopriate digidiag frames according to it
+            -Bug fixed: find_free_space function in DigidiagPatcher did overwrite last RTS instruction causing transmission errors
+
+TODO:       -Add missing digidiag frames for 3 map digifant program version
+            -Rework bootloader so it can receive data in more robust way, apply similar approach as it is done for Banks writing
+            -Apply compression for binary files transmission
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+-----------TAG: emubt_V2.2_192411-------------------------------------------------------------------------------------------------------------------------------------------
+
 TODO:       Dynamic digidag patch works for 1MAP binary. Add frames id to load to SRAM, add verification if it is 1MAP or 3MAP program: both differs in RAM organization and 
             requires different DIGIFRAMES vectors. Also placement of DIGIDIAG routine may be different.
-            Add Digidiag code hiding when board is not in ECU: done
-            01.12.2019: add pin setup for bluetooth
+            Add Digidiag code hiding when board is not in ECU
 
 24.11.2019: New branch will cover dynamic digidiag program injection and protection, it should be able to handle most of available Digifant binaries.
             The concept:

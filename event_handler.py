@@ -49,11 +49,10 @@ def general_signal_factory(slot):
     def wrapper():
         try:
             dbg_msg = "emit signal: name:{} id:{}".format(slot.__name__, slot)
-            #debug(dbg_msg)
             signal_logger.debug(dbg_msg)
             return general_signal_factory.signal.emit(slot)
-        except AttributeError:
-            raise Exception("{factory}: missing signal attribute. Set it up with {factory}.signal=some_signal".format(factory=general_signal_factory.__name__))
+        except AttributeError as e:
+            raise Exception("{factory}: missing signal attribute. Set it up with {factory}.signal={slot}".format(factory=general_signal_factory.__name__, slot=slot))
     wrapper.__name__ = slot.__name__
     wrapper.emit = wrapper.__call__
     return wrapper
