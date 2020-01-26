@@ -47,7 +47,7 @@ class WritePackets:
     def __init__(self, parent, bin_packets, retx_timeout=0.5):
         self.__retx_timeout = retx_timeout
         self.rx_message_buffer = parent.rx_message_buffer
-        self.message_handler = parent.message_handler
+        self.message_sender = parent.message_sender
         self.gui_communication_signal = parent.gui_communication_signal
         self.progress_bar = parent.progress_bar
         self.bin_packets = bin_packets
@@ -72,7 +72,7 @@ class WritePackets:
 
     def send_packet(self, packet, packet_num):
         msg_body = struct.pack('B', packet_num) + packet
-        _context = self.message_handler.send(MessageSender.ID.write_to_page, body=msg_body)
+        _context = self.message_sender.send(MessageSender.ID.write_to_page, body=msg_body)
         return _context
 
     def __tear_down(self):
@@ -82,7 +82,7 @@ class WritePackets:
 
     def write_packets_procedure(self):
         self.disable_objects_for_transmission_signal.emit()
-        self.message_handler.send(MessageSender.ID.rxflush)
+        self.message_sender.send(MessageSender.ID.rxflush)
         time.sleep(0.5)
         max_timeout = 25
         t_start = time.time()
@@ -122,7 +122,7 @@ class WritePackets:
                 self.parent_send_msg(MessageSender.ID.reload_sram)
             self.gui_communication_signal.emit("File transmitted in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
-            self.message_handler.send(m_id=MessageSender.ID.get_write_stats)
+            self.message_sender.send(m_id=MessageSender.ID.get_write_stats)
             self.set_bank_name(bank_name.replace('_sram', ''))
         to_signal(self.progress_bar.hide).emit()
         self.enable_objects_after_transmission_signal.emit()
@@ -133,7 +133,7 @@ class ReadPackets:
         self.__retx_timeout = retx_timeout
         self.message_id = message_id
         self.rx_message_buffer = parent.rx_message_buffer
-        self.message_handler = parent.message_handler
+        self.message_sender = parent.message_sender
         self.gui_communication_signal = parent.gui_communication_signal
         self.progress_bar = parent.progress_bar
         self.tx_stats = TransmissionStats()
@@ -164,7 +164,7 @@ class ReadPackets:
 
     def send_request(self, packet_num):
         msg_body = struct.pack('B', packet_num)
-        _context = self.message_handler.send(self.message_id, body=msg_body)
+        _context = self.message_sender.send(self.message_id, body=msg_body)
         return _context
 
     def tear_down_on_fail(self):
@@ -174,7 +174,7 @@ class ReadPackets:
 
     def read_packets_procedure(self):
         self.disable_objects_for_transmission_signal.emit()
-        self.message_handler.send(MessageSender.ID.rxflush)
+        self.message_sender.send(MessageSender.ID.rxflush)
         time.sleep(0.5)
         max_timeout = 20
         t_start = time.time()

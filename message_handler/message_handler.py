@@ -113,6 +113,7 @@ class MessageSender:
         set_pin         = 21
         digidag_enable  = 22
         digidag_disable = 23
+        run_main_app_btl= 254
 
         @classmethod
         def translate_id(cls, m_id):
@@ -223,6 +224,10 @@ class RxMessage(object):
         if result not in valid_results:
             raise Exception("Result must be ACK {} | NACK {} | DTX {}".format(*valid_results))
         return result
+
+    @property
+    def tstamp(self):
+        return self.__tstamp
 
     @property
     def id(self):

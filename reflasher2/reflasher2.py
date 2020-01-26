@@ -3,24 +3,22 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
-from message_handler.crc import crc
-from io import BytesIO
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QFileDialog
 from PyQt4.QtCore import pyqtSignal
 import os
 import configparser
 from main_window import ColorProgressBar
-from gui_thread import SignalThread
 from intel_hex_handler import intel_hex_parser
-from gui_thread import GuiThread, thread_this_method
+from gui_thread import thread_this_method
 from event_handler import EventHandler, to_signal, general_signal_factory
 import time
-from setup_emubt import error, info, debug, warn
 from loggers import create_logger, tstamp
-from message_handler import MessageSender, MessageReceiver
+from message_handler import MessageSender, MessageReceiver, RxMessage
+import struct
 
 stdout_log = create_logger("stdout")
+PACKET_SIZE = 256*8
 
 class TextBrowserInSubWindow(QtGui.QTextBrowser):
     append_sig = pyqtSignal(object, object)
@@ -42,8 +40,10 @@ class Reflasher(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.setWindowTitle("REFLASH")
         self.x_siz, self.y_siz = 600, 400
+        self.reflash()
 
         self.rx_message_buffer = dict() #this buffer wont't exceed number of maximum possible context ids in msg.id (0xffff)
+        self.packets = {}
 
         self.app_status_file = app_status_file
         self.last_hex_path = self.get_last_hex_file_path()
@@ -75,7 +75,7 @@ class Reflasher(QtGui.QWidget):
         self.cancel_button = QtGui.QPushButton("Cancel")
         self.browse_button.setMaximumSize(25, 25)
         self.browse_button.clicked.connect(self.select_file)
-        self.reflash_button.clicked.connect(self.reflash)
+        self.reflash_button.clicked.connect(self.check_selected_file)
         self.cancel_button.clicked.connect(self.close)
 
         #GRID
@@ -91,13 +91,17 @@ class Reflasher(QtGui.QWidget):
 
         self.resize(self.x_siz, self.y_siz)
 
+
     def get_raw_rx_buffer_slot(self):
+        """
+        This slot is triggered by data reception object whenever new data is present in rx buffer
+        :return:
+        """
         msg = self.message_receiver.get_message()
         if msg:
             self.rx_message_buffer[msg.context] = msg
-        for context in self.rx_message_buffer:
-            print "{}: {}".format(self.rx_message_buffer[context].context, self.rx_message_buffer[context].crc_check),
-        print
+            if msg.id == RxMessage.RxId.txt:
+                self.text_browser.append("E: {}".format(msg.msg))
 
     def set_event_handler(self):
         self.old_eventhandler = self.emulator.event_handler
@@ -119,7 +123,6 @@ class Reflasher(QtGui.QWidget):
             return ''
 
     def closeEvent(self, event):
-        print "close"
         self.restore_old_event_handler()
         QtGui.QWidget.close(self)
         event.accept()
@@ -133,21 +136,65 @@ class Reflasher(QtGui.QWidget):
         if os.path.isfile(file_path):
             config = configparser.ConfigParser()
             config.read(self.app_status_file)
-            config[self.hex_file_path_tag] = {'path': file_path}
+            config['FLASH_HEX_FILE'] = {'path': file_path}
             with open(self.app_status_file, 'w') as cf:
                 config.write(cf)
             self.last_hex_path = self.get_last_hex_file_path()
             self.line_edit.setText(self.last_hex_path)
 
-    @thread_this_method()
-    def increase_progress(self):
-        for i in range(100):
-            self.progress_bar.set_val_signal.emit(i)
-            time.sleep(0.01)
 
+    def check_selected_file(self):
+        try:
+            file_path = self.line_edit.text()
+            with open(file_path) as hex_file:
+                hex_lines = hex_file.readlines()
+                bin_segments = intel_hex_parser(hex_lines, self.text_browser.append)
+                start_address = 0
+                self.text_browser.append("Reflash with:\n{}\n".format(file_path))
+                self.bin_segments_to_packets(bin_segments[start_address])
+                self.reflash.start()
+        except IOError:
+            self.text_browser.append("File not present or faulty:\n{}".format(file_path))
+
+
+    def bin_segments_to_packets(self, bin_segments):
+        cnt = 0
+        for i in xrange(0, len(bin_segments), PACKET_SIZE):
+            self.packets[cnt] = bin_segments[i:i+PACKET_SIZE]
+            cnt += 1
+        return self.packets
+
+    @thread_this_method()
     def reflash(self):
-        self.progress_bar.setValue(0)
-        self.increase_progress.start()
+        timeout = 30
+        rxtimeout = 2
+        self.progress_bar.set_val_signal.emit(0)
+        num_of_packets = len(self.packets)
+        t0 = time.time()
+        context_to_packet_index_map = {}
+        while self.packets:
+            packet_index = self.packets.keys()[0]
+            context = self.message_sender.send(MessageSender.ID.write_to_page, body=struct.pack('H', packet_index) + self.packets[packet_index])
+            context_to_packet_index_map[context] = packet_index
+            _t0 = time.time()
+            while context not in self.rx_message_buffer:
+                time.sleep(0.1)
+                if time.time() - _t0 > rxtimeout:
+                    break
+            else:
+                if self.rx_message_buffer[context].id == RxMessage.RxId.ack:
+                    __packet_index = context_to_packet_index_map[context]
+                    self.packets.pop(__packet_index)
+                else:
+                    self.text_browser.append("nack")
+                self.progress_bar.set_val_signal.emit(100*float(num_of_packets-len(self.packets))/num_of_packets)
+            if time.time() - t0 > timeout:
+                self.text_browser.append("REFLASHING FAILED")
+                return
+        self.text_browser.append("REFLASHING FINISHED")
+        self.text_browser.append("VERYFYING")
+        self.text_browser.append("{}".format(time.time()-t0))
+        self.message_sender.send(MessageSender.ID.run_main_app_btl)
 
 
 

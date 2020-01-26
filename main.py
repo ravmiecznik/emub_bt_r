@@ -287,15 +287,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def initUI(self):
         QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
 
-    def __send_message(self, m_id, body='NULL', timeout=0.3):
-        re_tx = 3
+    def __send_message(self, m_id, body='NULL', timeout=0.3, re_tx=3):
         self.rx_buffer.flush()
         context = self.message_sender.send(m_id, body=body)
         time.sleep(timeout)
-        while context not in self.rx_message_buffer and re_tx >= 0:
+        while context not in self.rx_message_buffer and re_tx > 0:
             context = self.message_sender.send(m_id, body=body)
             re_tx -= 1
-            debug("ReTx: {}".format(MessageSender.ID.translate_id(m_id)))
+            debug("ReTx: {}, {}".format(MessageSender.ID.translate_id(m_id), re_tx))
             time.sleep(timeout)
         else:
             try:
@@ -385,10 +384,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.tmp = GuiThread(update_thread)
         self.tmp.start()
 
-    def send_message(self, message_id, body='NULL', timeout=None):
+    def send_message(self, message_id, body='NULL', timeout=None, re_tx=3):
         if timeout is None:
             timeout = self.__response_time
-        message_thread = self.sent_message_container.append(GuiThread(self.__send_message, args=(message_id, body, timeout)))
+
+        #the container keeps the thread alive, otherwise it would be killed once this method exits
+        message_thread = self.sent_message_container.append(
+            GuiThread(self.__send_message, args=(message_id, body, timeout, re_tx))
+        )
         if message_thread is None:
             self.gui_communication_signal.emit("TX message buffer overflow...")
             return None
@@ -520,7 +523,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def handle_rx_txt_message(self, txt_message):
         self.gui_communication_signal.emit("E: {}".format(txt_message))
-        if txt_message == "bootloader3\n":
+        if txt_message == "bootloader3":
             self.reflash_app_slot()
 
 
@@ -684,7 +687,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             return False
 
     def reflash_button_slot(self):
-        self.send_message(MessageSender.ID.bootloader)
+        """
+        handle_rx_message method will trigger reflasher window if bootloader3 txt repsonse received
+        :return:
+        """
+        self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
 
     def reflash_button_slot_old(self):
         debug("Check if bootloader already active")
