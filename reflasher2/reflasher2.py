@@ -88,9 +88,15 @@ class Reflasher(QtGui.QWidget):
         mainGrid.addWidget(self.cancel_button,  5, 0, 1, 1)
         mainGrid.addWidget(self.reflash_button, 5, 4, 1, 1)
         self.setLayout(mainGrid)
-
+        self.__expected_version = None
         self.resize(self.x_siz, self.y_siz)
 
+    def _find_version_of_hex_to_reflash(self, bin_file):
+        version_location_pos = bin_file.find("Version:R")
+        version_location_pos_end = bin_file.find("\n", version_location_pos)
+        if version_location_pos > 1:
+            new_version = bin_file[version_location_pos:version_location_pos_end-1]
+            return new_version
 
     def get_raw_rx_buffer_slot(self):
         """
@@ -102,6 +108,9 @@ class Reflasher(QtGui.QWidget):
             self.rx_message_buffer[msg.context] = msg
             if msg.id == RxMessage.RxId.txt:
                 self.text_browser.append("E: {}".format(msg.msg))
+                if self.__expected_version and self.__expected_version in msg.msg:
+                    self.text_browser.append("\nReflashing done\nYou can close Reflasher window")
+                    self.cancel_button.setText("CLOSE")
 
     def set_event_handler(self):
         self.old_eventhandler = self.emulator.event_handler
@@ -151,6 +160,8 @@ class Reflasher(QtGui.QWidget):
                 bin_segments = intel_hex_parser(hex_lines, self.text_browser.append)
                 start_address = 0
                 self.text_browser.append("Reflash with:\n{}\n".format(file_path))
+                self.__expected_version = self._find_version_of_hex_to_reflash(bin_segments[start_address])
+                self.text_browser.append("Version of new software: {}".format(self.__expected_version))
                 self.bin_segments_to_packets(bin_segments[start_address])
                 self.reflash.start()
         except IOError:
