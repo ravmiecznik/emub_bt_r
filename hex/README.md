@@ -1,5 +1,7 @@
 EMUBT V2
 
+TODO: !!add address of write_page_to_flash from bootloader3
+
 Refactor of message sender.
 EMUBT V2 works only with EMUBT.py >= V2.0
 
