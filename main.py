@@ -32,7 +32,6 @@ from bt_discover import bt_search
 from console import Console
 from call_tracker import method_call_track
 from reflasher import Reflasher
-from reflasher2 import Reflasher as Reflasher2
 from event_handler import EventHandler, to_signal, general_signal_factory
 from message_handler import MessageSender, MessageReceiver, RxMessage, TxTimeout
 from config_window import ConfigWindow, Config, ConfigSettings
@@ -723,25 +722,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         Will call and display new reflasher window
         :return:
         """
-        #self.reflasher = Reflasher2(app_status_file=self.app_status_file, emulator=self.emulator, message_handler=self.message_sender)
-        self.reflasher = Reflasher2(app_status_file=self.app_status_file, emulator=self.emulator)
-        self.reflasher.show()
-
-    def reflash_app_slot_old(self):
-        """
-        Will call and display new reflasher window
-        :return:
-        """
-        self.setEnabled(False)
-        self.suspend_all_threads_bt_rx_thread()
-        self.recevive_emulator_data_thread.start()
-        self.emulator.raw_buffer.read()
-        current_position_and_size = WindowGeometry(self)
-        x_pos = current_position_and_size.get_position_to_the_right()
-        self.reflasher = Reflasher(self.app_status_file, self.emulator, receive_data_thread=self.recevive_emulator_data_thread, signal_on_close=to_signal(self.reflash_window_close_slot), message_handler=self.message_sender)
-        x_offset = -400
-        y_offset = 100
-        self.reflasher.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.reflasher.x_siz, self.reflasher.y_siz)
+        self.reflasher = Reflasher(app_status_file=self.app_status_file, emulator=self.emulator)
         self.reflasher.show()
 
     def digidiag_slot(self):
