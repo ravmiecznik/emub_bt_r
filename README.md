@@ -5,7 +5,7 @@ EMU_BT_R V2.2
 https://www.youtube.com/watch?v=0i5L0DQhbt8
 
 https://www.youtube.com/watch?v=bxWkzQrnqo4
-    
+    17.02.202:  New bootloader3/reflasher: https://github.com/ravmiecznik/atm128_bootloader_v3
     23.11.2019: EXE file is created according to operating system name.
 				Support for WIN7
 				Application estimates average response time from BT to set optimal maximum timeouts
@@ -63,6 +63,11 @@ First working version features:
     BLANK PANEL BELOW:
     -this panel displays some tips for actually pointed by mouse button/window/checkbox
     
+    REFLASHER/BOOTLOADER3
+    -new bootloader3 support with new reflasher applicaton
+    -new booloader3 implements different approach for ack/nack handling
+    -full control of transmission is on EMU_BT appliaction, it decides what to retransmit and it counts timeouts
+    -EMU_BT board role is to send ack/nack, does not send anything if packet not received
     
     #TODO:
     -Bin file viewer to be added to see commited changes by EMULATION procedure
