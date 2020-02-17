@@ -5,7 +5,7 @@ TODO: !!add address of write_page_to_flash from bootloader3
 Refactor of message sender.
 EMUBT V2 works only with EMUBT.py >= V2.0
 
-------------TAG: emubt_V2.2_191512------------------------------------------------------------------------------------------------------------------------------------------
+TAG: emubt_V2.2_191512
 
 15.12.2019: -Dynamic injection of Digidiag program works for 1 and 3 map digifant program
             -Detection if program is 1 or 3 map version and apply appopriate digidiag frames according to it
@@ -14,9 +14,9 @@ EMUBT V2 works only with EMUBT.py >= V2.0
 TODO:       -Add missing digidiag frames for 3 map digifant program version
             -Rework bootloader so it can receive data in more robust way, apply similar approach as it is done for Banks writing
             -Apply compression for binary files transmission
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
------------TAG: emubt_V2.2_192411-------------------------------------------------------------------------------------------------------------------------------------------
+
+TAG: emubt_V2.2_192411
 
 TODO:       Dynamic digidag patch works for 1MAP binary. Add frames id to load to SRAM, add verification if it is 1MAP or 3MAP program: both differs in RAM organization and 
             requires different DIGIFRAMES vectors. Also placement of DIGIDIAG routine may be different.
