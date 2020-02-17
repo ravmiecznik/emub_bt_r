@@ -22,7 +22,6 @@ from emulator import Emulator
 from PyQt4.Qt import PYQT_VERSION_STR
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import QMutex
-from PyQt4.QtGui import QGestureRecognizer #gestures: https://srinikom.github.io/pyside-docs/PySide/QtGui/QGestureRecognizer.html#PySide.QtGui.QGestureRecognizer
 from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
 from main_window import ColorProgressBar
@@ -691,19 +690,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         :return:
         """
         self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
-
-    def reflash_button_slot_old(self):
-        debug("Check if bootloader already active")
-        self.emulator.raw_buffer.flush()
-        self.message_sender.send(m_id=MessageSender.ID.bootloader)
-        t0 = time.time()
-        while ('BOOTLOADER' not in self.rx_buffer) and ('command unknown' not in self.rx_buffer):
-            time.sleep(0.01)
-            if time.time() - t0 > 1:
-                print 'break', ('BOOTLOADER' not in self.rx_buffer) and ('command unknown:' not in self.rx_buffer)
-                break
-        else:
-            to_signal(self.reflash_app_slot)()
 
     def console_msg_factory(self, msg):
         def wrapper(*args):
