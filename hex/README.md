@@ -6,7 +6,7 @@ Refactor of message sender.
 EMUBT V2 works only with EMUBT.py >= V2.0
 
 TAG: emubt_V2.2_191512
-
+'''
 15.12.2019: -Dynamic injection of Digidiag program works for 1 and 3 map digifant program
             -Detection if program is 1 or 3 map version and apply appopriate digidiag frames according to it
             -Bug fixed: find_free_space function in DigidiagPatcher did overwrite last RTS instruction causing transmission errors
@@ -14,7 +14,7 @@ TAG: emubt_V2.2_191512
 TODO:       -Add missing digidiag frames for 3 map digifant program version
             -Rework bootloader so it can receive data in more robust way, apply similar approach as it is done for Banks writing
             -Apply compression for binary files transmission
-
+'''
 
 TAG: emubt_V2.2_192411
 
