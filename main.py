@@ -621,6 +621,10 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.send_message(MessageSender.ID.digidag_enable)
         elif cmd == 'disd':
             self.send_message(MessageSender.ID.digidag_disable)
+        elif cmd == 'tests':
+            import unittest
+            unittest.main()
+            #TestEMUBT().run()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -954,12 +958,26 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def closeEvent(self, event):
         if event.type() == QEvent.Close:
+            self.close()
+
+    def close(self):
             self.tear_down_main_app()
             app = QtGui.QApplication.instance()
             app.closeAllWindows()
 
     def destroyEvent(self, event):
         print "destroy"
+
+
+class TestInterface(MainWindow):
+    def __init__(self, *args, **kwargs):
+        MainWindow.__init__(self, *args, **kwargs)
+
+    def is_connected(self):
+        return self.connect_button.text()
+
+    def disconnect(self):
+        self.connect_button.clicked.emit(1)
 
 
 def main(dev_version=False):
