@@ -1,0 +1,5 @@
+{
+  "test.py::TestQApplication::test_if_connected": true, 
+  "test.py::TestQApplication::test_of_test": true, 
+  "test.py::TestQApplication::test_read_sram": true
+}
