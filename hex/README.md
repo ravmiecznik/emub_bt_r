@@ -5,8 +5,8 @@ TODO: !!add address of write_page_to_flash from bootloader3
 Refactor of message sender.
 EMUBT V2 works only with EMUBT.py >= V2.0
 
-------------TAG: emubt_V2.2_191512------------------------------------------------------------------------------------------------------------------------------------------
-
+TAG: emubt_V2.2_191512
+```
 15.12.2019: -Dynamic injection of Digidiag program works for 1 and 3 map digifant program
             -Detection if program is 1 or 3 map version and apply appopriate digidiag frames according to it
             -Bug fixed: find_free_space function in DigidiagPatcher did overwrite last RTS instruction causing transmission errors
@@ -14,10 +14,10 @@ EMUBT V2 works only with EMUBT.py >= V2.0
 TODO:       -Add missing digidiag frames for 3 map digifant program version
             -Rework bootloader so it can receive data in more robust way, apply similar approach as it is done for Banks writing
             -Apply compression for binary files transmission
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
 
------------TAG: emubt_V2.2_192411-------------------------------------------------------------------------------------------------------------------------------------------
-
+TAG: emubt_V2.2_192411
+```
 TODO:       Dynamic digidag patch works for 1MAP binary. Add frames id to load to SRAM, add verification if it is 1MAP or 3MAP program: both differs in RAM organization and 
             requires different DIGIFRAMES vectors. Also placement of DIGIDIAG routine may be different.
             Add Digidiag code hiding when board is not in ECU
@@ -41,4 +41,4 @@ Refactoring concept:
     *send "msg_tail" after body was send {msg_id, context_id, crc}
     *<msg_body><msg_tail>
 -EMUBT.py should search for msg_tail in rx_buffer, if it is found extract message body with given len: msg_body index=index(msg_tail) - msg.len
-
+```
