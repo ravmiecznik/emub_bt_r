@@ -235,7 +235,7 @@ class SignalThread(GuiThread):
             try:
                 dbg_msg = "emit signal: name:{} id:{}".format(slot.__name__, slot)
                 t_logger.debug(dbg_msg)
-                return self.general_signal.emit(slot)
+                return self.general_signal.emit(slot, (), {})
             except AttributeError:
                 raise Exception("{doc}\n.{factory}: missing signal attribute. "
                                 "Set it up with {factory}.signal=some_signal"
