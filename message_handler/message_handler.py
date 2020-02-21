@@ -113,6 +113,7 @@ class MessageSender:
         set_pin         = 21
         digidag_enable  = 22
         digidag_disable = 23
+        wipe_banks      = 24
         run_main_app_btl= 254
 
         @classmethod
