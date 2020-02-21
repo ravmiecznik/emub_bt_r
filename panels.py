@@ -248,6 +248,7 @@ class BanksPanel(QtGui.QGroupBox):
 
 
 
+
 class BinFilePanel(QtGui.QGroupBox):
     def __init__(self, parent, app_status_file, event_handler=DummyEventHandler(), max_width=600):
         super(BinFilePanel, self).__init__(parent)
@@ -296,13 +297,14 @@ class BinFilePanel(QtGui.QGroupBox):
 
     def get_current_file(self):
         bin_path = str(self.combo_box.currentText())
-        if os.path.exists(bin_path):
-            self.combo_box.moveOnTop(bin_path)
-            return bin_path
-        else:
-            message_box("no such file: {}\n".format(bin_path))
-            self.combo_box.setEditText(self.combo_box.itemText(0))
-            self.combo_box.removeByStr(bin_path)
+        if bin_path:
+            if os.path.exists(bin_path):
+                self.combo_box.moveOnTop(bin_path)
+                return bin_path
+            else:
+                message_box("no such file: {}\n".format(bin_path))
+                self.combo_box.setEditText(self.combo_box.itemText(0))
+                self.combo_box.removeByStr(bin_path)
 
     def browse_for_file(self):
         start_dir = self.last_browse_location
