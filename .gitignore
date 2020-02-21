@@ -12,3 +12,5 @@ build/
 test_module/.cache/
 test_suite/.cache/
 emu_bt.stp
+DBG/
+DOWNLOADED/
