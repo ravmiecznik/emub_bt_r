@@ -981,90 +981,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         print "destroy"
 
 
-####TEST INTERFACE######################################################################################################
-import inspect
-def do_until(timeout=10, test=None, sleep=0.1):
-    """
-    A decorator function for automatic testing purposes.
-    This decorator wraps the method, calls it and waits unitl provided test is True.
-    After exiting while loop it will assert the "test" method. Basically timeout will casue assertion to raise an error
-     and cause a test fail.
-    The test statment can be executed only in case when wrpapped method returns something, if not use default
-    test statment which accespts result as None.
-    :param timeout: if test statement is not True (not test(result)) assertion will be checked, test step will fail
-    :param test: an executable condtion to check. Positive check must return True.
-            e.g. test=os.path.isfile to check if
-            returned by wrapped method path exists.
-            By lambda expression if path is not None can be assured:
-            test = lambda p: p is not None and os.path.isfile(p)
-    :return: wrapped method
-    """
-    if test is None:
-        test = lambda r: r is None
-    _queue = queue.Queue()
-    def trigger(method):
-        #method = to_signal(method)
-        def wrapper(*args, **kwargs):
-            t0 = time.time()
-            instance = args[0]
-            instance.general_signal_args_kwargs.emit(method, args, kwargs)
-            result = True
-            #result = method(*args, **kwargs)
-            while not test(result) and time.time() - t0 < timeout:
-                result = method(*args, **kwargs)
-                time.sleep(sleep)
-            assert test(result), inspect.getsource(test) + " " + str(result)
-            _queue.put(result)
-            return result
-        wrapper.qget = _queue.get
-        return wrapper
-    return trigger
-
-class TestInterface(MainWindow):
-    def __init__(self, *args, **kwargs):
-        MainWindow.__init__(self, *args, **kwargs)
-        self.queue = queue.Queue()
-
-
-    def get_key_from_queue(self, key):
-        elem = self.queue.get(timeout=2)
-        if key in elem:
-            return elem[key]
-        else:
-            self.queue.put(elem)    #put back not matching elem
-
-    def is_connected(self):
-        return self.connect_button.text()
-
-    def wipe_banks(self):
-        self.message_sender.send(MessageSender.ID.wipe_banks)
-
-    def get_active_bank_button(self):
-        return [self.banks_panel.bank1pushButton.styleSheet(),
-               self.banks_panel.bank2pushButton.styleSheet(),
-               self.banks_panel.bank3pushButton.styleSheet()].index(GREEN_BACKGROUND_PUSHBUTTON) + 1
-
-    @do_until(test=lambda isfile: isfile==True, timeout=25)
-    def is_downloaded_file_present(self):
-        return os.path.isfile(str(self.bin_file_panel.get_current_file()))
-
-    @do_until(test=lambda p: p and os.path.isfile(p))
-    def get_current_file(self):
-        return self.bin_file_panel.get_current_file()
-
-    #
-    # def set_new_file_for_upload(self):
-    #     path = self.get_key_from_queue('file_to_upload')
-    #     if path:
-    #         self.insert_new_file_signal.emit(path)
-    #
-    # def get_text_browser_to_queue(self):
-    #     self.queue.put({'text_browser': self.console.console_text_browser.toPlainText()})
-
-    def disconnect(self):
-        self.connect_button.clicked.emit(1)
-
-
 def main(dev_version=False):
     import sys, os
     _stdout = sys.stdout
@@ -1077,9 +993,7 @@ def main(dev_version=False):
         if platform == 'Windows':
             app.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
         myapp = MainWindow()
-        #myapp.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
         myapp.setWindowIcon(QtGui.QIcon('icon.png'))
-        #app.setWindowIcon(QtGui.QIcon(os.path.join('spec', 'icon.ico')))
         app.setWindowIcon(QtGui.QIcon(('icon.png')))
         myapp.show()
         app.exec_()
