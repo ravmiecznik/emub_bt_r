@@ -204,7 +204,7 @@ class ReadPackets:
                 self.tear_down_on_fail()
                 break
         else:
-            self.gui_communication_signal.emit("File reveived in: {}".format(time.time() - t_start))
+            self.gui_communication_signal.emit("File received in: {}".format(time.time() - t_start))
             self.gui_communication_signal.emit(self.tx_stats)
             self.extra_teardown()
         to_signal(self.progress_bar.hide).emit()
