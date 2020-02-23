@@ -49,9 +49,11 @@ import threading
 from main import TestInterface
 import time
 import os
+import filecmp
 import configparser
 from event_handler import to_signal
-from test_interface import TestInterface
+from test_interface import TestInterface, test_logger
+
 
 DOWNLOADED = 'DOWNLOADED'
 APP_STATUS_FILE = 'app_status.sts'
@@ -90,11 +92,38 @@ def reset_config_file():
 
 
 class TestQApplication(unittest.TestCase):
+    ## SETUP ###########################################################################################################
+    @classmethod
+    def setUpClass(cls):
+        clean_downloaded_files()
+        reset_config_file()
 
+        cls.main_window.connect_button.clicked.emit(1)
+        cls.main_window.is_connected()
+
+    @classmethod
+    def tearDownClass(cls):
+        time.sleep(1)
+        to_signal(cls.main_window.disconnect)()
+        cls.main_window.is_disconnected()
+        time.sleep(1)
+        to_signal(cls.main_window.close)()
+
+    def setUp(self):
+        to_signal(self.main_window.bin_file_panel.combo_box.clearEditText)()
+
+    ## TESTS ###########################################################################################################
     def test_if_sram_zero(self):
+        """
+        Test if sram contains only zeros bytes after banks wiping
+        :return:
+        """
+        self.main_window.wipe_banks()
+        self.main_window.are_banks_wiped()
+        self.main_window.bank1set_slot()
+        self.main_window.is_bank1_set()
         to_signal(self.main_window.bin_file_panel.combo_box.clear)()
         to_signal(self.main_window.bin_file_panel.combo_box.clearEditText)()
-        time.sleep(0.5)
         to_signal(self.main_window.read_sram_button_slot)()
         self.main_window.is_downloaded_file_present()
         self.main_window.get_current_file()
@@ -107,37 +136,75 @@ class TestQApplication(unittest.TestCase):
                 addr += 1
 
     def test_upload_bank(self):
-        new_file = os.path.join(RESOURCE, '8VG60.bin')
-        self.queue.put({'file_to_upload': new_file})
-        to_signal(self.main_window.set_new_file_for_upload)()
-        to_signal(self.main_window.save_button_slot)()
-        self.wait_for_queue_event({'text_browser': "File transmitted in:"},
-                                  to_signal(self.main_window.get_text_browser_to_queue), timeout=15)
+        """
+        Send and receive binary file, fail if file differs after reception
+        :return:
+        """
+        new_file = os.path.join(RESOURCE, 'random.bin')
+        self.main_window.send_file_for_emulation(new_file)
+        downloaded_file_path = self.main_window.download_flash_bank()
+        are_identical = filecmp.cmp(new_file, downloaded_file_path, shallow=False)
+        if not are_identical:
+            with open(new_file) as n, open(downloaded_file_path) as d:
+                nfile = n.read()
+                dfile = d.read()
+                addr = 0
+                for pair in zip(nfile, dfile):
+                    if pair[0] != pair[1]:
+                        print "Diff @0x{:08X}: n0x{:02X} != d0x{:02X}".format(addr, ord(pair[0]), ord(pair[1]))
+                    addr += 1
+        assert are_identical, "Downloaded file is not the same as transmitted one: {} != {}".format(new_file, downloaded_file_path)
 
+    def test_digdiag_transmission(self):
+        """
+        Test if digidiag transmission was applied to a file which has no digidiag implemented
+        :return:
+        """
+        digidag = self.main_window.digiag_widget
+        digidiag_capable_file = os.path.join(RESOURCE, '8VG60.bin')
+        self.main_window.bank1set_slot()
+        self.main_window.is_bank1_set()
+        self.main_window.send_file_for_emulation(digidiag_capable_file)
+        self.main_window.bank1set_slot()
+        self.main_window.is_bank1_set()
 
+        digidag.reset_frames_count()
+        time.sleep(5)   #collect data from digidiag
 
+        # check if data is being transmitted
+        rx_frames_count = digidag.get_frames_count()
+        assert rx_frames_count > 100, "To few data frames received from EMUBT: {}".format(rx_frames_count)
 
-    @classmethod
-    def setUpClass(cls):
-        clean_downloaded_files()
-        reset_config_file()
+        #check if data is being transmitted and appropriate amount of different frames received
+        num_of_frames_id = len(digidag.frames)
+        assert num_of_frames_id >= 6, \
+            "For 1 Map file there should be 10 different frames received, got: {}".format(num_of_frames_id)
 
-        cls.main_window.connect_button.clicked.emit(1)
-        cls.main_window.is_connected()
+        #test first frame
+        manifold_pressure = ord(digidag.frames[0xff][2])
+        assert manifold_pressure>0x75 and manifold_pressure<0x82, \
+            "Manifold pressure out of expected range: 0x{:02X}".format(manifold_pressure)
 
-        cls.main_window.wipe_banks()
-        cls.main_window.are_banks_wiped()
+        #test last frame
+        rpm_h = ord(digidag.frames[0xfb][6])
+        rpm_l = ord(digidag.frames[0xfb][7])
+        rpm = (rpm_h << 8) + rpm_l
+        assert rpm == 17664, "Wrong RPM value: {}".format(rpm)
 
-        cls.main_window.bank1set_slot()
-        cls.main_window.is_bank1_set()
-
-
-    @classmethod
-    def tearDownClass(cls):
-        to_signal(cls.main_window.disconnect)()
-        cls.main_window.is_disconnected()
-        time.sleep(1)
-        to_signal(cls.main_window.close)()
+    def test_live_emulation(self):
+        """
+        Test of live update of emulated file.
+        Scenarion to be implemented:
+        -Copy some temporary file
+        -Upload the file
+        -Enable Live emulation
+        -Check if live emulation thread is running
+        -Modify some bytes in the file
+        -Download SRAM file
+        -Compare SRAM with temporary file
+        :return:
+        """
+        assert True #keep in passing at the moment
 
 
 if __name__ == "__main__":
@@ -146,7 +213,23 @@ if __name__ == "__main__":
     main_window.show()
 
     TestQApplication.main_window = main_window
-    thread = threading.Thread(target=unittest.main, kwargs={'verbosity': 2})
+
+    suite = unittest.TestSuite()
+    #define suite here
+    for t in [
+        TestQApplication.test_digdiag_transmission,
+        TestQApplication.test_upload_bank,
+    ]:
+        suite.addTest(TestQApplication(t.__name__))
+    runner = unittest.TextTestRunner(verbosity=2)
+    def run_suite():
+        runner.run(suite)
+
+    thread = threading.Thread(target=run_suite)
+
+    # thread = threading.Thread(target=unittest.main,
+    #                           kwargs={'verbosity': 2},
+    #                           args=['TestQApplication.test_digdiag_transmission'])
     thread.start()
 
     #testRunner = HtmlTestRunner.HTMLTestRunner(output='html_report', report_name="EMUBT_test", add_timestamp=False)
