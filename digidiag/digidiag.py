@@ -95,6 +95,7 @@ class DigiDiag(QtGui.QWidget):
         self.log_thread.start()
         self.log_thread.start()
         self._log_separator = 10 * '\0'
+        self.__frames_count = 0
 
 
     def log_thread(self):
@@ -102,8 +103,14 @@ class DigiDiag(QtGui.QWidget):
         for frame_id in sorted(self.frames.keys(), reverse=True):
             self.log_file.write(self.frames[frame_id])
 
+    def get_frames_count(self):
+        return self.__frames_count
+
+    def reset_frames_count(self):
+        self.__frames_count = 0
 
     def feed_with_data(self, frame):
+        self.__frames_count += 1
         self.frames[ord(frame[1])] = frame  #key by frame id
 
     def refresh(self):

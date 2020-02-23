@@ -83,7 +83,7 @@ class DigidiagWindow(QtGui.QWidget):
         self.define_extraction_rules()
 
     def define_extraction_rules(self):
-        values_definition = self.values_editor.values_decoder
+        values_definition = self.values_editor.values_translation
         self.values_extractor = {}
         for key in values_definition:
             frame_id = values_definition[key].decode_info.frame_id

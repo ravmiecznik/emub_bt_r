@@ -341,7 +341,7 @@ class ValuesEditor(QtGui.QWidget):
         self.add_button.clicked.connect(self.table.add_row)
         self.apply_button.clicked.connect(self.apply_button_slot)
 
-        self.values_decoder = dict()
+        self.values_translation = dict()
 
         self.__values_file_path = os.path.join(DIGIDIAG_STATUS_DIR, VALUES_FILE_NAME)
 
@@ -374,15 +374,15 @@ class ValuesEditor(QtGui.QWidget):
 
     def dump_values_to_file(self):
         json_friendly_values = {}
-        for v in sorted(self.values_decoder):
-            json_friendly_values[v] = self.values_decoder[v].decode_info.to_json()
+        for v in sorted(self.values_translation):
+            json_friendly_values[v] = self.values_translation[v].decode_info.to_json()
         with open(self.__values_file_path, 'w') as json_dump:
             json.dump(json_friendly_values, json_dump, indent=4)
             digidiag_logger.debug('json dumped to {}'.format(self.__values_file_path))
 
     def __update_values(self):
         self.table.validate_values()
-        self.values_decoder = {}
+        self.values_translation = {}
         for row in xrange(self.table.rowCount()):
             value_descriptor = {}
             for column in self.table.horizonatal_header_labels:
@@ -397,7 +397,7 @@ class ValuesEditor(QtGui.QWidget):
                 value = ValueDecoder(delete_button=self.table.cellWidget(row, self.table.column_index('DELETE')), **value_descriptor)
                 value.set_display_attrs(reading=self.table.item(row, self.table.column_index('READING')),
                                         raw=self.table.item(row, self.table.column_index('RAW')))
-                self.values_decoder[value.name.get()] = value
+                self.values_translation[value.name.get()] = value
             except TypeError:
                 pass
                 #traceback.print_exc()
@@ -417,15 +417,15 @@ class ValuesEditor(QtGui.QWidget):
         :return:
         """
         try:
-            value = self.values_decoder[value_name].decode_info.formula.get()(raw_value)
+            value = self.values_translation[value_name].decode_info.formula.get()(raw_value)
         except Exception as e:
             value = 'NaN'
             tool_tip = e.message
         else:
             tool_tip = str(value)
-        self.values_decoder[value_name].display_attrs.reading.setToolTip(tool_tip)
-        self.values_decoder[value_name].display_attrs.reading.setData(Qt.Qt.DisplayRole, value)
-        self.values_decoder[value_name].display_attrs.raw.setData(Qt.Qt.DisplayRole, '0x{val:0{bsiz}X}'.format(bsiz=byte_size*2, val=raw_value))
+        self.values_translation[value_name].display_attrs.reading.setToolTip(tool_tip)
+        self.values_translation[value_name].display_attrs.reading.setData(Qt.Qt.DisplayRole, value)
+        self.values_translation[value_name].display_attrs.raw.setData(Qt.Qt.DisplayRole, '0x{val:0{bsiz}X}'.format(bsiz=byte_size * 2, val=raw_value))
 
     def __del__(self):
         self.dump_values_to_file()
