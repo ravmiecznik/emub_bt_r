@@ -184,14 +184,9 @@ class TestInterface(MainWindow):
     def is_bank1_set(self):
         return self.get_active_bank_button()
 
-    @apply_queue
-    def send_file_for_emulation(self, qget):
-        test_logger.debug("self.console.clear")
+    def send_file_for_emulation(self, file_path):
         to_signal(self.console.clear)()
-        test_logger.debug("qget")
-        args, kwargs = qget()
-        test_logger.debug("insert: {}".format(args))
-        self.insert_new_file_signal.emit(*args)
+        self.insert_new_file_signal.emit(file_path)
         wait_for(timeout=1, test=lambda path: os.path.isfile(path) if path else False)\
             (lambda arg: self.bin_file_panel.get_current_file())(self)
 
