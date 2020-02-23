@@ -3,4 +3,4 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
-from config_window import ConfigWindow, ConfigSettings
+from config_window import ConfigWindow, Config, ConfigSettings

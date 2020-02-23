@@ -27,6 +27,9 @@ REFLASH_BTN_HELP = "Upload new firmware to EMU_BT"
 DISCOVER_BTN_HELP = "Discover EMU_BT among bluetooth devices and store result"
 AUTOCONNECT_CHECKBOX_HELP = "Autoconnect at startup"
 CONFIG_BTN_HELP = "Update config file"
+CHECK_RESPONSE_TIME_BTN_HELP = "Measure average response time, required to optimize transimission timings. Check " \
+                               "Config button to see current value"
+SET_PIN_BTN_HELP = "Sets/changes PIN for bluetooth device"
 
 #@method_call_track
 class ControlPanel(QtGui.QGroupBox):
@@ -43,6 +46,8 @@ class ControlPanel(QtGui.QGroupBox):
         self.reflash_button = PushButton("Reflash", tip_msg=REFLASH_BTN_HELP)
         self.discover_button = PushButton("Discover", tip_msg=DISCOVER_BTN_HELP)
         self.config_button = PushButton("Config", tip_msg=CONFIG_BTN_HELP)
+        self.resp_time_button = PushButton("RespTime", tip_msg=CHECK_RESPONSE_TIME_BTN_HELP)
+        self.set_pin_button = PushButton("Set PIN", tip_msg=SET_PIN_BTN_HELP)
         self.setLayout(control_frame_FrameGrid)
         self.autoconnect_checkbox = CheckBox("Autoconnect", tip_msg=AUTOCONNECT_CHECKBOX_HELP)
 
@@ -51,13 +56,17 @@ class ControlPanel(QtGui.QGroupBox):
         control_frame_FrameGrid.addWidget(self.reflash_button, 0, 1)
         control_frame_FrameGrid.addWidget(self.discover_button, 1, 0)
         control_frame_FrameGrid.addWidget(self.config_button, 1, 1)
-        control_frame_FrameGrid.addWidget(self.autoconnect_checkbox, 2, 0, 1, 2)
+        control_frame_FrameGrid.addWidget(self.set_pin_button, 2, 0)
+        control_frame_FrameGrid.addWidget(self.resp_time_button, 2, 1)
+        control_frame_FrameGrid.addWidget(self.autoconnect_checkbox, 3, 0, 1, 2)
 
         #connect buttons
         self.connect_button.clicked.connect(event_handler.connect_button_slot)
         self.discover_button.clicked.connect(event_handler.discover_emu_bt_slot)
         self.reflash_button.clicked.connect(event_handler.reflash_button_slot)
         self.config_button.clicked.connect(event_handler.config_button_slot)
+        self.resp_time_button.clicked.connect(event_handler.estimate_response_time_slot)
+        self.set_pin_button.clicked.connect(event_handler.set_pin_button_slot)
         self.event_handler = event_handler
         self.event_handler.add_event(self.set_connected)
         self.event_handler.add_event(self.set_disconnected)
@@ -73,7 +82,7 @@ class ControlPanel(QtGui.QGroupBox):
 
 
 
-EMULATION_BTN_TIP           = "This is very long test string to check if line wrapping will work to avoid main window expansion and segmantation fault eventually, hope will wokr, bye bye bye bye friends"
+EMULATION_BTN_TIP           = "Track selected file for changes. If file is modified all changed bytes will be send to EMUBT SRAM memory"
 STORE_FLASH_BANK_BTN_TIP    = "This button commits selected binary file to permanent memory in currently selected bank"
 READ_SRAM_BTN_TIP           = "SRAM: this memory is visible to your ECU. This button will get its content." \
                             "\nBut beware that during read process Emulator is not accessible to ECU" \
@@ -105,7 +114,7 @@ class EmulationPanel(QtGui.QGroupBox):
             self.read_sram_button = _PushButton("READ SRAM", tip_msg=READ_SRAM_BTN_TIP)
             self.read_sram_button.raise_()
         self.read_bank_button = _PushButton("READ", tip_msg=READ_BANK_BTN_TIP)
-        self.save_button = _PushButton("SAVE", tip_msg=STORE_FLASH_BANK_BTN_TIP)
+        self.save_button = _PushButton("UPLOAD", tip_msg=STORE_FLASH_BANK_BTN_TIP)
         self.auto_open_checkbox = CheckBox("auto open", tip_msg=AUTO_OPEN_CHECK_BOX_TIP)
         self.reload_sram_checkbox = CheckBox("reload sram on save", tip_msg=RELOAD_SRAM_CHECK_BOX_TIP)
 
@@ -204,6 +213,10 @@ class BanksPanel(QtGui.QGroupBox):
     def put_bank_name(self, name):
         self.bank_name_line_edit.setText(name[0:self.bank_name_max_len])
 
+    def get_bank_name_text(self):
+        return self.bank_name_line_edit.text()[0:self.bank_name_max_len]
+
+
     def set_default_style_sheet_for_buttons(self):
         self.bank1pushButton.set_default_style_sheet()
         self.bank2pushButton.set_default_style_sheet()
@@ -215,15 +228,36 @@ class BanksPanel(QtGui.QGroupBox):
         self.event_handler.set_bank_name()
         self.bank_name_line_edit.clearFocus()
 
+    def disable_active_button(self):
+        to_signal(self.bank1pushButton.set_default_style_sheet)()
+        to_signal(self.bank2pushButton.set_default_style_sheet)()
+        to_signal(self.bank3pushButton.set_default_style_sheet)()
+
+
+    def set_active_button(self, bank_no):
+        to_signal(self.bank1pushButton.set_default_style_sheet)()
+        to_signal(self.bank2pushButton.set_default_style_sheet)()
+        to_signal(self.bank3pushButton.set_default_style_sheet)()
+        set_green_style = \
+            [
+            self.bank1pushButton.set_green_style_sheet,
+            self.bank2pushButton.set_green_style_sheet,
+            self.bank3pushButton.set_green_style_sheet,
+            ][bank_no]
+        to_signal(set_green_style).emit()
+
+
 
 
 class BinFilePanel(QtGui.QGroupBox):
-    def __init__(self, parent, app_status_file, event_handler=DummyEventHandler()):
+    def __init__(self, parent, app_status_file, event_handler=DummyEventHandler(), max_width=600):
         super(BinFilePanel, self).__init__(parent)
         frame_grid = QtGui.QGridLayout()
         frame_grid.setSpacing(1)
 
         self.combo_box = ComboBox(self, tip_msg="???")
+        self.combo_box.setFixedWidth(max_width)
+        #self.combo_box.size
 
         self.browse_btn = PushButton("...", tip_msg="browse for file")
         self.open_btn = PushButton("open", tip_msg="open file in editor")
@@ -263,13 +297,14 @@ class BinFilePanel(QtGui.QGroupBox):
 
     def get_current_file(self):
         bin_path = str(self.combo_box.currentText())
-        if os.path.exists(bin_path):
-            self.combo_box.moveOnTop(bin_path)
-            return bin_path
-        else:
-            message_box("no such file: {}\n".format(bin_path))
-            self.combo_box.setEditText(self.combo_box.itemText(0))
-            self.combo_box.removeByStr(bin_path)
+        if bin_path:
+            if os.path.exists(bin_path):
+                self.combo_box.moveOnTop(bin_path)
+                return bin_path
+            else:
+                message_box("no such file: {}\n".format(bin_path))
+                self.combo_box.setEditText(self.combo_box.itemText(0))
+                self.combo_box.removeByStr(bin_path)
 
     def browse_for_file(self):
         start_dir = self.last_browse_location

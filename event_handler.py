@@ -4,13 +4,16 @@ contact: ravmiecznk@gmail.com
 """
 
 #from call_tracker import method_call_track
-from setup_emubt import warn, info, error, debug
+#from setup_emubt import warn, info, error, debug
+from loggers import create_logger
 import setup_emubt
 
 DBG = False
 
 logger_name = "event_handler"
-evh_logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.EMU_BT_PATH, log_to_file=True)
+evh_logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.EMU_BT_PATH)
+error = evh_logger.error
+debug = evh_logger.debug
 
 class EventHandler(object):
 
@@ -34,7 +37,7 @@ class EventHandler(object):
 
 
 logger_name = "signal_calls"
-signal_logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.EMU_BT_PATH, log_to_file=True)
+signal_logger = setup_emubt.create_logger(logger_name, log_path=setup_emubt.EMU_BT_PATH)
 
 def general_signal_factory(slot):
     """
@@ -43,14 +46,13 @@ def general_signal_factory(slot):
     :param slot:
     :return:
     """
-    def wrapper():
+    def wrapper(*args):
         try:
             dbg_msg = "emit signal: name:{} id:{}".format(slot.__name__, slot)
-            #debug(dbg_msg)
             signal_logger.debug(dbg_msg)
-            return general_signal_factory.signal.emit(slot)
-        except AttributeError:
-            raise Exception("{factory}: missing signal attribute. Set it up with {factory}.signal=some_signal".format(factory=general_signal_factory.__name__))
+            return general_signal_factory.signal.emit(slot, (), {})
+        except AttributeError as e:
+            raise Exception("{factory}: missing signal attribute. Set it up with {factory}.signal={slot}".format(factory=general_signal_factory.__name__, slot=slot))
     wrapper.__name__ = slot.__name__
     wrapper.emit = wrapper.__call__
     return wrapper

@@ -17,8 +17,10 @@ class BinSenderFileNotPresent(Exception):
 class BinSenderInvalidBinSize(Exception):
     pass
 
+
 class BinSenderIOPacketSize(Exception):
     pass
+
 
 class PacketReceptionTimeout(Exception):
     pass
@@ -101,7 +103,7 @@ class BinFilePacketGenerator(BinFilePacketGeneratorAbstract, file):
             raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
 
 
-class BinFilePacketGenerator_BytesIO(BinFilePacketGeneratorAbstract, BytesIO):
+class BinFilePacketGeneratorBytesIO(BinFilePacketGeneratorAbstract, BytesIO):
     """
     This is in memory container
     May be used to store nacked packets due to this each written packet size must be checked
@@ -116,7 +118,6 @@ class BinFilePacketGenerator_BytesIO(BinFilePacketGeneratorAbstract, BytesIO):
         if len(bytes) != self.packet_size:
             raise BinSenderIOPacketSize
         self.write(bytes)
-
 
 
 class BinReceiver(bytearray):
@@ -189,7 +190,7 @@ class BinReceiver(bytearray):
 
 if __name__ == "__main__":
     bs = BinFilePacketGenerator(r'/home/rafal/EMU_BTR_FILES/DOWNLOADED/reveived_bank2.bin')
-    bsio = BinFilePacketGenerator_BytesIO(bs[12] + bs[15])
+    bsio = BinFilePacketGeneratorBytesIO(bs[12] + bs[15])
     for i in bsio:
-        print BinFilePacketGenerator_BytesIO(i)
+        print BinFilePacketGeneratorBytesIO(i)
         print 20 * '-'

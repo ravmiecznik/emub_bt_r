@@ -15,7 +15,7 @@ def local_print(msg):
 def intel_hex_parser(hex_string_lines, info=local_print):
     """
     :param hex_string_lines: list of text lines of intel hex format
-    :return: binary file
+    :return: segmented binary file as dict, each segment key corresponds to target address
      INTEL HEX:
      :10010000214601360121470136007EFE09D2190140
         :               10              0100                    00             214601360121470136007EFE09D21901      40
@@ -77,10 +77,6 @@ def intel_hex_parser(hex_string_lines, info=local_print):
             hex_str_list = split_by_n(hex_data, 2)
             hexstr_list_as_int = hexstr_to_int_list(hex_str_list)
             raw_bin_line = ''.join(int_to_chr_list(hexstr_list_as_int))
-            # print "0x{:08x}: ".format(address),
-            # for c in raw_bin_line:
-            #     print "{:02X} ".format(ord(c)),
-            # print
             binary_segments[current_bin_segment] += raw_bin_line
         line_num += 1
     info("parsing done")

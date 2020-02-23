@@ -62,6 +62,9 @@ class Console(QtGui.QGroupBox):
         self.help_button.clicked.connect(self.event_handler.send_help_cmd_slot)
         self.reset_button.clicked.connect(self.event_handler.send_resetemu_slot)
 
+    def clear(self):
+        self.console_text_browser.clear()
+
     def scroll_pressed_slot(self):
         cmd = self.command_line.text()
         if cmd:

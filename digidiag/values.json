@@ -1,0 +1,9 @@
+{
+    "rafal": {
+        "units": "1", 
+        "frame_id": "0x01", 
+        "formula": "1", 
+        "bytes_size": "0x01", 
+        "offset": "1"
+    }
+}

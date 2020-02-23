@@ -4,17 +4,35 @@ contact: ravmiecznk@gmail.com
 """
 
 from PyQt4 import QtCore, QtGui
+from PyQt4 import Qt
+from PyQt4.QtCore import pyqtSignal
 from event_handler import to_signal
+import textwrap
 
-BACKGROUND = "background-color: rgb({},{},{})"
-GREEN_STYLE_SHEET = BACKGROUND.format(154,252,41)
-GREY_STYLE_SHEET = BACKGROUND.format(48,53,58)
+
+TOOL_TIP_STYLE_SHEET = """
+        QToolTip {
+         background-color: rgba(140, 208, 211, 150);
+        }
+        """
+
+BACKGROUND = "background-color: rgb({r},{g},{b})"
+GREEN_STYLE_SHEET = BACKGROUND.format(r=154, g=252, b=41)
+GREEN_BACKGROUND_PUSHBUTTON = "QPushButton {}".format("{" + GREEN_STYLE_SHEET + ";}") + TOOL_TIP_STYLE_SHEET
+print GREEN_BACKGROUND_PUSHBUTTON
+
+GREY_STYLE_SHEET = BACKGROUND.format(r=48, g=53, b=58)
+
 
 class HelpTip():
+    enable_tool_tip = True
     help_tip_slot = None
-    def __init__(self, help_msg=None):
+    def __init__(self, help_msg=''):
         self.help_msg = help_msg
         self.tip_displayed = False
+        if HelpTip.enable_tool_tip:
+            _tip_msg = textwrap.fill(help_msg, 40)
+            self.setToolTip(_tip_msg)
 
     @staticmethod
     def set_static_help_tip_slot_signal(signal):
@@ -25,6 +43,7 @@ class HelpTip():
         self.help_tip_slot.emit(tip_msg)
         self.tip_displayed = True
         self.timer.stop()
+
 
     def enterEvent(self, QEvent):
         if self.help_msg:
@@ -46,11 +65,15 @@ class HelpTip():
         if self.help_msg and self.tip_displayed:
             self.help_tip_slot.emit('')
 
+
 class PushButton(QtGui.QPushButton, HelpTip):
+    clicked_s = pyqtSignal(object)
+
     def __init__(self, *args, **kwargs):
-        tip_msg = kwargs.pop('tip_msg')
+        tip_msg = kwargs.pop('tip_msg', '')
         QtGui.QPushButton.__init__(self, *args, **kwargs)
         HelpTip.__init__(self, tip_msg)
+        self.setStyleSheet(self.styleSheet().append(TOOL_TIP_STYLE_SHEET))
         self._default_style_sheet = self.styleSheet()
         self.set_default_style_sheet()
         self._active_style = False
@@ -59,7 +82,7 @@ class PushButton(QtGui.QPushButton, HelpTip):
         self.setStyleSheet(self._default_style_sheet)
 
     def set_green_style_sheet(self):
-        self.setStyleSheet(GREEN_STYLE_SHEET)
+        self.setStyleSheet(GREEN_BACKGROUND_PUSHBUTTON)
         self.clearFocus()
 
     def blink(self):
@@ -68,6 +91,23 @@ class PushButton(QtGui.QPushButton, HelpTip):
         else:
             self.set_green_style_sheet()
         self._active_style ^= True
+
+    def mousePressEvent(self, event):
+        """
+        Emits clicked_s signal with self argument to identify buttons itentity.
+        Left click will emit clicked_custom signal.
+        It may by used to identify which button was clicked by its 'self' id.
+        Example uaseg: emit clicked_signal for button which is widget in QTable widget,
+        the slot will check at which cell the button resides at given moment, rows and cols number may change,
+        this is why it is solved like that.
+        To check at which position the button is use for loop over rows and cells and check 'if button == self'
+        :param event:
+        :return:
+        """
+        QtGui.QPushButton.mousePressEvent(self, event)
+        if event.button() == Qt.Qt.LeftButton:
+            self.clicked_s.emit(self)
+
 
 
 class SmallPushButton(PushButton):

@@ -4,7 +4,7 @@ contact: ravmiecznk@gmail.com
 """
 from PyQt4 import QtGui
 import sys, time
-from gui_thread import SimpleGuiThread
+from gui_thread import GuiThread
 import unittest
 from threading import Thread
 
@@ -46,14 +46,14 @@ class TestMainThread(unittest.TestCase):
                 del self.mainw.__dict__[k]
                 break
 
-        while SimpleGuiThread.threads:
-            SimpleGuiThread.threads[0].kill()
+        while GuiThread.threads:
+            GuiThread.threads[0].kill()
             break
 
     def test_create_single_thread(self):
         def modify_test_var_thread():
             self.mainw.test_var = 99
-        thread = SimpleGuiThread(process=modify_test_var_thread)
+        thread = GuiThread(process=modify_test_var_thread)
         self.mainw.fetch_thread(thread)
         self.mainw.start_thread()
         self.assertEquals(self.mainw.test_var, 99)
@@ -65,12 +65,12 @@ class TestMainThread(unittest.TestCase):
             self.mainw.test_var = val
 
         for i in range(3):
-            thread = SimpleGuiThread(process=modify_test_var_thread, args=(i,))
+            thread = GuiThread(process=modify_test_var_thread, args=(i,))
             self.mainw.fetch_thread(thread)
             self.mainw.start_thread()
             self.assertEquals(thread.t_id, i)
             self.assertEquals(self.mainw.test_var, i)
-        self.assertEquals(SimpleGuiThread.num_of_threads(), 3)
+        self.assertEquals(GuiThread.num_of_threads(), 3)
 
 
     def test_create_periodic_thread(self):
@@ -80,7 +80,7 @@ class TestMainThread(unittest.TestCase):
             except AttributeError:
                 self.mainw.test_var = 0
 
-        periodic_thread = SimpleGuiThread(process=modify_test_var_thread, period=0.5)
+        periodic_thread = GuiThread(process=modify_test_var_thread, period=0.5)
         self.mainw.fetch_thread(periodic_thread).start()
         time.sleep(2)
         periodic_thread.kill()
@@ -96,7 +96,7 @@ class TestMainThread(unittest.TestCase):
         period = 0.5
         delay = 0.3
         sleep = 2
-        periodic_thread = SimpleGuiThread(process=modify_test_var_thread, period=period, delay=delay)
+        periodic_thread = GuiThread(process=modify_test_var_thread, period=period, delay=delay)
         self.mainw.fetch_thread(periodic_thread).start()
         time.sleep(sleep)
         periodic_thread.kill()
@@ -112,7 +112,7 @@ class TestMainThread(unittest.TestCase):
 
         period = 0.5
         suspend_time_units = 3
-        periodic_thread = SimpleGuiThread(process=modify_test_var_thread, period=period)
+        periodic_thread = GuiThread(process=modify_test_var_thread, period=period)
         self.mainw.fetch_thread(periodic_thread).start()
         t0 = time.time()
         time.sleep(period * 2)
@@ -136,15 +136,15 @@ class TestMainThread(unittest.TestCase):
         period = 0.2
         num_of_threads = 3
         for i in range(num_of_threads):
-            thread = SimpleGuiThread(process=modify_test_var_thread, period=period)
+            thread = GuiThread(process=modify_test_var_thread, period=period)
             self.mainw.fetch_thread(thread)
             thread.start()
         time.sleep(1)
-        SimpleGuiThread.suspend_all_threads()
+        GuiThread.suspend_all_threads()
         time.sleep(1)
-        SimpleGuiThread.kill_all_threads()
+        GuiThread.kill_all_threads()
         self.assertEquals(self.mainw.test_var, 14)
-        self.assertEquals(SimpleGuiThread.num_of_threads(), 0)
+        self.assertEquals(GuiThread.num_of_threads(), 0)
 
     def test_resume_all_threads(self):
         def modify_test_var_thread():
@@ -156,17 +156,17 @@ class TestMainThread(unittest.TestCase):
         period = 0.2
         num_of_threads = 3
         for i in range(num_of_threads):
-            thread = SimpleGuiThread(process=modify_test_var_thread, period=period)
+            thread = GuiThread(process=modify_test_var_thread, period=period)
             self.mainw.fetch_thread(thread)
             thread.start()
         time.sleep(1)
-        SimpleGuiThread.suspend_all_threads()
+        GuiThread.suspend_all_threads()
         time.sleep(1)
-        SimpleGuiThread.resume_all_threads()
+        GuiThread.resume_all_threads()
         time.sleep(period * 2)
-        SimpleGuiThread.kill_all_threads()
+        GuiThread.kill_all_threads()
         self.assertTrue(self.mainw.test_var > 14)
-        self.assertEquals(SimpleGuiThread.num_of_threads(), 0)
+        self.assertEquals(GuiThread.num_of_threads(), 0)
 
     @classmethod
     def tearDownClass(cls):
