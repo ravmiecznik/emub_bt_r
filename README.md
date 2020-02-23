@@ -7,6 +7,7 @@ https://www.youtube.com/watch?v=0i5L0DQhbt8
 https://www.youtube.com/watch?v=bxWkzQrnqo4
 
 https://github.com/ravmiecznik/atm128_bootloader_v3
+```
     23.02.2020: Test suite at system level added. Test of: upload, download, digidiag transmission.
                 TODO Test Suite:
                     Create an html report for test execution
@@ -87,3 +88,4 @@ First working version features:
     Fixed:
     -occassional crashes on read bank name procedures, read/send binary data
     -all additional windows are displayed on top of main window
+```
