@@ -7,8 +7,16 @@ https://www.youtube.com/watch?v=0i5L0DQhbt8
 https://www.youtube.com/watch?v=bxWkzQrnqo4
 
 https://github.com/ravmiecznik/atm128_bootloader_v3
-
-    17.02.202:  New bootloader3/reflasher: https://github.com/ravmiecznik/atm128_bootloader_v3
+    23.02.2020: Test suite at system level added. Test of: upload, download, digidiag transmission.
+                TODO Test Suite:
+                    Create an html report for test execution
+                    Collect and archive test artifacts after test execution
+                    Define different test suites with different level of detail
+                    Add Live emulation test
+                TODO EMUBT:
+                    Add an option to override default digiframes configuration
+                    Still working on Huffman compression (new version should be created)
+    17.02.2020: New bootloader3/reflasher: https://github.com/ravmiecznik/atm128_bootloader_v3
     23.11.2019: EXE file is created according to operating system name.
 				Support for WIN7
 				Application estimates average response time from BT to set optimal maximum timeouts
