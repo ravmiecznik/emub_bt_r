@@ -14,3 +14,4 @@ test_suite/.cache/
 emu_bt.stp
 DBG/
 DOWNLOADED/
+.cache/
