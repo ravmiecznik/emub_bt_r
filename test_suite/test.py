@@ -155,19 +155,20 @@ class TestQApplication(unittest.TestCase):
                     addr += 1
         assert are_identical, "Downloaded file is not the same as transmitted one: {} != {}".format(new_file, downloaded_file_path)
 
-    def test_digdiag_transmission(self):
+    def __test_digdiag_transmission(self, source_file):
         """
-        Test if digidiag transmission was applied to a file which has no digidiag implemented
+        Template test for different Digifant files
         :return:
         """
         digidag = self.main_window.digiag_widget
-        digidiag_capable_file = os.path.join(RESOURCE, '8VG60.bin')
+        digidiag_capable_file = os.path.join(RESOURCE, source_file)
         self.main_window.bank1set_slot()
         self.main_window.is_bank1_set()
         self.main_window.send_file_for_emulation(digidiag_capable_file)
         self.main_window.bank1set_slot()
         self.main_window.is_bank1_set()
 
+        digidag.reset_frames_buffer()   #cleans received frames
         digidag.reset_frames_count()
         time.sleep(5)   #collect data from digidiag
 
@@ -190,6 +191,12 @@ class TestQApplication(unittest.TestCase):
         rpm_l = ord(digidag.frames[0xfb][7])
         rpm = (rpm_h << 8) + rpm_l
         assert rpm == 17664, "Wrong RPM value: {}".format(rpm)
+
+    def test_digdiag_transmission_8vG60(self):
+        self.__test_digdiag_transmission('8VG60.bin')
+
+    def test_digdiag_transmission_16vG60(self):
+        self.__test_digdiag_transmission('16VG60.bin')
 
     def test_live_emulation(self):
         """
@@ -215,12 +222,13 @@ if __name__ == "__main__":
     TestQApplication.main_window = main_window
 
     suite = unittest.TestSuite()
-    #define suite here
-    for t in [
-        TestQApplication.test_digdiag_transmission,
+    #Select test for test suite here
+    for test_case in [
+        TestQApplication.test_digdiag_transmission_8vG60,
+        TestQApplication.test_digdiag_transmission_16vG60,
         TestQApplication.test_upload_bank,
     ]:
-        suite.addTest(TestQApplication(t.__name__))
+        suite.addTest(TestQApplication(test_case.__name__))
     runner = unittest.TextTestRunner(verbosity=2)
     def run_suite():
         runner.run(suite)

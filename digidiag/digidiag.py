@@ -109,6 +109,9 @@ class DigiDiag(QtGui.QWidget):
     def reset_frames_count(self):
         self.__frames_count = 0
 
+    def reset_frames_buffer(self):
+        self.frames = dict()
+
     def feed_with_data(self, frame):
         self.__frames_count += 1
         self.frames[ord(frame[1])] = frame  #key by frame id
