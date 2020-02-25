@@ -100,6 +100,8 @@ class TestQApplication(unittest.TestCase):
 
         cls.main_window.connect_button.clicked.emit(1)
         cls.main_window.is_connected()
+        cls.main_window.wipe_banks()
+        cls.main_window.are_banks_wiped()
 
     @classmethod
     def tearDownClass(cls):
@@ -221,23 +223,24 @@ if __name__ == "__main__":
 
     TestQApplication.main_window = main_window
 
-    suite = unittest.TestSuite()
-    #Select test for test suite here
-    for test_case in [
-        TestQApplication.test_digdiag_transmission_8vG60,
-        TestQApplication.test_digdiag_transmission_16vG60,
-        TestQApplication.test_upload_bank,
-    ]:
-        suite.addTest(TestQApplication(test_case.__name__))
-    runner = unittest.TextTestRunner(verbosity=2)
-    def run_suite():
-        runner.run(suite)
+    test_strategy = "full"  # full or suite
+    if test_strategy == "suite":
+        suite = unittest.TestSuite()
+        # Select test for test suite here
+        for test_case in [
+            TestQApplication.test_digdiag_transmission_8vG60,
+            TestQApplication.test_digdiag_transmission_16vG60,
+            TestQApplication.test_upload_bank,
+        ]:
+            suite.addTest(TestQApplication(test_case.__name__))
+        runner = unittest.TextTestRunner(verbosity=2)
 
-    thread = threading.Thread(target=run_suite)
-
-    # thread = threading.Thread(target=unittest.main,
-    #                           kwargs={'verbosity': 2},
-    #                           args=['TestQApplication.test_digdiag_transmission'])
+        def run_suite():
+            runner.run(suite)
+        thread = threading.Thread(target=run_suite)
+    elif test_strategy == "full":
+        thread = threading.Thread(target=unittest.main,
+                                  kwargs={'verbosity': 2})
     thread.start()
 
     #testRunner = HtmlTestRunner.HTMLTestRunner(output='html_report', report_name="EMUBT_test", add_timestamp=False)
