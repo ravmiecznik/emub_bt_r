@@ -41,7 +41,10 @@ from message_box import message_box
 from plotter import Plotter
 from bin_tracker import BinTracker
 from auxiliary_module import MeanCalculator
-import queue
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 import sys, os, subprocess
 import configparser
 import time, struct
