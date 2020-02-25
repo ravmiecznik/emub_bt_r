@@ -114,7 +114,8 @@ class DigiDiag(QtGui.QWidget):
 
     def feed_with_data(self, frame):
         self.__frames_count += 1
-        self.frames[ord(frame[1])] = frame  #key by frame id
+        preamb_size = 2
+        self.frames[ord(frame[1])] = frame[preamb_size:]  #key by frame id
 
     def refresh(self):
         o = ''
