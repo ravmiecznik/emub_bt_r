@@ -632,6 +632,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             #TestEMUBT().run()
         elif cmd == 'wipebanks':
             self.message_sender.send(MessageSender.ID.wipe_banks)
+        elif cmd == 'boots':
+            self.message_sender.send(MessageSender.ID.bootloader_safe)
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -702,6 +704,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         :return:
         """
         self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
+        #self.send_message(MessageSender.ID.bootloader_safe, timeout=2, re_tx=0)
 
     def console_msg_factory(self, msg):
         def wrapper(*args):

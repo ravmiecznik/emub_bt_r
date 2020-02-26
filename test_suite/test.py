@@ -184,21 +184,33 @@ class TestQApplication(unittest.TestCase):
             "For 1 Map file there should be 10 different frames received, got: {}".format(num_of_frames_id)
 
         #test first frame
-        manifold_pressure = ord(digidag.frames[0xff][2])
-        assert manifold_pressure>0x75 and manifold_pressure<0x82, \
+        manifold_pressure = ord(digidag.frames[0xff][1])
+        assert manifold_pressure>=0x65 and manifold_pressure<=0x75, \
             "Manifold pressure out of expected range: 0x{:02X}".format(manifold_pressure)
 
         #test last frame
-        rpm_h = ord(digidag.frames[0xfb][6])
-        rpm_l = ord(digidag.frames[0xfb][7])
+        rpm_h = ord(digidag.frames[0xFB][7])
+        rpm_l = ord(digidag.frames[0xFB][6])
         rpm = (rpm_h << 8) + rpm_l
-        assert rpm == 17664, "Wrong RPM value: {}".format(rpm)
+        assert rpm == 0x5300, "Wrong RPM value: {}".format(rpm)
+
+        #test of retard, gain, knoc
+        ignition_frame = [0x00, 0x00, 0x11, 0x18, 0x00, 0x00, 0x11, 0x18]
+        frame_FE = [ord(i) for i in digidag.frames[0xFE]]
+        frame_FD = [ord(i) for i in digidag.frames[0xFD]]
+        assert frame_FE == ignition_frame, "{} != {}".format(frame_FE, ignition_frame)
+        assert frame_FD == ignition_frame, "{} != {}".format(frame_FE, ignition_frame)
 
     def test_digdiag_transmission_8vG60(self):
         self.__test_digdiag_transmission('8VG60.bin')
 
     def test_digdiag_transmission_16vG60(self):
         self.__test_digdiag_transmission('16VG60.bin')
+
+    #this test may not pass- 3MAP updates RAM after engine start ? to check
+    #how to test it ? Maybe compare downloaded and tweaked with digigiag sram with expected bin ?
+    # def test_digdiag_transmission_3MAP(self):
+    #     self.__test_digdiag_transmission('3MAP.bin')
 
     def test_live_emulation(self):
         """
@@ -230,7 +242,7 @@ if __name__ == "__main__":
         for test_case in [
             TestQApplication.test_digdiag_transmission_8vG60,
             TestQApplication.test_digdiag_transmission_16vG60,
-            TestQApplication.test_upload_bank,
+            #TestQApplication.test_upload_bank,
         ]:
             suite.addTest(TestQApplication(test_case.__name__))
         runner = unittest.TextTestRunner(verbosity=2)
