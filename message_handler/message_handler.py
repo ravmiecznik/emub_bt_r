@@ -114,6 +114,7 @@ class MessageSender:
         digidag_enable  = 22
         digidag_disable = 23
         wipe_banks      = 24
+        bootloader_safe = 25
         run_main_app_btl= 254
 
         @classmethod
