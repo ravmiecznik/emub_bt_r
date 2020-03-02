@@ -14,6 +14,7 @@ from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QLabel, QLCDNumber, QHeaderView
 from PyQt4.QtCore import QEvent, pyqtSignal
 from PyQt4 import Qt
+from copy import deepcopy
 
 def insert_to_string(string, substring, index=0):
     l = len(substring)
@@ -57,6 +58,10 @@ class BankInfo(object):
             self.bank_name = "NOT AVAILABLE"
         else:
             self.raw_content = bank_info_raw
+
+    @classmethod
+    def from_instance(cls, instance):
+        return cls(instance.raw_content)
 
     # -------------------------------------------------------------------------------------------------------------------
     @property
@@ -173,24 +178,98 @@ class BankInfo(object):
         )
 
 
+RED_COLOR = QtGui.QColor(180, 48, 45)
+BLUE_COLOR = QtGui.QColor(213, 230, 237)
+GREY_COLOR = QtGui.QColor(235, 236, 237)
+
+CUSTOM_CELL_TOOL_TIP_TEMPLATE = "Frame id: {:02X}\n" \
+                                "Value index: {:02X}\n" \
+                                "Value: 0x{}\n" \
+                                "TWO DIGIT HEX VALUE ONLY !"
+
+class FramesEditorCustomCell(QtGui.QTableWidgetItem):
+    def __init__(self, frame_id, index_id):
+        QtGui.QTableWidgetItem.__init__(self)
+        self.frame_id = frame_id
+        self.index_id = index_id
+        self.valid = False
+        self.setToolTip(self.__repr__())
+
+    def validate(self):
+        text = str(self.text())
+        text = text.replace('0x', '')
+        try:
+            v = int(text, 16)
+            if v > 0xff:
+                raise ValueError("Value exceeds 0xFF")
+            if v < 0:
+                raise ValueError("Can't be negative number")
+            self.valid = True
+            self.setText("{:02X}".format(v)[-2:])
+            self.setBackground(BLUE_COLOR)
+            self.setToolTip(self.__repr__())
+        except ValueError as e:
+            self.setBackground(RED_COLOR)
+            self.valid = False
+            self.setToolTip(e.message)
+
+    def get(self):
+        return int(str(self.text()), 16)
+
+    def __repr__(self):
+        return CUSTOM_CELL_TOOL_TIP_TEMPLATE.format(self.frame_id, self.index_id, self.text())
+
 class CustomFramesEditor(QtGui.QTableWidget):
-    #TODO: validate each cell on enter press if this is hexadicimal < 0xff
-    #TODO: On apply button create BankInfo reversed message and send
     """
-    Main Values Table.
-    Stores values decode info.
+    An editable table to customize digifant diagnostic frames.
     """
     remove_value_signal = pyqtSignal(object)
     values_updated_signal = pyqtSignal()
-    def __init__(self, *args, **kwargs):
-        QtGui.QTableWidget.__init__(self, *args, **kwargs)
-        self.horizonatal_header_labels = [" {:02X}".format(i) for i in range(8)]
-        self.vertical_labels = ["{:02X}".format(0xff-i) for i in range(6)]
-        self.setColumnCount(len(self.horizonatal_header_labels))
-        self.setRowCount(len(self.vertical_labels))
-        self.setHorizontalHeaderLabels(self.horizonatal_header_labels)
-        self.setVerticalHeaderLabels(self.vertical_labels)
+    def __init__(self, init_frames):
+        """
+
+        :param init_frames: raw string frames
+        """
+        self.__cols_num = 8
+        self.__rows_num = 5
+
+        QtGui.QTableWidget.__init__(self)
+        self.frames = [ord(i) for i in init_frames]
+        print self.frames
+        self.setColumnCount(self.__cols_num)
+        self.setRowCount(self.__rows_num)
+        self.__set_horizontal_heaer_items()
+        self.__set_vertical_heaer_items()
         self.resizeColumnsToContents()
+
+        cnt = 0
+        for r in range(self.rowCount()):
+            for c in range(self.columnCount()):
+                cell = FramesEditorCustomCell(0xff-r, c)
+                cell.setText(hex(self.frames[cnt]))
+                cell.validate()
+                cnt += 1
+                self.setItem(r, c, cell)
+
+        self.cellChanged.connect(self.cellChanged_slot)
+
+    def __set_horizontal_heaer_items(self):
+        for i in range(self.__cols_num):
+            header_item = QtGui.QTableWidgetItem(" {:02X}".format(i))
+            header_item.setToolTip("Custom value index {:02X}".format(i))
+            self.setHorizontalHeaderItem(i, header_item)
+
+    def __set_vertical_heaer_items(self):
+        for i in range(self.__rows_num):
+            row_item = QtGui.QTableWidgetItem(" {:02X}".format(0xff-i))
+            row_item.setToolTip("Frame id {:02X}".format(0xff-i))
+            self.setVerticalHeaderItem(i, row_item)
+
+    def cellChanged_slot(self, p_int, p_int_1):
+        self.cellChanged.disconnect()
+        cell = self.item(p_int, p_int_1)
+        cell.validate()
+        self.cellChanged.connect(self.cellChanged_slot)
 
     def keyPressEvent(self, QKeyEvent):
         """
@@ -204,14 +283,25 @@ class CustomFramesEditor(QtGui.QTableWidget):
             if self.currentColumn() == 0:
                 self.setCurrentCell((self.currentRow() + 1) % self.rowCount(), self.currentColumn())
 
+    def get(self):
+        raw_frames = ''
+        cnt = 0
+        for r in range(self.rowCount()):
+            for c in range(self.columnCount()):
+                cnt += 1
+                raw_frames += chr(self.item(r, c).get())
+        return raw_frames
+
 
 class BankPropertyEditor(QtGui.QWidget):
-    def __init__(self, name, parent=None):
+    def __init__(self, bank_info, parent=None):
         """
 
         :param name: bank name
         """
         QtGui.QWidget.__init__(self)
+        self.bank_info = BankInfo.from_instance(bank_info)
+        name = self.bank_info.bank_name
         self.setWindowTitle("Customize: {}".format(name))
         self.x_siz, self.y_siz = 400, 500
         self.resize(self.x_siz, self.y_siz)
@@ -224,17 +314,27 @@ class BankPropertyEditor(QtGui.QWidget):
 
         self.enable_digidiag_check_box = CheckBox("enable digidiag",
                                                   tip_msg="Enable Digifant diagnostic feedback for bank \"{}\"".format(name))
-        self.override_digidiag_frames = CheckBox("override frames",
-                                                  tip_msg="If selected it will override default digidiag frames with\n"
+        if self.bank_info.enable_digidiag:
+            self.enable_digidiag_check_box.setChecked(True)
+
+        self.override_digidiag_frames_check_box = CheckBox("override frames",
+                                                           tip_msg="If selected it will override default digidiag frames with\n"
                                                           "values in Custom Digi Frames")
+
+        if self.bank_info.override_digidiag:
+            self.override_digidiag_frames_check_box.setChecked(True)
 
         self.custom_frames_label = QLabel("\nCustom Digi Frames")
         self.custom_frames_label.setStyleSheet("font: 10pt Courier New; font-weight: bold")
 
-        self.custom_frames_table = CustomFramesEditor()
+        self.custom_frames_table = CustomFramesEditor(self.bank_info.frames_vector)
 
         self.apply_button = PushButton("Apply", tip_msg="Apply changes")
         self.cancel_button = PushButton("Cancel", tip_msg="close without applying changes")
+
+        self.info_box = QLabel(" ")
+
+        self.apply_button.clicked.connect(self.apply_button_slot)
 
         #GRID
         mainGrid = QtGui.QGridLayout()
@@ -242,11 +342,12 @@ class BankPropertyEditor(QtGui.QWidget):
         mainGrid.addWidget(self.info_label, 0, 0, 2, 3)
         mainGrid.addWidget(self.label, 2, 0, 1, 3)
         mainGrid.addWidget(self.enable_digidiag_check_box, 3, 0)
-        mainGrid.addWidget(self.override_digidiag_frames, 3, 1)
+        mainGrid.addWidget(self.override_digidiag_frames_check_box, 3, 1)
         mainGrid.addWidget(self.custom_frames_label, 4, 0, 1, 3)
         mainGrid.addWidget(self.custom_frames_table, 5, 0, 1, 3)
         mainGrid.addWidget(self.cancel_button, 6, 0)
         mainGrid.addWidget(self.apply_button, 6, 1)
+        mainGrid.addWidget(self.info_box, 7, 0, 2, 3)
         self.setLayout(mainGrid)
 
         #place window next to parent
@@ -258,6 +359,18 @@ class BankPropertyEditor(QtGui.QWidget):
             self.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.x_siz, self.y_siz)
 
         self.show()
+
+    def apply_button_slot(self):
+        #TODO: emit signal to main window to send updated bank info
+        try:
+            self.bank_info.enable_digidiag = self.enable_digidiag_check_box.isChecked()
+            self.bank_info.override_digidiag = self.override_digidiag_frames_check_box.isChecked()
+            raw_frames = self.custom_frames_table.get()
+            self.bank_info.frames_vector = raw_frames
+            print self.bank_info
+            self.info_box.setText('')
+        except Exception as e:
+            self.info_box.setText(e.message)
 
 
 class BanksHandler():
@@ -271,13 +384,13 @@ class BanksHandler():
         self.banks_info = [BankInfo(), BankInfo(), BankInfo()]
 
     def display_property_editor_b1(self):
-        self.editor = BankPropertyEditor(self.banks_info[0].bank_name, self.parent)
+        self.editor = BankPropertyEditor(self.banks_info[0], self.parent)
 
     def display_property_editor_b2(self):
-        self.editor = BankPropertyEditor(self.banks_info[1].bank_name)
+        self.editor = BankPropertyEditor(self.banks_info[1], self.parent)
 
     def display_property_editor_b3(self):
-        self.editor = BankPropertyEditor(self.banks_info[2].bank_name)
+        self.editor = BankPropertyEditor(self.banks_info[2], self.parent)
 
     def update_bank_info(self, raw_data):
         binfo = decode_banks_info(raw_data)
