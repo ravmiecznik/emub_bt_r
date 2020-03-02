@@ -544,9 +544,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
         # don't update bank name if not changed
         try:
-            if self.__tmp_bank_name != bank_name:
-                self.banks_panel.disable_active_button()
-                self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
+            #if self.__tmp_bank_name != bank_name:
+            self.banks_panel.disable_active_button()
+            self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
         except AttributeError:
             self.banks_panel.disable_active_button()
             self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
@@ -698,7 +698,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         handle_rx_message method will trigger reflasher window if bootloader3 txt repsonse received
         :return:
         """
-        self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
+        self.message = self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
         #self.send_message(MessageSender.ID.bootloader_safe, timeout=2, re_tx=0)
 
     def console_msg_factory(self, msg):
