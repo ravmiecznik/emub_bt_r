@@ -14,13 +14,16 @@ from setup_emubt import debug
 from event_handler import to_signal
 from message_box import message_box
 
-
 def prepare_file_path_for_platform(fpath):
     if platform != 'Linux':
         if fpath[0] == '/':
             fpath = fpath[1:]
         fpath = fpath.replace('/', '\\')
     return fpath
+
+SETTINGS_ICON = 'resources/settings_icon.png'
+if not os.path.isfile(SETTINGS_ICON):
+    raise Exception("Settings Icon missing: {}".format(SETTINGS_ICON))
 
 CONNECT_BTN_HELP = "Connect or Disconnect from EMU_BT"
 REFLASH_BTN_HELP = "Upload new firmware to EMU_BT"
@@ -167,6 +170,7 @@ LCD_WEAR_DISPLAY_TIP        = "Bank wear counter. Will increase if any of 256byt
                               "To refresh just click 'bank' button."
 AUTO_DOWNLOAD_CHECKBOX_TIP  = "Automatic download of selected bank"
 BANK_TIP               = "Select bank. If auto download checkbox marked it will download bank autmatically"
+BANK_SETTINGS_TIP      = "Customize settings for selected bank.\nIt works only for Digifant1 programs"
 
 class BanksPanel(QtGui.QGroupBox):
     def __init__(self, parent, event_handler=DummyEventHandler()):
@@ -178,9 +182,19 @@ class BanksPanel(QtGui.QGroupBox):
         self.bank_name_max_len = 25
 
         self.setTitle("Banks")
-        self.bank1_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
-        self.bank2_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
-        self.bank3_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
+        # self.bank1_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
+        # self.bank2_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
+        # self.bank3_wear_lcd = LcdDisplay(tip_msg=LCD_WEAR_DISPLAY_TIP)
+        settings_icon = QtGui.QIcon(SETTINGS_ICON)
+
+        self.bank1_settings_btn = PushButton(tip_msg=BANK_SETTINGS_TIP)
+        self.bank1_settings_btn.setIcon(settings_icon)
+
+        self.bank2_settings_btn = PushButton(tip_msg=BANK_SETTINGS_TIP)
+        self.bank2_settings_btn.setIcon(settings_icon)
+
+        self.bank3_settings_btn = PushButton(tip_msg=BANK_SETTINGS_TIP)
+        self.bank3_settings_btn.setIcon(settings_icon)
 
         self.auto_download_checkbox = CheckBox("auto download", tip_msg=AUTO_DOWNLOAD_CHECKBOX_TIP)
 
@@ -196,9 +210,9 @@ class BanksPanel(QtGui.QGroupBox):
         frame_grid.addWidget(self.bank1pushButton, 0, 0)
         frame_grid.addWidget(self.bank2pushButton, 1, 0)
         frame_grid.addWidget(self.bank3pushButton, 2, 0)
-        frame_grid.addWidget(self.bank1_wear_lcd, 0, 2)
-        frame_grid.addWidget(self.bank2_wear_lcd, 1, 2)
-        frame_grid.addWidget(self.bank3_wear_lcd, 2, 2)
+        frame_grid.addWidget(self.bank1_settings_btn, 0, 2)
+        frame_grid.addWidget(self.bank2_settings_btn, 1, 2)
+        frame_grid.addWidget(self.bank3_settings_btn, 2, 2)
         frame_grid.addWidget(self.bank_name_line_edit, 3, 0, 1, 3)
         frame_grid.addWidget(self.auto_download_checkbox, 4, 0)
         self.setLayout(frame_grid)
@@ -209,6 +223,15 @@ class BanksPanel(QtGui.QGroupBox):
 
         #self.bank_name_line_edit.editingFinished.connect(self.bank_name_line_edit_slot)
         self.bank_name_line_edit.returnPressed.connect(self.bank_name_line_edit_slot)
+
+    def update_tip_msg_for_bank(self, bank_button_no, msg):
+        """
+        Update tip message for button {1, 2, 3}
+        :param bank_button_no:
+        :param msg:
+        :return:
+        """
+        [self.bank1pushButton, self.bank2pushButton, self.bank3pushButton][bank_button_no].update_tip_msg(msg, wrap=False)
 
     def put_bank_name(self, name):
         self.bank_name_line_edit.setText(name[0:self.bank_name_max_len])

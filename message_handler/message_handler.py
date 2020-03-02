@@ -114,7 +114,10 @@ class MessageSender:
         digidag_enable  = 22
         digidag_disable = 23
         wipe_banks      = 24
-        bootloader_safe = 25
+        bootloader_old  = 25
+        get_banks_info  = 26
+        reset_banks_info = 27
+        update_bank_data = 28
         run_main_app_btl= 254
 
         @classmethod
@@ -191,7 +194,7 @@ class RxMessage(object):
         nak_feedback,
     };
     """
-    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dbg', 'dgframe', 'pin_change_pending')
+    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dbg', 'dgframe', 'pin_change_pending', 'banks_info')
     rx_id = RxId(rx_id_tuple)
 
     class RxId():
@@ -202,6 +205,7 @@ class RxMessage(object):
         dbg                 = 4
         dgframe             = 5
         pin_change_pending  = 6
+        banks_info          = 7
 
     def __init__(self, msg_id, context, crc_check, body, length):
         self.__id = msg_id
@@ -246,6 +250,10 @@ class RxMessage(object):
     @property
     def msg(self):
         return self.__body
+
+    @property
+    def len(self):
+        return self.__len
 
     def __repr__(self):
         return "i{}\n" \
