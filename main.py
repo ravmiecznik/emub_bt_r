@@ -550,14 +550,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             bank_name = str(self.banks_panel.get_bank_name_text())
         bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
         # don't update bank name if not changed
-        #try:
-        #    #if self.__tmp_bank_name != bank_name:
-        self.banks_panel.disable_active_button()
-        self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
-        # except AttributeError:
-        #     self.banks_panel.disable_active_button()
-        #     self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
-        #self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
+        try:
+            if self.__tmp_bank_name != bank_name:
+                self.banks_panel.disable_active_button()
+                self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
+        except AttributeError:
+            self.banks_panel.disable_active_button()
+            self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
+        self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
 
     def bank_name_line_focus_out_event(self):
         self.enable_objects_after_transmission_signal()
