@@ -14,7 +14,9 @@ from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QLabel, QLCDNumber, QHeaderView
 from PyQt4.QtCore import QEvent, pyqtSignal
 from PyQt4 import Qt
-from copy import deepcopy
+from PyQt4.QtCore import pyqtSignal
+from message_handler import MessageSender
+import time
 
 def insert_to_string(string, substring, index=0):
     l = len(substring)
@@ -137,12 +139,14 @@ class BankInfo(object):
         override_digidag = self.override_digidiag
         frames_vector = raw_str_to_hex(self.frames_vector)
         return "raw:                {}\n" \
+               "bank_num:           {}\n" \
                "name:               {}\n" \
                "enable digidiag:    {}\n" \
                "wear:               {}\n" \
                "override_digidiag:  {}\n" \
                "frames_vector:      {}\n".format(
             raw_hex,
+            self.bank_number+1,
             self.bank_name,
             enable_digidiag,
             wear,
@@ -294,12 +298,14 @@ class CustomFramesEditor(QtGui.QTableWidget):
 
 
 class BankPropertyEditor(QtGui.QWidget):
-    def __init__(self, bank_info, parent=None):
+    def __init__(self, bank_info, general_signal, message_sender, parent=None):
         """
 
         :param name: bank name
         """
         QtGui.QWidget.__init__(self)
+        self.message_sender = message_sender
+        self.general_signal = general_signal
         self.bank_info = BankInfo.from_instance(bank_info)
         name = self.bank_info.bank_name
         self.setWindowTitle("Customize: {}".format(name))
@@ -367,16 +373,25 @@ class BankPropertyEditor(QtGui.QWidget):
             self.bank_info.override_digidiag = self.override_digidiag_frames_check_box.isChecked()
             raw_frames = self.custom_frames_table.get()
             self.bank_info.frames_vector = raw_frames
-            print self.bank_info
             self.info_box.setText('')
+            print self.bank_info
+            m_send_thread = self.message_sender(message_id=MessageSender.ID.rxflush, timeout=0.5, re_tx=1)
+            while m_send_thread.isRunning():
+                time.sleep(0.01)
+            self.message_sender(message_id=MessageSender.ID.update_bank_data, body=self.bank_info.raw_content,
+                                timeout=0.5)
+            # self.general_signal.emit(self.message_sender.send, (), dict(m_id=MessageSender.ID.update_bank_data,
+            #                                                        body=self.bank_info.raw_content))
         except Exception as e:
             self.info_box.setText(e.message)
 
 
 class BanksHandler():
     #TODO: move banks related stuff here
-    def __init__(self, parent, event_handler=EventHandler()):
+    def __init__(self, parent, general_signal, message_sender, event_handler):
         self.parent = parent
+        self.message_sender = message_sender
+        self.bank_info_update_signal = general_signal
         self.banks_panel = BanksPanel(parent, event_handler=event_handler)
         self.banks_panel.bank1_settings_btn.clicked.connect(self.display_property_editor_b1)
         self.banks_panel.bank2_settings_btn.clicked.connect(self.display_property_editor_b2)
@@ -384,13 +399,13 @@ class BanksHandler():
         self.banks_info = [BankInfo(), BankInfo(), BankInfo()]
 
     def display_property_editor_b1(self):
-        self.editor = BankPropertyEditor(self.banks_info[0], self.parent)
+        self.editor = BankPropertyEditor(self.banks_info[0], self.bank_info_update_signal, self.message_sender, self.parent)
 
     def display_property_editor_b2(self):
-        self.editor = BankPropertyEditor(self.banks_info[1], self.parent)
+        self.editor = BankPropertyEditor(self.banks_info[1], self.bank_info_update_signal, self.message_sender, self.parent)
 
     def display_property_editor_b3(self):
-        self.editor = BankPropertyEditor(self.banks_info[2], self.parent)
+        self.editor = BankPropertyEditor(self.banks_info[2], self.bank_info_update_signal, self.message_sender, self.parent)
 
     def update_bank_info(self, raw_data):
         binfo = decode_banks_info(raw_data)

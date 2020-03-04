@@ -202,8 +202,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         ConfigSettings.__init__(self)
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
-        self.banks_handler = BanksHandler(self, event_handler=self.event_handler)
-        self.banks_panel = self.banks_handler.banks_panel
+
         #self.banks_panel = BanksPanel(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
@@ -221,8 +220,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
         self.digidiag_window = DigidiagWindow()
 
-        self.connect_signals()
+
         self.setup_emulator()
+
+        self.banks_handler = BanksHandler(self, self.general_signal_args_kwargs, message_sender=self.send_message,
+                                          event_handler=self.event_handler)
+        self.banks_panel = self.banks_handler.banks_panel
+        self.connect_signals()
 
         self.progress_bar = ColorProgressBar(parent=self)
 
@@ -289,6 +293,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             time.sleep(timeout)
         else:
             try:
+                print "return", context, self.rx_message_buffer[context].crc_check
                 return self.rx_message_buffer[context].crc_check
             except KeyError:
                 return None
@@ -376,6 +381,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.tmp.start()
 
     def send_message(self, message_id, body='NULL', timeout=None, re_tx=3):
+
+        #set timeout according to estimated __response_time
         if timeout is None:
             timeout = self.__response_time
 
@@ -543,14 +550,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             bank_name = str(self.banks_panel.get_bank_name_text())
         bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
         # don't update bank name if not changed
-        try:
-            #if self.__tmp_bank_name != bank_name:
-            self.banks_panel.disable_active_button()
-            self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
-        except AttributeError:
-            self.banks_panel.disable_active_button()
-            self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
-        self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
+        #try:
+        #    #if self.__tmp_bank_name != bank_name:
+        self.banks_panel.disable_active_button()
+        self.send_message(MessageSender.ID.set_bank_name, body=bank_name)
+        # except AttributeError:
+        #     self.banks_panel.disable_active_button()
+        #     self.send_message(MessageSender.ID.set_bank_name, body=bank_name, timeout=1.5)
+        #self.__tmp_bank_name = bank_name[0:self.banks_panel.bank_name_max_len]
 
     def bank_name_line_focus_out_event(self):
         self.enable_objects_after_transmission_signal()
@@ -774,7 +781,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.insert_new_file_signal.connect(self.bin_file_panel.insert_new_file)
         self.set_banks_panel_bank_name_signal.connect(self.banks_panel.put_bank_name)
 
-    def general_signal_slot_args_kwargs(self, object, args, kwargs):
+    def general_signal_slot_args_kwargs(self, object, args=(), kwargs={}):
         object(*args, **kwargs)
 
     #TODO: to be replaced by general_signal_slot_args_kwargs

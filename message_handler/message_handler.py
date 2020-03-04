@@ -26,6 +26,7 @@ import time, os, sys
 from setup_emubt import LOG_PATH
 from PyQt4.QtCore import QMutex
 
+#log_format = '[%(pathname)s:%(lineno)s %(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
 log_format = '[%(asctime)s]: %(levelname)s method:"%(funcName)s" %(message)s'
 logger_name = "message_handler"
 m_logger = create_logger(logger_name, log_path=LOG_PATH, format=log_format)
@@ -352,18 +353,13 @@ class MessageReceiver:
                 MessageReceiver.ts = time.time()
                 crc_check = RxMessage.RxId.ack if _crc == crc(msg_body) else RxMessage.RxId.nack
                 rxmsg = RxMessage(msg_id=_id, crc_check=crc_check, length=len(msg_body), context=_context, body=msg_body)
-
                 m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
-                m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
-
-                m_logger.debug("Period: {}".format(time.time() - self.t0))
-                m_logger.debug(MSG_RX_DBG_TEMPLATE.format(rxmsg))
-
                 self.t0 = time.time()
                 if _crc == crc(msg_body):
                     self.__mean_rx_time.count(time.time() - t0)
-                    m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
                     ret_rxmsg = rxmsg
+                m_logger.debug("Mean msg extract time: {}".format(self.__mean_rx_time))
+                m_logger.debug("Period: {}".format(time.time() - self.t0))
 
         return ret_rxmsg
 
