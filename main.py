@@ -49,7 +49,7 @@ import textwrap
 import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 from set_pin_form import SetPinWindow
-from banks_handler import decode_banks_info, BanksHandler
+from banks_handler import BanksHandler
 
 print "PYQT: {}".format(PYQT_VERSION_STR)
 
@@ -293,7 +293,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             time.sleep(timeout)
         else:
             try:
-                print "return", context, self.rx_message_buffer[context].crc_check
                 return self.rx_message_buffer[context].crc_check
             except KeyError:
                 return None

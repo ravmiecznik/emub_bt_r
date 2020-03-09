@@ -185,6 +185,7 @@ class BankInfo(object):
 RED_COLOR = QtGui.QColor(180, 48, 45)
 BLUE_COLOR = QtGui.QColor(213, 230, 237)
 GREY_COLOR = QtGui.QColor(235, 236, 237)
+GREEN_COLOR = QtGui.QColor(33, 215, 137)
 
 CUSTOM_CELL_TOOL_TIP_TEMPLATE = "Frame id: {:02X}\n" \
                                 "Value index: {:02X}\n" \
@@ -202,20 +203,23 @@ class FramesEditorCustomCell(QtGui.QTableWidgetItem):
     def validate(self):
         text = str(self.text())
         text = text.replace('0x', '')
-        try:
-            v = int(text, 16)
-            if v > 0xff:
-                raise ValueError("Value exceeds 0xFF")
-            if v < 0:
-                raise ValueError("Can't be negative number")
-            self.valid = True
-            self.setText("{:02X}".format(v)[-2:])
-            self.setBackground(BLUE_COLOR)
-            self.setToolTip(self.__repr__())
-        except ValueError as e:
-            self.setBackground(RED_COLOR)
-            self.valid = False
-            self.setToolTip(e.message)
+        if text == '?':
+            self.setBackgroundColor(GREEN_COLOR)
+        else:
+            try:
+                v = int(text, 16)
+                if v > 0xff:
+                    raise ValueError("Value exceeds 0xFF")
+                if v < 0:
+                    raise ValueError("Can't be negative number")
+                self.valid = True
+                self.setText("{:02X}".format(v)[-2:])
+                self.setBackground(BLUE_COLOR)
+                self.setToolTip(self.__repr__())
+            except ValueError as e:
+                self.setBackground(RED_COLOR)
+                self.valid = False
+                self.setToolTip(e.message)
 
     def get(self):
         return int(str(self.text()), 16)
@@ -238,14 +242,18 @@ class CustomFramesEditor(QtGui.QTableWidget):
         self.__rows_num = 5
 
         QtGui.QTableWidget.__init__(self)
-        self.frames = [ord(i) for i in init_frames]
-        print self.frames
         self.setColumnCount(self.__cols_num)
         self.setRowCount(self.__rows_num)
         self.__set_horizontal_heaer_items()
         self.__set_vertical_heaer_items()
         self.resizeColumnsToContents()
 
+        self.update_values(init_frames)
+
+        self.cellChanged.connect(self.cellChanged_slot)
+
+    def update_values(self, init_frames):
+        self.frames = [ord(i) for i in init_frames]
         cnt = 0
         for r in range(self.rowCount()):
             for c in range(self.columnCount()):
@@ -255,7 +263,15 @@ class CustomFramesEditor(QtGui.QTableWidget):
                 cnt += 1
                 self.setItem(r, c, cell)
 
-        self.cellChanged.connect(self.cellChanged_slot)
+    def clean_table(self):
+        cnt = 0
+        for r in range(self.rowCount()):
+            for c in range(self.columnCount()):
+                cell = FramesEditorCustomCell(0xff-r, c)
+                cell.setText('?')
+                cell.validate()
+                cnt += 1
+                self.setItem(r, c, cell)
 
     def __set_horizontal_heaer_items(self):
         for i in range(self.__cols_num):
@@ -297,7 +313,7 @@ class CustomFramesEditor(QtGui.QTableWidget):
         return raw_frames
 
 
-class BankPropertyEditor(QtGui.QWidget):
+class BankPropertyEditor(QtGui.QWidget, object):
     def __init__(self, bank_info, general_signal, message_sender, parent=None):
         """
 
@@ -307,6 +323,7 @@ class BankPropertyEditor(QtGui.QWidget):
         self.message_sender = message_sender
         self.general_signal = general_signal
         self.bank_info = BankInfo.from_instance(bank_info)
+        # self.bank_num = self.bank_info.bank_number
         name = self.bank_info.bank_name
         self.setWindowTitle("Customize: {}".format(name))
         self.x_siz, self.y_siz = 400, 500
@@ -320,15 +337,12 @@ class BankPropertyEditor(QtGui.QWidget):
 
         self.enable_digidiag_check_box = CheckBox("enable digidiag",
                                                   tip_msg="Enable Digifant diagnostic feedback for bank \"{}\"".format(name))
-        if self.bank_info.enable_digidiag:
-            self.enable_digidiag_check_box.setChecked(True)
+
 
         self.override_digidiag_frames_check_box = CheckBox("override frames",
                                                            tip_msg="If selected it will override default digidiag frames with\n"
                                                           "values in Custom Digi Frames")
 
-        if self.bank_info.override_digidiag:
-            self.override_digidiag_frames_check_box.setChecked(True)
 
         self.custom_frames_label = QLabel("\nCustom Digi Frames")
         self.custom_frames_label.setStyleSheet("font: 10pt Courier New; font-weight: bold")
@@ -336,11 +350,12 @@ class BankPropertyEditor(QtGui.QWidget):
         self.custom_frames_table = CustomFramesEditor(self.bank_info.frames_vector)
 
         self.apply_button = PushButton("Apply", tip_msg="Apply changes")
-        self.cancel_button = PushButton("Cancel", tip_msg="close without applying changes")
+        self.cancel_button = PushButton("Cancel", tip_msg="Discard changes")
 
         self.info_box = QLabel(" ")
 
         self.apply_button.clicked.connect(self.apply_button_slot)
+        self.cancel_button.clicked.connect(self.display_values)
 
         #GRID
         mainGrid = QtGui.QGridLayout()
@@ -364,24 +379,61 @@ class BankPropertyEditor(QtGui.QWidget):
             x_pos = current_position_and_size.get_position_to_the_right()
             self.setGeometry(x_pos + x_offset, current_position_and_size.pos_y + y_offset, self.x_siz, self.y_siz)
 
-        self.show()
+        #self.show()
+
+    @property
+    def bank_info(self):
+        return self.__bank_info
+
+    @bank_info.setter
+    def bank_info(self, bank_info):
+        print "setting"
+        self.__bank_info = BankInfo.from_instance(bank_info)
+        self.bank_num = self.bank_info.bank_number
+
+
+
+
+    def update(self, bank_info):
+        self.bank_info = BankInfo.from_instance(bank_info)
+        self.display_values()
+        self.label.setText("Bank name:\n{}".format(self.bank_info.bank_name))
+        self.info_box.setText("Values refreshed")
+
+    def display_values(self):
+        if self.bank_info.enable_digidiag:
+            self.enable_digidiag_check_box.setChecked(True)
+        else:
+            self.enable_digidiag_check_box.setChecked(False)
+
+        if self.bank_info.override_digidiag:
+            self.override_digidiag_frames_check_box.setChecked(True)
+        else:
+            self.override_digidiag_frames_check_box.setChecked(False)
+
+        self.custom_frames_table.update_values(self.bank_info.frames_vector)
+
+    def clean_values(self):
+        self.custom_frames_table.clean_table()
+        self.enable_digidiag_check_box.setChecked(False)
+        self.override_digidiag_frames_check_box.setChecked(False)
 
     def apply_button_slot(self):
-        #TODO: emit signal to main window to send updated bank info
         try:
             self.bank_info.enable_digidiag = self.enable_digidiag_check_box.isChecked()
             self.bank_info.override_digidiag = self.override_digidiag_frames_check_box.isChecked()
             raw_frames = self.custom_frames_table.get()
             self.bank_info.frames_vector = raw_frames
             self.info_box.setText('')
-            print self.bank_info
+            self.clean_values()
             m_send_thread = self.message_sender(message_id=MessageSender.ID.rxflush, timeout=0.5, re_tx=1)
+            self.info_box.setText("Updating data...")
             while m_send_thread.isRunning():
                 time.sleep(0.01)
             self.message_sender(message_id=MessageSender.ID.update_bank_data, body=self.bank_info.raw_content,
-                                timeout=0.5)
-            # self.general_signal.emit(self.message_sender.send, (), dict(m_id=MessageSender.ID.update_bank_data,
-            #                                                        body=self.bank_info.raw_content))
+                                timeout=0.5, re_tx=5)
+            self.info_box.setText("Waiting for ack...")
+
         except Exception as e:
             self.info_box.setText(e.message)
 
@@ -393,36 +445,40 @@ class BanksHandler():
         self.message_sender = message_sender
         self.bank_info_update_signal = general_signal
         self.banks_panel = BanksPanel(parent, event_handler=event_handler)
-        self.banks_panel.bank1_settings_btn.clicked.connect(self.display_property_editor_b1)
-        self.banks_panel.bank2_settings_btn.clicked.connect(self.display_property_editor_b2)
-        self.banks_panel.bank3_settings_btn.clicked.connect(self.display_property_editor_b3)
-        self.banks_info = [BankInfo(), BankInfo(), BankInfo()]
+        self.banks_info = 3*[BankInfo]
+        self.editor = BankPropertyEditor(BankInfo(), self.bank_info_update_signal, self.message_sender, self.parent)
+        self.banks_panel.bank1_settings_btn.clicked.connect(self.update_bank_editor_b1)
+        self.banks_panel.bank2_settings_btn.clicked.connect(self.update_bank_editor_b2)
+        self.banks_panel.bank3_settings_btn.clicked.connect(self.update_bank_editor_b3)
 
-    def display_property_editor_b1(self):
-        self.editor = BankPropertyEditor(self.banks_info[0], self.bank_info_update_signal, self.message_sender, self.parent)
 
-    def display_property_editor_b2(self):
-        self.editor = BankPropertyEditor(self.banks_info[1], self.bank_info_update_signal, self.message_sender, self.parent)
+    def update_bank_editor_b1(self):
+        #self.editor.hide()
+        self.editor.update(self.banks_info[0])
+        self.editor.show()
 
-    def display_property_editor_b3(self):
-        self.editor = BankPropertyEditor(self.banks_info[2], self.bank_info_update_signal, self.message_sender, self.parent)
+    def update_bank_editor_b2(self):
+        #self.editor.hide()
+        self.editor.update(self.banks_info[1])
+        self.editor.show()
 
-    def update_bank_info(self, raw_data):
-        binfo = decode_banks_info(raw_data)
-        if binfo:
+    def update_bank_editor_b3(self):
+        #self.editor.hide()
+        self.editor.update(self.banks_info[2])
+        self.editor.show()
+
+    def update_bank_info(self, msg):
+        if msg.len == BankInfo.bank_info_size:
+            raw_data = msg.msg
+            binfo = BankInfo(raw_data)
             bank_num = binfo.bank_number
             self.banks_info[bank_num] = binfo
             self.banks_panel.update_tip_msg_for_bank(bank_num, binfo.get_tip_msg())
-
-
-def decode_banks_info(msg):
-    """
-
-    :param msg:
-    :return:
-    """
-    if msg.len == BankInfo.bank_info_size:
-        return BankInfo(msg.msg)
+            try:
+                if self.editor.bank_num == bank_num and self.editor.isVisible():
+                    self.editor.update(binfo)
+            except AttributeError:
+                pass
 
 
 if __name__ == "__main__":
