@@ -41,7 +41,10 @@ from message_box import message_box
 from plotter import Plotter
 from bin_tracker import BinTracker
 from auxiliary_module import MeanCalculator, WindowGeometry
-import queue
+if platform == "Linux":
+    import queue
+else:
+    import Queue as queue
 import sys, os, subprocess
 import configparser
 import time, struct
@@ -607,6 +610,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif cmd == 'digidiag_on':
             self.digiag_widget.show()
             self.digidiag_window.show()
+        elif cmd == "frames":
+            self.digiag_widget.show()
         elif cmd == 'hsk':
             self.message_sender.send(id=MessageSender.ID.handshake)
         elif cmd == 'd':
@@ -844,8 +849,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if self.emulator.get_connection_status() == True:
             self.set_connected()
             #TODO: temporary
-            self.digiag_widget.show()
-            self.digidiag_window.show()
+            #self.digiag_widget.show()
+            #self.digidiag_window.show()
         else:
             self.set_disconnected()
 
