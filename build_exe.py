@@ -4,7 +4,8 @@ import os, platform, sys
 
 system_name = platform.system() + platform.release()
 
-icon_path = os.path.join('spec', 'icon.ico')
+cwd = os.getcwd()
+icon_path = os.path.join(cwd, 'spec', 'icon.ico')
 
 #console
 # PyInstaller.__main__.run(['--name=emubt', '-F', '-i={}'.format(icon_path),

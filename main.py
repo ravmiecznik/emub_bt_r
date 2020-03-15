@@ -995,24 +995,18 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
 
 def main(dev_version=False):
-    import sys, os
-    _stdout = sys.stdout
-    _stderr = sys.stderr
-    with open(os.path.join(LOG_PATH, 'stdout.txt'), 'w', buffering=16) as stdout, open(os.path.join(LOG_PATH, 'stderr.txt'), 'w', buffering=16) as stderr:
-        if dev_version == False:
-            sys.stderr = stderr
-            sys.stdout = stdout
-        app = QtGui.QApplication(sys.argv)
-        if platform == 'Windows':
-            app.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
-        myapp = MainWindow()
-        myapp.setWindowIcon(QtGui.QIcon('icon.png'))
-        app.setWindowIcon(QtGui.QIcon(('icon.png')))
-        myapp.show()
-        app.exec_()
-        sys.exit()
-        sys.stdout = _stdout
-        sys.stderr = _stderr
+    import sys
+    app = QtGui.QApplication(sys.argv)
+    if platform == 'Windows':
+        app.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
+    myapp = MainWindow()
+    window_icon = os.path.join('spec', 'icon.png')
+    myapp.setWindowIcon(QtGui.QIcon(window_icon))
+    app.setWindowIcon(QtGui.QIcon((window_icon)))
+    myapp.show()
+    app.exec_()
+    sys.exit()
+
 
 if __name__ == "__main__":
     main(dev_version=True)

@@ -326,7 +326,7 @@ class BankPropertyEditor(QtGui.QWidget, object):
         # self.bank_num = self.bank_info.bank_number
         name = self.bank_info.bank_name
         self.setWindowTitle("Customize: {}".format(name))
-        self.x_siz, self.y_siz = 400, 500
+        self.x_siz, self.y_siz = 500, 600
         self.resize(self.x_siz, self.y_siz)
 
         self.info_label = QLabel("\nCustomize settings for selected bank.\nIt works only for Digifant1 programs")

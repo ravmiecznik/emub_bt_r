@@ -25,4 +25,4 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=False , icon='spec\\icon.ico')
+          console=True , icon='C:\\git\\emub_bt_r\\spec\\icon.ico')

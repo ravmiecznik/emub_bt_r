@@ -3,6 +3,7 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 import platform
+import os
 platform = platform.system()
 from PyQt4 import QtCore, QtGui
 from dummy_event_handler import DummyEventHandler
@@ -21,9 +22,10 @@ def prepare_file_path_for_platform(fpath):
         fpath = fpath.replace('/', '\\')
     return fpath
 
-SETTINGS_ICON = 'resources/settings_icon.png'
-if not os.path.isfile(SETTINGS_ICON):
-    raise Exception("Settings Icon missing: {}".format(SETTINGS_ICON))
+cwd = os.getcwd()
+SETTINGS_ICON = os.path.join(cwd, 'spec', 'settings_icon.png')
+# if not os.path.isfile(SETTINGS_ICON):
+#     raise Exception("Settings Icon missing: {}".format(SETTINGS_ICON))
 
 CONNECT_BTN_HELP = "Connect or Disconnect from EMU_BT"
 REFLASH_BTN_HELP = "Upload new firmware to EMU_BT"
