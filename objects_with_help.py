@@ -128,6 +128,8 @@ class CheckBox(QtGui.QCheckBox, HelpTip):
         QtGui.QPushButton.__init__(self, *args, **kwargs)
         HelpTip.__init__(self, tip_msg)
 
+    def update_tip_msg(self, tip_msg):
+        HelpTip.__init__(self, tip_msg)
 
 class ComboBox(QtGui.QComboBox, HelpTip):
     def __init__(self, *args, **kwargs):

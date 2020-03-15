@@ -324,19 +324,19 @@ class BankPropertyEditor(QtGui.QWidget, object):
         self.general_signal = general_signal
         self.bank_info = BankInfo.from_instance(bank_info)
         # self.bank_num = self.bank_info.bank_number
-        name = self.bank_info.bank_name
-        self.setWindowTitle("Customize: {}".format(name))
+        self.name = self.bank_info.bank_name
+        self.setWindowTitle("Customize: {}".format(self.name))
         self.x_siz, self.y_siz = 500, 600
         self.resize(self.x_siz, self.y_siz)
 
         self.info_label = QLabel("\nCustomize settings for selected bank.\nIt works only for Digifant1 programs")
         self.info_label.setStyleSheet("font: Courier New")
 
-        self.label = QLabel("Bank name:\n{}".format(name))
+        self.label = QLabel("Bank name:\n{}".format(self.name))
         self.label.setStyleSheet("font: 20pt Courier New; font-weight: bold")
 
         self.enable_digidiag_check_box = CheckBox("enable digidiag",
-                                                  tip_msg="Enable Digifant diagnostic feedback for bank \"{}\"".format(name))
+                                                  tip_msg="Enable Digifant diagnostic feedback for bank \"{}\"".format(self.name))
 
 
         self.override_digidiag_frames_check_box = CheckBox("override frames",
@@ -391,14 +391,14 @@ class BankPropertyEditor(QtGui.QWidget, object):
         self.__bank_info = BankInfo.from_instance(bank_info)
         self.bank_num = self.bank_info.bank_number
 
-
-
-
     def update(self, bank_info):
         self.bank_info = BankInfo.from_instance(bank_info)
+        self.name = self.bank_info.bank_name
         self.display_values()
         self.label.setText("Bank name:\n{}".format(self.bank_info.bank_name))
         self.info_box.setText("Values refreshed")
+        self.setWindowTitle("Customize: {}".format(self.name))
+        self.enable_digidiag_check_box.update_tip_msg("Enable Digifant diagnostic feedback for bank \"{}\"".format(self.name))
 
     def display_values(self):
         if self.bank_info.enable_digidiag:
