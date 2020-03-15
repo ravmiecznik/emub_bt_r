@@ -1,8 +1,24 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 """
 author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 import logging, time, os, sys
+
+#FORMATTING: https://docs.python.org/3/library/logging.html#logging.Formatter
+# Parameters
+# name – The name of the logger used to log the event represented by this LogRecord. Note that this name will always
+#   have this value, even though it may be emitted by a handler attached to a different (ancestor) logger.#
+# level – The numeric level of the logging event (one of DEBUG, INFO etc.) Note that this is converted to two
+#   attributes of the LogRecord: levelno for the numeric value and levelname for the corresponding level name.
+# pathname – The full pathname of the source file where the logging call was made.
+# lineno – The line number in the source file where the logging call was made.
+# msg – The event description message, possibly a format string with placeholders for variable data.
+# args – Variable data to merge into the msg argument to obtain the event description.
+# exc_info – An exception tuple with the current exception information, or None if no exception information is available.
+# func – The name of the function or method from which the logging call was invoked.
+# sinfo – A text string representing stack information from the base of the stack in the current thread, up to the logging call.
 
 def tstamp():
     ts = time.localtime()

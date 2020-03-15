@@ -41,7 +41,10 @@ from message_box import message_box
 from plotter import Plotter
 from bin_tracker import BinTracker
 from auxiliary_module import MeanCalculator, WindowGeometry
-import queue
+if platform == "Linux":
+    import queue
+else:
+    import Queue as queue
 import sys, os, subprocess
 import configparser
 import time, struct
@@ -49,7 +52,7 @@ import textwrap
 import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 from set_pin_form import SetPinWindow
-from banks_handler import decode_banks_info, BanksHandler
+from banks_handler import BanksHandler
 
 print "PYQT: {}".format(PYQT_VERSION_STR)
 
@@ -202,8 +205,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         ConfigSettings.__init__(self)
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
-        self.banks_handler = BanksHandler(self, event_handler=self.event_handler)
-        self.banks_panel = self.banks_handler.banks_panel
+
         #self.banks_panel = BanksPanel(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
@@ -221,8 +223,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
         self.digidiag_window = DigidiagWindow()
 
-        self.connect_signals()
+
         self.setup_emulator()
+
+        self.banks_handler = BanksHandler(self, self.general_signal_args_kwargs, message_sender=self.send_message,
+                                          event_handler=self.event_handler)
+        self.banks_panel = self.banks_handler.banks_panel
+        self.connect_signals()
 
         self.progress_bar = ColorProgressBar(parent=self)
 
@@ -376,6 +383,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.tmp.start()
 
     def send_message(self, message_id, body='NULL', timeout=None, re_tx=3):
+
+        #set timeout according to estimated __response_time
         if timeout is None:
             timeout = self.__response_time
 
@@ -601,6 +610,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif cmd == 'digidiag_on':
             self.digiag_widget.show()
             self.digidiag_window.show()
+        elif cmd == "frames":
+            self.digiag_widget.show()
         elif cmd == 'hsk':
             self.message_sender.send(id=MessageSender.ID.handshake)
         elif cmd == 'd':
@@ -698,7 +709,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         handle_rx_message method will trigger reflasher window if bootloader3 txt repsonse received
         :return:
         """
-        self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
+        self.message = self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
         #self.send_message(MessageSender.ID.bootloader_safe, timeout=2, re_tx=0)
 
     def console_msg_factory(self, msg):
@@ -774,7 +785,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.insert_new_file_signal.connect(self.bin_file_panel.insert_new_file)
         self.set_banks_panel_bank_name_signal.connect(self.banks_panel.put_bank_name)
 
-    def general_signal_slot_args_kwargs(self, object, args, kwargs):
+    def general_signal_slot_args_kwargs(self, object, args=(), kwargs={}):
         object(*args, **kwargs)
 
     #TODO: to be replaced by general_signal_slot_args_kwargs
@@ -838,8 +849,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         if self.emulator.get_connection_status() == True:
             self.set_connected()
             #TODO: temporary
-            self.digiag_widget.show()
-            self.digidiag_window.show()
+            #self.digiag_widget.show()
+            #self.digidiag_window.show()
         else:
             self.set_disconnected()
 
