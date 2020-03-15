@@ -3,10 +3,26 @@ author: Rafal Miecznik
 contact: ravmiecznk@gmail.com
 """
 
-from setup_emubt import info, debug, error, warn
+#from setup_emubt import info, debug, error, warn
+import struct
+
+class WindowGeometry(object):
+    def __init__(self, QtGuiobject):
+        self.pos_x = QtGuiobject.x()
+        self.pos_y = QtGuiobject.y()
+        self.height = QtGuiobject.height()
+        self.width = QtGuiobject.width()
+
+    def get_position_to_the_right(self):
+        pos_x = self.width + self.pos_x
+        return pos_x
+
+    def __call__(self):
+        return self.pos_x, self.pos_y, self.width, self.height
+
 
 def null_function(*args, **kwargs):
-    debug("args: {}, kwargs: {}".format(args, kwargs))
+    print("args: {}, kwargs: {}".format(args, kwargs))
 
 
 class Uint16(int):
@@ -53,9 +69,31 @@ class MeanCalculator():
         return "Mean {}".format(self.calc())
 
 
+#format raw string to hex values
+raw_str_to_hex = lambda raw: (len(raw) * "{:02X} ").format(*[ord(i) for i in raw])
+
+
+"""
+https://docs.python.org/3/library/struct.html
+
+FORMAT      C Type          Python Type         Standard Size
+-------------------------------------------------------------
+h           short           integer             2
+H           unsigned short  integer             2
+b           signed char     integer             1
+B           unsigned char   integer             1
+...and more
+"""
+
+raw_to_uint16 = lambda raw: struct.unpack('H', raw)[0]
+raw_to_uint8 = lambda raw: struct.unpack('B', raw)[0]
+raw_to_uint = lambda raw: raw_to_uint16(raw) if len(raw) == 2 else raw_to_uint8(raw)
+
+uint16_to_raw = lambda  u8: struct.pack('H', u8)
+uint8_to_raw = lambda  u8: struct.pack('B', u8)
+uint_to_raw = lambda u: uint16_to_raw(u) if u > 0xff else uint8_to_raw(u)
+
+
 
 if __name__ == "__main__":
-    c = MeanCalculator()
-    c += 1
-    c += 2
-    print c
+    print raw_to_uint('\xff\x01')

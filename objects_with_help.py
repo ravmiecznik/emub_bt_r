@@ -27,12 +27,15 @@ GREY_STYLE_SHEET = BACKGROUND.format(r=48, g=53, b=58)
 class HelpTip():
     enable_tool_tip = True
     help_tip_slot = None
-    def __init__(self, help_msg=''):
+    def __init__(self, help_msg='', wrap=True):
         self.help_msg = help_msg
         self.tip_displayed = False
         if HelpTip.enable_tool_tip:
-            _tip_msg = textwrap.fill(help_msg, 40)
-            self.setToolTip(_tip_msg)
+            if wrap:
+                _tip_msg = textwrap.fill(help_msg, 40)
+                self.setToolTip(_tip_msg)
+            else:
+                self.setToolTip(help_msg)
 
     @staticmethod
     def set_static_help_tip_slot_signal(signal):
@@ -77,6 +80,9 @@ class PushButton(QtGui.QPushButton, HelpTip):
         self._default_style_sheet = self.styleSheet()
         self.set_default_style_sheet()
         self._active_style = False
+
+    def update_tip_msg(self, msg, wrap=True):
+        HelpTip.__init__(self, msg, wrap)
 
     def set_default_style_sheet(self):
         self.setStyleSheet(self._default_style_sheet)

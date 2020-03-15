@@ -40,11 +40,8 @@ from digidiag import DigiDiag, DigidiagWindow
 from message_box import message_box
 from plotter import Plotter
 from bin_tracker import BinTracker
-from auxiliary_module import MeanCalculator
-try:
-    import queue
-except ImportError:
-    import Queue as queue
+from auxiliary_module import MeanCalculator, WindowGeometry
+import queue
 import sys, os, subprocess
 import configparser
 import time, struct
@@ -52,6 +49,7 @@ import textwrap
 import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 from set_pin_form import SetPinWindow
+from banks_handler import decode_banks_info, BanksHandler
 
 print "PYQT: {}".format(PYQT_VERSION_STR)
 
@@ -63,19 +61,7 @@ SETTINGS_PATH = EMU_BT_PATH
 
 emu_dbg = create_logger('emubt_dbg')
 
-class WindowGeometry(object):
-    def __init__(self, QtGuiobject):
-        self.pos_x = QtGuiobject.x()
-        self.pos_y = QtGuiobject.y()
-        self.height = QtGuiobject.height()
-        self.width = QtGuiobject.width()
 
-    def get_position_to_the_right(self):
-        pos_x = self.width + self.pos_x
-        return pos_x
-
-    def __call__(self):
-        return self.pos_x, self.pos_y, self.width, self.height
 
 
 def compare_bin_files(file1, file2):
@@ -216,7 +202,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         ConfigSettings.__init__(self)
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
-        self.banks_panel = BanksPanel(self.centralwidget, event_handler=self.event_handler)
+        self.banks_handler = BanksHandler(self, event_handler=self.event_handler)
+        self.banks_panel = self.banks_handler.banks_panel
+        #self.banks_panel = BanksPanel(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
         self.console = Console(self.centralwidget, event_handler=self.event_handler)
         # CONSOLE--------------------------------------------------------------------------------
@@ -521,8 +509,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.gui_communication_signal.emit("   ")
                 time.sleep(1)
                 self.connect_button_slot()
+            elif msg.id == RxMessage.RxId.banks_info:
+                self.banks_handler.update_bank_info(msg)
             self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
+
 
     def handle_rx_txt_message(self, txt_message):
         self.gui_communication_signal.emit("E: {}".format(txt_message))
@@ -633,7 +624,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif cmd == 'wipebanks':
             self.message_sender.send(MessageSender.ID.wipe_banks)
         elif cmd == 'boots':
-            self.message_sender.send(MessageSender.ID.bootloader_safe)
+            self.message_sender.send(MessageSender.ID.bootloader_old)
+        elif cmd == 'banksi':
+            self.message_sender.send(MessageSender.ID.get_banks_info)
+        elif cmd == "rstb":
+            self.message_sender.send(MessageSender.ID.reset_banks_info)
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -829,6 +824,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.tmp_thread = GuiThread(process=to_signal(self.connect_button.set_green_style_sheet))
         self.tmp_thread.start()
         self.send_message(message_id=MessageSender.ID.get_bank_in_use)
+        self.message_sender.send(MessageSender.ID.get_banks_info)
         self.__response_time = self.read_calculated_response_time_config()
 
     def set_disconnected(self):
