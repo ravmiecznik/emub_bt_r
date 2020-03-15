@@ -9,7 +9,7 @@ https://www.youtube.com/watch?v=bxWkzQrnqo4
 https://github.com/ravmiecznik/atm128_bootloader_v3
 ```
 !!! DON'T USE WITH VERSION EMU_BT_R V2.2 OR OLDER, BOOTLOADER INCOMPATIBLE !!!
-
+    15.03.2020: Customizable digidiag frames added	
     23.02.2020: Test suite at system level added. Test of: upload, download, digidiag transmission.
                 TODO Test Suite:
                     Create an html report for test execution
