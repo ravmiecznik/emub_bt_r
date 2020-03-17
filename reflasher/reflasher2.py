@@ -36,7 +36,7 @@ class DummyEmulator:
 
 class Reflasher(QtGui.QWidget):
     #def __init__(self, app_status_file, emulator, receive_data_thread=None, signal_on_close=None, message_sender=None):
-    def __init__(self, app_status_file, emulator, receive_data_thread=None, signal_on_close=None):
+    def __init__(self, app_status_file, serial_connection, receive_data_thread=None, signal_on_close=None):
         QtGui.QWidget.__init__(self)
         self.setWindowTitle("REFLASH")
         self.x_siz, self.y_siz = 600, 400
@@ -50,10 +50,10 @@ class Reflasher(QtGui.QWidget):
         self.flash_succeeded = False
 
         #INHERITED EMULATOR OBJECT
-        self.emulator = emulator
-        self.rx_buffer = self.emulator.raw_buffer
+        self.serial_connection = serial_connection
+        self.rx_buffer = self.serial_connection.raw_buffer
         self.set_event_handler()
-        self.message_sender = MessageSender(self.emulator.send, self.rx_buffer)
+        self.message_sender = MessageSender(self.serial_connection.send, self.rx_buffer)
         self.message_receiver = MessageReceiver(self.rx_buffer)
 
         #TEXT DISPLAY
@@ -113,13 +113,13 @@ class Reflasher(QtGui.QWidget):
                     self.cancel_button.setText("CLOSE")
 
     def set_event_handler(self):
-        self.old_eventhandler = self.emulator.event_handler
+        self.old_eventhandler = self.serial_connection.event_handler
         self.reflasher_event_handler = EventHandler()
         self.reflasher_event_handler.add_event(self.get_raw_rx_buffer_slot)
-        self.emulator.set_event_handler(self.reflasher_event_handler)
+        self.serial_connection.set_event_handler(self.reflasher_event_handler)
 
     def restore_old_event_handler(self):
-        self.emulator.set_event_handler(self.old_eventhandler)
+        self.serial_connection.set_event_handler(self.old_eventhandler)
 
     def get_last_hex_file_path(self):
         config = configparser.ConfigParser()
@@ -216,7 +216,7 @@ if __name__ == "__main__":
     dummy_emulator = DummyEmulator()
     dummy_emulator.raw_buffer = lambda x:x
     app = QtGui.QApplication(sys.argv)
-    myapp = Reflasher('app_status.sts', emulator=dummy_emulator)
+    myapp = Reflasher('app_status.sts', serial_connection=dummy_emulator)
     myapp.show()
     app.exec_()
     # myapp.safe_close()

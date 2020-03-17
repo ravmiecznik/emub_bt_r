@@ -729,7 +729,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         Will call and display new reflasher window
         :return:
         """
-        self.reflasher = Reflasher(app_status_file=self.app_status_file, emulator=self.emulator)
+        self.reflasher = Reflasher(app_status_file=self.app_status_file, serial_connection=self.emulator)
         self.reflasher.show()
 
     def digidiag_slot(self):
