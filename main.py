@@ -1010,3 +1010,4 @@ def main(dev_version=False):
 
 if __name__ == "__main__":
     main(dev_version=True)
+    #compare_bin_files('/home/rafal/EMU_BTR_FILES/DOWNLOADED/3MAP.bin', '/home/rafal/git/emu_bt_r/test_suite/RESOURCE/3MAP.bin')
