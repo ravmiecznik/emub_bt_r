@@ -204,6 +204,13 @@ class TestInterface(MainWindow):
         self.read_bank_button_slot()
         return self.get_current_file().get()
 
+    def download_sram(self):
+        self.bin_file_panel.combo_box.clearEditText()
+        to_signal(self.console.clear)()
+        self.read_sram_button_slot()
+        return self.get_current_file().get()
+
+
 
     #     path = self.get_key_from_queue('file_to_upload')
     #     if path:

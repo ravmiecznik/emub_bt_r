@@ -60,6 +60,20 @@ APP_STATUS_FILE = 'app_status.sts'
 FILE_LIST_TAG = "LAST BIN FILES"
 RESOURCE = 'RESOURCE'
 
+def bin_diff_map(diff_map):
+    """
+    Display binary difference mapping, at which address there was a diff
+    :param diff_map:
+    :return:
+    """
+    for i, v in enumerate(diff_map):
+        if not (i % 16):
+            print "\n{:08X}: ".format(i),
+        elif not (i % 4):
+            print " ",
+        print "{}".format(v),
+
+
 def clean_downloaded_files():
     """
     Remove old test artifacts
@@ -92,7 +106,13 @@ def reset_config_file():
 
 
 class TestQApplication(unittest.TestCase):
+    # TODO: test for bank switching
+    # TODO: test for enable/disable digidiag
+    # TODO: test for override digiframes
+    # TODO: test for pin change
+    # TODO: test for live emulation
     ## SETUP ###########################################################################################################
+
     @classmethod
     def setUpClass(cls):
         clean_downloaded_files()
@@ -100,8 +120,6 @@ class TestQApplication(unittest.TestCase):
 
         cls.main_window.connect_button.clicked.emit(1)
         cls.main_window.is_connected()
-        cls.main_window.wipe_banks()
-        cls.main_window.are_banks_wiped()
 
     @classmethod
     def tearDownClass(cls):
@@ -113,6 +131,10 @@ class TestQApplication(unittest.TestCase):
 
     def setUp(self):
         to_signal(self.main_window.bin_file_panel.combo_box.clearEditText)()
+        self.main_window.wipe_banks()
+        self.main_window.are_banks_wiped()
+        self.main_window.bank1set_slot()
+        self.main_window.is_bank1_set()
 
     ## TESTS ###########################################################################################################
     def test_if_sram_zero(self):
@@ -120,8 +142,6 @@ class TestQApplication(unittest.TestCase):
         Test if sram contains only zeros bytes after banks wiping
         :return:
         """
-        self.main_window.wipe_banks()
-        self.main_window.are_banks_wiped()
         self.main_window.bank1set_slot()
         self.main_window.is_bank1_set()
         to_signal(self.main_window.bin_file_panel.combo_box.clear)()
@@ -142,10 +162,12 @@ class TestQApplication(unittest.TestCase):
         Send and receive binary file, fail if file differs after reception
         :return:
         """
+        to_signal(self.main_window.bin_file_panel.combo_box.clearEditText)()
         new_file = os.path.join(RESOURCE, 'random.bin')
         self.main_window.send_file_for_emulation(new_file)
         downloaded_file_path = self.main_window.download_flash_bank()
         are_identical = filecmp.cmp(new_file, downloaded_file_path, shallow=False)
+        diff_map =''
         if not are_identical:
             with open(new_file) as n, open(downloaded_file_path) as d:
                 nfile = n.read()
@@ -153,9 +175,37 @@ class TestQApplication(unittest.TestCase):
                 addr = 0
                 for pair in zip(nfile, dfile):
                     if pair[0] != pair[1]:
-                        print "Diff @0x{:08X}: n0x{:02X} != d0x{:02X}".format(addr, ord(pair[0]), ord(pair[1]))
-                    addr += 1
+                        diff_map += 'X'
+                    else:
+                        diff_map += '.'
+                    #if pair[0] != pair[1]:
+                    #    print "Diff @0x{:08X}: n0x{:02X} != d0x{:02X}".format(addr, ord(pair[0]), ord(pair[1]))
+                    # addr += 1
+            bin_diff_map(diff_map)
         assert are_identical, "Downloaded file is not the same as transmitted one: {} != {}".format(new_file, downloaded_file_path)
+
+    def test_upload_random_sram(self):
+        to_signal(self.main_window.bin_file_panel.combo_box.clearEditText)()
+        new_file = os.path.join(RESOURCE, 'random.bin')
+        self.main_window.send_file_for_emulation(new_file)
+        downloaded_file_path = self.main_window.download_sram()
+        are_identical = filecmp.cmp(new_file, downloaded_file_path, shallow=False)
+        if not are_identical:
+            diff_map = ''
+            with open(new_file) as n, open(downloaded_file_path) as d:
+                nfile = n.read()
+                dfile = d.read()
+                addr = 0
+                for pair in zip(nfile, dfile):
+                    if pair[0] != pair[1]:
+                        diff_map += 'X'
+                        print "Diff @0x{:08X}: n0x{:02X} != d0x{:02X}".format(addr, ord(pair[0]), ord(pair[1]))
+                    else:
+                        diff_map += '.'
+                    addr += 1
+                bin_diff_map(diff_map)
+        assert are_identical, "Downloaded SRAM file is not the same as transmitted one: {} != {}".format(new_file,
+                                                                                                    downloaded_file_path)
 
     def __test_digdiag_transmission(self, source_file):
         """
@@ -172,7 +222,7 @@ class TestQApplication(unittest.TestCase):
 
         digidag.reset_frames_buffer()   #cleans received frames
         digidag.reset_frames_count()
-        time.sleep(5)   #collect data from digidiag
+        time.sleep(6)   #collect data from digidiag
 
         # check if data is being transmitted
         rx_frames_count = digidag.get_frames_count()
@@ -185,7 +235,7 @@ class TestQApplication(unittest.TestCase):
 
         #test first frame
         manifold_pressure = ord(digidag.frames[0xff][1])
-        assert manifold_pressure>=0x65 and manifold_pressure<=0x75, \
+        assert manifold_pressure>=0x65 and manifold_pressure<=0x80, \
             "Manifold pressure out of expected range: 0x{:02X}".format(manifold_pressure)
 
         #test last frame
@@ -199,7 +249,7 @@ class TestQApplication(unittest.TestCase):
         frame_FE = [ord(i) for i in digidag.frames[0xFE]]
         frame_FD = [ord(i) for i in digidag.frames[0xFD]]
         assert frame_FE == ignition_frame, "{} != {}".format(frame_FE, ignition_frame)
-        assert frame_FD == ignition_frame, "{} != {}".format(frame_FE, ignition_frame)
+        assert frame_FD == ignition_frame, "{} != {}".format(frame_FD, ignition_frame)
 
     def test_digdiag_transmission_8vG60(self):
         self.__test_digdiag_transmission('8VG60.bin')
@@ -240,9 +290,10 @@ if __name__ == "__main__":
         suite = unittest.TestSuite()
         # Select test for test suite here
         for test_case in [
-            TestQApplication.test_digdiag_transmission_8vG60,
-            TestQApplication.test_digdiag_transmission_16vG60,
+            #TestQApplication.test_digdiag_transmission_8vG60,
+            #TestQApplication.test_digdiag_transmission_16vG60,
             #TestQApplication.test_upload_bank,
+            TestQApplication.test_upload_random_sram,
         ]:
             suite.addTest(TestQApplication(test_case.__name__))
         runner = unittest.TextTestRunner(verbosity=2)
