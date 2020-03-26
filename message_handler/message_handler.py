@@ -144,7 +144,9 @@ class MessageSender:
             MessageSender.context += 1
         translated_m_id = MessageSender.ID.translate_id(m_id)
         m_logger.debug("Sent message with context: {}, id: {}({})".format(context, translated_m_id, m_id))
-        m_logger.debug(msg[11:30])
+
+        m = [ord(i) for i in msg[11:30]]
+        m_logger.debug((len(m)*'{:02X} ').format(*m))
         self.__transmit(msg)
         return context
 
