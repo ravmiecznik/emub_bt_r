@@ -53,13 +53,14 @@ import filecmp
 import configparser
 from event_handler import to_signal
 from test_interface import TestInterface, test_logger
+from loggers import tstamp
 
 
 DOWNLOADED = 'DOWNLOADED'
 APP_STATUS_FILE = 'app_status.sts'
 FILE_LIST_TAG = "LAST BIN FILES"
 RESOURCE = 'RESOURCE'
-LOG_FILE = "test.log"
+LOG_FILE = "test_{}.log".format(tstamp())
 
 def bin_diff_map(diff_map):
     """
@@ -139,10 +140,14 @@ class TestQApplication(unittest.TestCase):
         self.main_window.are_banks_wiped()
         self.main_window.bank1set_slot()
         self.main_window.is_bank1_set()
+        with open(LOG_FILE, 'a') as f:
+            f.write("#### setUp: {}:{} ####\n".format(self._testMethodName, tstamp()))
+            f.write(self.main_window.get_console_text())
+            f.write("\n\n")
 
     def tearDown(self):
         with open(LOG_FILE, 'a') as f:
-            f.write("#### {} ####\n".format(self._testMethodName))
+            f.write("#### tearDown: {}:{} ####\n".format(self._testMethodName, tstamp()))
             f.write(self.main_window.get_console_text())
             f.write("\n---------------------------------\n")
 

@@ -187,7 +187,6 @@ class TestInterface(MainWindow):
         return self.get_active_bank_button()
 
     def send_file_for_emulation(self, file_path):
-        to_signal(self.console.clear)()
         self.insert_new_file_signal.emit(file_path)
         wait_for(timeout=1, test=lambda path: os.path.isfile(path) if path else False)\
             (lambda arg: self.bin_file_panel.get_current_file())(self)
@@ -208,24 +207,13 @@ class TestInterface(MainWindow):
 
     def download_flash_bank(self):
         self.bin_file_panel.combo_box.clearEditText()
-        to_signal(self.console.clear)()
         self.read_bank_button_slot()
         return self.get_current_file().get()
 
     def download_sram(self):
         self.bin_file_panel.combo_box.clearEditText()
-        to_signal(self.console.clear)()
         self.read_sram_button_slot()
         return self.get_current_file().get()
-
-
-
-    #     path = self.get_key_from_queue('file_to_upload')
-    #     if path:
-    #         self.insert_new_file_signal.emit(path)
-    #
-    # def get_text_browser_to_queue(self):
-    #     self.queue.put({'text_browser': self.console.console_text_browser.toPlainText()})
 
     def disconnect(self):
         self.connect_button.clicked.emit(1)
