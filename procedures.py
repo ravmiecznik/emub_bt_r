@@ -8,7 +8,7 @@ import struct
 from event_handler import to_signal
 from gui_thread import GuiThread, thread_this_method
 from setup_emubt import warn, error, info, debug, BIN_PATH
-from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize, ReceptionFail, BinReceiver
+from bin_handler import BinReceiver
 from message_box import message_box
 from bin_tracker import BinTracker
 from message_handler import TransmissionStats, MessageSender, MessageReceiver, RxMessage
@@ -141,7 +141,9 @@ class ReadPackets:
         self.progress_bar = parent.progress_bar
         self.tx_stats = TransmissionStats()
         self.read_thread = GuiThread(self.read_packets_procedure)
-        self.received = BytesIO()
+        #self.received = BytesIO()
+        self.context_to_packet_map = {}
+        self.receiver = BinReceiver(packet_size=256*8)
         self.get_bank_name = parent.banks_panel.get_bank_name_text
         self.update_file_list = parent.bin_file_panel.combo_box.moveOnTop
         self.disable_objects_for_transmission_signal = parent.disable_objects_for_transmission_signal
@@ -158,12 +160,16 @@ class ReadPackets:
         while context not in self.rx_message_buffer:
             time.sleep(0.1)
             if time.time() - t0 > retx_timeout:
-                return RxMessage.rx_id_tuple.index('dtx')
+                return RxMessage.RxId.dtx
         else:
             msg = self.rx_message_buffer.pop(context)  # gets message and returns id from buffer
-            self.received.write(msg.msg)
-            result = msg.id
-        return result
+            if msg.id == RxMessage.RxId.ack:
+                packet_num = self.context_to_packet_map[context]
+                self.context_to_packet_map.pop(context)
+                self.receiver[packet_num] = msg.msg
+                #self.received.write(msg.msg)
+                result = msg.id
+            return result
 
     def send_request(self, packet_num):
         msg_body = struct.pack('B', packet_num)
@@ -185,14 +191,17 @@ class ReadPackets:
         to_signal(self.progress_bar.display).emit()
         packet_num = 0
         while self.progress_bar.isHidden(): time.sleep(0.1)
-        while packet_num < 16:
+        #while packet_num < 16:
+        while not self.receiver:
             if self.progress_bar.isHidden():
                 self.gui_communication_signal.emit("Read procedure terminated")
                 break
 
-            self.check_resp_thr = GuiThread(self.check_response, args=(MessageSender.context,))
+            context = self.send_request(packet_num=packet_num)
+            self.context_to_packet_map[context] = packet_num
+            self.check_resp_thr = GuiThread(self.check_response, args=(context,))
             self.check_resp_thr.start()
-            self.send_request(packet_num=packet_num)
+
             while self.check_resp_thr.returned() is None:
                 time.sleep(0.001)
             response = self.check_resp_thr.returned()
@@ -229,8 +238,7 @@ class ReadSramProcedure(ReadPackets):
         except:
             f_path_bin = os.path.join(BIN_PATH, '{}_sram.bin'.format('XXXX'))
         with open(f_path_bin, 'wb') as f:
-            self.received.seek(0)
-            f.write(self.received.read())
+            f.write(self.receiver.get())
         self.gui_communication_signal.emit("Saved as: {}".format(f_path_bin))
         self.update_file_list(f_path_bin)
 
@@ -243,7 +251,6 @@ class ReadBankProcedure(ReadPackets):
         rx_file_name = self.get_bank_name()
         f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(rx_file_name))
         with open(f_path_bin, 'wb') as f:
-            self.received.seek(0)
-            f.write(self.received.read())
+            f.write(self.receiver.get())
         self.gui_communication_signal.emit("Saved as: {}".format(f_path_bin))
         self.update_file_list(f_path_bin)
