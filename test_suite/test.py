@@ -182,6 +182,7 @@ class TestQApplication(unittest.TestCase):
                     #    print "Diff @0x{:08X}: n0x{:02X} != d0x{:02X}".format(addr, ord(pair[0]), ord(pair[1]))
                     # addr += 1
             bin_diff_map(diff_map)
+            sys.exit(1)
         assert are_identical, "Downloaded file is not the same as transmitted one: {} != {}".format(new_file, downloaded_file_path)
 
     def test_upload_random_sram(self):
@@ -292,8 +293,8 @@ if __name__ == "__main__":
         for test_case in [
             #TestQApplication.test_digdiag_transmission_8vG60,
             #TestQApplication.test_digdiag_transmission_16vG60,
-            #TestQApplication.test_upload_bank,
-            TestQApplication.test_upload_random_sram,
+            TestQApplication.test_upload_bank,
+            #TestQApplication.test_upload_random_sram,
         ]:
             suite.addTest(TestQApplication(test_case.__name__))
         runner = unittest.TextTestRunner(verbosity=2)

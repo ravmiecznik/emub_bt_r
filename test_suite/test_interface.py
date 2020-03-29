@@ -137,6 +137,8 @@ def apply_queue(timeout=2):
 class TestInterface(MainWindow):
     def __init__(self, *args, **kwargs):
         MainWindow.__init__(self, *args, **kwargs)
+        self.digiag_widget.show()
+        self.digidiag_window.show()
         self.queue = queue.Queue()
 
 
