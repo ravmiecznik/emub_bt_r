@@ -94,7 +94,8 @@ class WritePackets:
         packet_num = 0
         packet = self.bin_packets.next()
         while self.progress_bar.isHidden(): time.sleep(0.1)
-        while packet_num < 16:
+        while packet_num < self.bin_packets.packets_amount:
+        #while True:
             if self.progress_bar.isHidden():
                 self.gui_communication_signal.emit("Upload procedure terminated")
                 break
@@ -112,6 +113,8 @@ class WritePackets:
                     packet = self.bin_packets.next()
                 except StopIteration:
                     pass
+            elif response == RxMessage.rx_id_tuple.index('dtx'):
+                self.tx_stats.dtx()
             else:
                 self.tx_stats.nack()
             if time.time() - t_start > max_timeout:
