@@ -92,13 +92,13 @@ class BinFilePacketGenerator(BinFilePacketGeneratorAbstract, file):
     """
     Provides iteration protocol for binary file packets
     """
-    def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, crc_attach = False):
+    def __init__(self, bin_file, packet_size=256 * 8, expected_size=0x8000, crc_attach=False):
         file.__init__(self, bin_file, 'rb')
         self.bin_path = bin_file
         self.packet_size = packet_size
         self.crc_attach = crc_attach
         self.packets_get = 0
-        self.tot_packests = len(self)
+        self.packets_amount = len(self)
         if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
             raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
 
