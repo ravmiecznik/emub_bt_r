@@ -15,6 +15,15 @@ Cancel = QMessageBox.Cancel
 Yes = QMessageBox.Yes
 No = QMessageBox.No
 
+BUTTONS = {
+    Ok: 'Ok',
+    Open: 'Open',
+    Save: 'Save',
+    Cancel: 'Cancel',
+    Yes: 'Yes',
+    No: 'No'
+}
+
 def message_box(msg, parent=None, detailed_msg='', icon=QMessageBox.Critical, buttons=QMessageBox.Ok, title='', exe=True, button_clicked_sig=lambda: None):
     msg_box = QMessageBox(parent)
     msg_box.setIcon(icon)
@@ -24,7 +33,7 @@ def message_box(msg, parent=None, detailed_msg='', icon=QMessageBox.Critical, bu
     msg_box.setWindowTitle(title)
     msg_box.buttonClicked.connect(button_clicked_sig)
     if exe:
-        msg_box.exec_()
+        return BUTTONS[msg_box.exec_()]
     return msg_box
 
 

@@ -38,7 +38,7 @@ from config_window import ConfigWindow, Config, ConfigSettings
 from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
 from digidiag import DigiDiag, DigidiagWindow
-from message_box import message_box
+import message_box
 from plotter import Plotter
 from bin_tracker import BinTracker
 from auxiliary_module import MeanCalculator, WindowGeometry
@@ -710,8 +710,17 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         handle_rx_message method will trigger reflasher window if bootloader3 txt repsonse received
         :return:
         """
-        self.message = self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
-        #self.send_message(MessageSender.ID.bootloader_safe, timeout=2, re_tx=0)
+        msg = "!!!WARNING!!!\n" \
+              "You are about to upload new firmware to EMUBT board.\n" \
+              "This is not about EEPROM emulation !!!\n" \
+              "Are you sure you want to update the board ?\n"
+        detailed_msg = "If you want to send binary file for emulation use UPLOAD button.\n" \
+                       "Option you chosen writes new version of firmware to EMUBT board.\n" \
+                       "You are going to upgrade EMUBT version."
+        decision = message_box.message_box(msg=msg, detailed_msg=detailed_msg,
+                                           buttons= message_box.Cancel | message_box.Yes, icon=message_box.Warning)
+        if decision=="Yes":
+            self.message = self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
 
     def console_msg_factory(self, msg):
         def wrapper(*args):

@@ -20,6 +20,10 @@ import struct
 stdout_log = create_logger("stdout")
 PACKET_SIZE = 256*8
 
+cwd = os.getcwd()
+BROWSE_ICON = os.path.join(cwd, 'spec', 'browse.png')
+print BROWSE_ICON
+
 class TextBrowserInSubWindow(QtGui.QTextBrowser):
     append_sig = pyqtSignal(object, object)
     def __init__(self):
@@ -70,7 +74,11 @@ class Reflasher(QtGui.QWidget):
         self.text_browser.append("You are going to upload new firmware to EMUBT\n")
 
         #BUTTONS
-        self.browse_button = QtGui.QPushButton("...")
+        self.browse_button = QtGui.QPushButton()
+        self.browse_button.setToolTip("Select file")
+        self.browse_button.setMinimumWidth(100)
+
+        self.browse_button.setIcon(QtGui.QIcon(BROWSE_ICON))
         self.reflash_button = QtGui.QPushButton("REFLASH")
         self.cancel_button = QtGui.QPushButton("Cancel")
         self.browse_button.setMaximumSize(25, 25)
@@ -82,7 +90,7 @@ class Reflasher(QtGui.QWidget):
         mainGrid = QtGui.QGridLayout()
         mainGrid.setSpacing(10)
         mainGrid.addWidget(self.line_edit,      0, 0, 1, 5)
-        mainGrid.addWidget(self.browse_button,  0, 5)
+        mainGrid.addWidget(self.browse_button,  0, 6)
         mainGrid.addWidget(self.text_browser,   1, 0, 3, 5)
         mainGrid.addWidget(self.progress_bar,   4, 0, 1, 5)
         mainGrid.addWidget(self.cancel_button,  5, 0, 1, 1)
