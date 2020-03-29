@@ -495,6 +495,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def handle_rx_message(self, msg):
         while msg:
+            self.rx_message_buffer[msg.context] = msg
             banks = ['bank1set', 'bank2set', 'bank3set']
             if msg.id == RxMessage.RxId.txt:   #free text
                 self.handle_rx_txt_message(msg.msg)
@@ -521,7 +522,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.connect_button_slot()
             elif msg.id == RxMessage.RxId.banks_info:
                 self.banks_handler.update_bank_info(msg)
-            self.rx_message_buffer[msg.context] = msg
             msg = self.message_receiver.get_message()
 
 
@@ -834,7 +834,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.send_sram_bytes()
         self.refresh_digidiag_display()
         self.estimate_response_time()
-
 
     def set_connected(self):
         self.blink_connect_thread.terminate()
