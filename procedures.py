@@ -81,14 +81,22 @@ class WritePackets:
         self.enable_objects_after_transmission_signal.emit()
 
     def write_packets_procedure(self):
-        context = self.message_sender.send(m_id=MessageSender.ID.rxflush)
-        t0 = time.time()
-        while context not in self.rx_message_buffer:
-            print self.rx_message_buffer.keys()
-            if time.time() - t0 > 2:
+        retx = 3
+        def rx_flush():
+            context = self.message_sender.send(m_id=MessageSender.ID.rxflush)
+            t0 = time.time()
+            while context not in self.rx_message_buffer:
+                if time.time() - t0 > 2:
+                    return
+                time.sleep(0.1)
+            return True
+        while retx:
+            if rx_flush():
+                break
+            retx -= 1
+            if retx == 0:
                 self.gui_communication_signal.emit("RX flush failed")
                 return
-            time.sleep(0.1)
 
         self.disable_objects_for_transmission_signal.emit()
         time.sleep(0.5)
@@ -177,7 +185,7 @@ class ReadPackets:
                 self.receiver[packet_num] = msg.msg
                 #self.received.write(msg.msg)
                 result = msg.id
-            return result
+                return result
 
     def send_request(self, packet_num):
         msg_body = struct.pack('B', packet_num)
