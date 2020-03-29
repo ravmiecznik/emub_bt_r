@@ -196,6 +196,12 @@ class TestInterface(MainWindow):
         wait_for(timeout=25, test=lambda text: "File transmitted in" in text)(
             lambda arg: str(self.console.console_text_browser.toPlainText()))(self)
 
+    def get_console_text(self):
+        text = self.console.console_text_browser.toPlainText()
+        to_signal(self.console.clear)()
+        return text
+
+
     @wait_for(timeout=20, test=lambda text: "File received in:" in text)
     def wait_for_file_reception(self):
         return str(self.console.console_text_browser.toPlainText())

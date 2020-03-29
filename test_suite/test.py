@@ -59,6 +59,7 @@ DOWNLOADED = 'DOWNLOADED'
 APP_STATUS_FILE = 'app_status.sts'
 FILE_LIST_TAG = "LAST BIN FILES"
 RESOURCE = 'RESOURCE'
+LOG_FILE = "test.log"
 
 def bin_diff_map(diff_map):
     """
@@ -120,6 +121,9 @@ class TestQApplication(unittest.TestCase):
 
         cls.main_window.connect_button.clicked.emit(1)
         cls.main_window.is_connected()
+        with open(LOG_FILE, 'w') as f:
+            pass
+
 
     @classmethod
     def tearDownClass(cls):
@@ -135,6 +139,12 @@ class TestQApplication(unittest.TestCase):
         self.main_window.are_banks_wiped()
         self.main_window.bank1set_slot()
         self.main_window.is_bank1_set()
+
+    def tearDown(self):
+        with open(LOG_FILE, 'a') as f:
+            f.write("#### {} ####\n".format(self._testMethodName))
+            f.write(self.main_window.get_console_text())
+            f.write("\n---------------------------------\n")
 
     ## TESTS ###########################################################################################################
     def test_if_sram_zero(self):
@@ -182,7 +192,8 @@ class TestQApplication(unittest.TestCase):
                     #    print "Diff @0x{:08X}: n0x{:02X} != d0x{:02X}".format(addr, ord(pair[0]), ord(pair[1]))
                     # addr += 1
             bin_diff_map(diff_map)
-            sys.exit(1)
+            downloaded_file_path = self.main_window.download_flash_bank()
+            print "download again to: ".format(downloaded_file_path)
         assert are_identical, "Downloaded file is not the same as transmitted one: {} != {}".format(new_file, downloaded_file_path)
 
     def test_upload_random_sram(self):
@@ -223,7 +234,7 @@ class TestQApplication(unittest.TestCase):
 
         digidag.reset_frames_buffer()   #cleans received frames
         digidag.reset_frames_count()
-        time.sleep(6)   #collect data from digidiag
+        time.sleep(8)   #collect data from digidiag
 
         # check if data is being transmitted
         rx_frames_count = digidag.get_frames_count()
@@ -305,6 +316,8 @@ if __name__ == "__main__":
     elif test_strategy == "full":
         thread = threading.Thread(target=unittest.main,
                                   kwargs={'verbosity': 2})
+
+
     thread.start()
 
     #testRunner = HtmlTestRunner.HTMLTestRunner(output='html_report', report_name="EMUBT_test", add_timestamp=False)
