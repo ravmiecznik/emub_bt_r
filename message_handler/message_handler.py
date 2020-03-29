@@ -52,6 +52,7 @@ class TransmissionStats:
     def __init__(self):
         self.__acks = 0
         self.__nacks = 0
+        self.__dtx = 0
 
     def ack(self):
         self.__acks += 1
@@ -59,12 +60,16 @@ class TransmissionStats:
     def nack(self):
         self.__nacks += 1
 
+    def dtx(self):
+        self.__dtx += 1
+        self.__nacks += 1
+
     def __repr__(self):
         try:
             err_rate = float(self.__nacks)/self.__acks
         except ZeroDivisionError:
             err_rate = 0
-        return "acks: {}, nack: {}, err_rate: {}".format(self.__acks, self.__nacks, err_rate)
+        return "acks: {}, nack+dtx: {}, dtx: {}, err_dtx_rate: {}".format(self.__acks, self.__nacks, self.__dtx, err_rate)
 
 
 @method_call_track
@@ -270,7 +275,7 @@ class RxMessage(object):
                                              context=self.__context,
                                              result=['ack', 'nack', 'dtx'][self.__crc_result],
                                              lenght=self.__len,
-                                             body=' '.join(self.__body[0:20].split()) + '...',
+                                             body=' '.join(self.__body[0:50].split()) + '...',
                                              tstamp=self.__tstamp)
 
 
