@@ -15,6 +15,7 @@ platform = platform.system()
 from collections import namedtuple
 from io import BytesIO
 from bin_handler import bin_repr
+from random import randint
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
 from loggers import create_logger
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
@@ -145,7 +146,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.sent_message_container = SentMessageContainer()
         self.mutex = QMutex()
         self.__response_time = 5    #big overhead for initial value
-        self.__receive_data_period = 0.001
+        self.__receive_data_period = 0.0001
         self.bank_in_use = None
         self.is_test = is_test
         self.config_path = SETTINGS_PATH
