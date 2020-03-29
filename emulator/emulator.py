@@ -135,24 +135,27 @@ class Emulator():
             #print e
             return None
 
+    def __get_data(self):
+        try:
+            rx_data = self.bt_connection.recv(self.__rcv_chunk_size)
+            rx_debug("Received data amount: {}".format(len(rx_data)))
+            rx_debug("rcv: {} ..".format(rx_data[0:50]))
+            return rx_data
+        except (bluetooth.btcommon.BluetoothError, IOError) as e:
+            pass
+
     def receive_data(self):
         """
         :param rx_buffer:
         :param rx_buffer_ready_slot:
         :return:
         """
-        t0 = time.time()
-        tmp_buff = self.__try_get_data()
-        while tmp_buff:
-            while not self.raw_buffer.write(tmp_buff):
-                time.sleep(self.emu_timeout/10)
-            tmp_buff = self.__try_get_data()
-            if time.time() - t0 > 1:
-                debug('guard periodic break')
-                break
+        rx_data = self.__get_data()
+        while rx_data:
+            self.raw_buffer.write(rx_data)
+            rx_data = self.__get_data()
         if self.raw_buffer.available():
             self.event_handler.get_raw_rx_buffer_slot()
-
 
     def send(self, data):
         if not self.__lock:
