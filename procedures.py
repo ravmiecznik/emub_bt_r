@@ -81,8 +81,16 @@ class WritePackets:
         self.enable_objects_after_transmission_signal.emit()
 
     def write_packets_procedure(self):
+        context = self.message_sender.send(m_id=MessageSender.ID.rxflush)
+        t0 = time.time()
+        while context not in self.rx_message_buffer:
+            print self.rx_message_buffer.keys()
+            if time.time() - t0 > 2:
+                self.gui_communication_signal.emit("RX flush failed")
+                return
+            time.sleep(0.1)
+
         self.disable_objects_for_transmission_signal.emit()
-        self.message_sender.send(MessageSender.ID.rxflush)
         time.sleep(0.5)
         max_timeout = 25
         t_start = time.time()
