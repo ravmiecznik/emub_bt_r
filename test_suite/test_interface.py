@@ -13,6 +13,7 @@ import inspect
 from main import MainWindow
 from message_handler import MessageSender
 from gui_thread import GuiThread
+from message_handler import RxMessage
 from event_handler import to_signal
 import queue
 import time
@@ -149,6 +150,10 @@ class TestInterface(MainWindow):
         else:
             self.queue.put(elem)    #put back not matching elem
 
+    def handle_rx_message(self, msg):
+        if msg.id == RxMessage.RxId.freemem:
+            self.gui_communication_signal.emit("Freemem: {}".format(msg.msg))
+        MainWindow.handle_rx_message(self, msg)
 
     def get_active_bank_button(self):
         try:
@@ -195,7 +200,16 @@ class TestInterface(MainWindow):
         wait_for(timeout=25, test=lambda text: "File transmitted in" in text)(
             lambda arg: str(self.console.console_text_browser.toPlainText()))(self)
 
+    @wait_for(test=lambda console_text: "Freemem" in console_text, timeout=2, sleep=1)
+    def wait_for_freemem_print(self):
+        self.message_sender.send(m_id=MessageSender.ID.freemem)
+        return self.console.console_text_browser.toPlainText()
+
     def get_console_text(self):
+        """
+        gets and clears console text
+        :return:
+        """
         text = self.console.console_text_browser.toPlainText()
         to_signal(self.console.clear)()
         return text

@@ -48,6 +48,7 @@ import unittest
 from PyQt4.QtGui import QApplication, QWidget
 import threading
 from main import TestInterface
+from message_handler import MessageSender
 import time
 import os
 import filecmp
@@ -61,7 +62,12 @@ DOWNLOADED = 'DOWNLOADED'
 APP_STATUS_FILE = 'app_status.sts'
 FILE_LIST_TAG = "LAST BIN FILES"
 RESOURCE = 'RESOURCE'
-LOG_FILE = "test_{}.log".format(tstamp())
+
+test_log_dir = 'test_logs'
+if not os.path.isdir(test_log_dir):
+    os.mkdir(test_log_dir)
+
+LOG_FILE = os.path.join(test_log_dir, "test_{}.log".format(tstamp()))
 
 def bin_diff_map(diff_map):
     """
@@ -137,20 +143,23 @@ class TestQApplication(unittest.TestCase):
 
     def setUp(self):
         to_signal(self.main_window.bin_file_panel.combo_box.clearEditText)()
+        self.main_window.wait_for_freemem_print()
         self.main_window.wipe_banks()
         self.main_window.are_banks_wiped()
         self.main_window.bank1set_slot()
         self.main_window.is_bank1_set()
         with open(LOG_FILE, 'a') as f:
-            f.write("#### setUp: {}:{} ####\n".format(self._testMethodName, tstamp()))
-            f.write(self.main_window.get_console_text())
+            console_text = self.main_window.get_console_text()
+            f.write("#### setUp: {}:{} ####\n\n".format(self._testMethodName, tstamp()))
+            f.write(console_text)
             f.write("\n\n")
 
     def tearDown(self):
+        self.main_window.wait_for_freemem_print()
+        console_text = self.main_window.get_console_text()
         with open(LOG_FILE, 'a') as f:
-            f.write("#### tearDown: {}:{} ####\n".format(self._testMethodName, tstamp()))
-            f.write(self.main_window.get_console_text())
-            f.write("\n---------------------------------\n")
+            f.write(console_text)
+            f.write("\n\ntearDown: {}:{}--------------------\n".format(self._testMethodName, tstamp()))
 
     ## TESTS ###########################################################################################################
     def test_if_sram_zero(self):
@@ -170,7 +179,7 @@ class TestQApplication(unittest.TestCase):
         with open(file_path) as f:
             chars = f.read()
             for c in chars:
-                self.assertEqual(c, '\x00', "Sram file not zero at addr: {}".format(addr))
+                self.assertEqual(c, '\x00', "Sram file not zero at addr: {}, 0!={}".format(addr, format(hex(ord(c)))))
                 addr += 1
 
     def test_upload_bank(self):
