@@ -10,7 +10,7 @@ from pyqtgraph import setConfigOptions as graphSetOptions
 
 class Plotter(QtGui.QWidget):
     update_plot_xy_signal = pyqtSignal(object, object)
-    def __init__(self, parent, title='PLOTTER', x_label='X', y_label='Y'):
+    def __init__(self, title='PLOTTER', x_label='X', y_label='Y'):
         QtGui.QWidget.__init__(self)
         self.gridLayout = QtGui.QGridLayout(self)
         self.setWindowTitle(title)
@@ -25,7 +25,8 @@ class Plotter(QtGui.QWidget):
         self.graph.showGrid(x=True, y=True)
         self.graph.setBackground((235, 236, 237))
         self.pen = mkPen(color=(46, 142, 226), width=3, style=QtCore.Qt.DashLine)
-        self.gridLayout.addWidget(self.graph, 0, 1)
+
+        self.gridLayout.addWidget(self.graph,    0,  1, 10, 10)
         self.update_plot_xy_signal.connect(self.update_graph_with_value)
         self.x_vect = []
         self.y_vect = []
