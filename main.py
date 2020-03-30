@@ -54,6 +54,7 @@ import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 from set_pin_form import SetPinWindow
 from banks_handler import BanksHandler
+from freemem import FreeMemPlotter
 
 print "PYQT: {}".format(PYQT_VERSION_STR)
 
@@ -270,6 +271,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.read_sram_button_slot), 'read_sram_button_slot')
         self.emulation_panel.set_event_handler(self.event_handler)
 
+        self.freemem_plotter = FreeMemPlotter(self.message_sender)
 
         self.disable_objects_for_transmission_signal()
         self.load_last_status()
@@ -522,6 +524,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.connect_button_slot()
             elif msg.id == RxMessage.RxId.banks_info:
                 self.banks_handler.update_bank_info(msg)
+            elif msg.id == RxMessage.RxId.freemem:
+                self.freemem_plotter.update_xy(int(msg.msg))
             msg = self.message_receiver.get_message()
 
 
@@ -641,6 +645,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.message_sender.send(MessageSender.ID.get_banks_info)
         elif cmd == "rstb":
             self.message_sender.send(MessageSender.ID.reset_banks_info)
+        elif cmd == "freemem":
+            self.freemem_plotter.show()
+            self.freemem_plotter.freemem_request_thread.start()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
