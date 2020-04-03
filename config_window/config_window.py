@@ -22,25 +22,24 @@ def str_fill(string, fill_len=20, chr=' ', right=True):
 
 #@method_call_track
 class ConfigEntry(QtGui.QWidget):
-    def __init__(self, parent, option, value, grid, y_pos):
+    def __init__(self, parent, option, value, grid, y_pos, qobject):
         QtGui.QWidget.__init__(self)
         self.label = QtGui.QLabel(option, parent=parent)
-        self.value = QtGui.QLineEdit()
-        self.value.setText(value)
-        grid.addWidget(self.label,      y_pos, 0, 1, 2)
+        self.value = qobject
+        grid.addWidget(self.label, y_pos, 0, 1, 2)
         grid.addWidget(self.value, y_pos, 1, 1, 2)
-
 
     def get(self):
         return str(self.value.text())
 
 
-class ConfigSettings():
+class ConfigSettings:
     def __init__(self):
         self.config_file_path = os.path.join(self.config_path, 'emubt.cnf')
         self.app_status_file = os.path.join(self.config_path, 'app_status.sts')
 
-class Config():
+
+class Config:
     """
     No Gui Config class
     """
@@ -68,6 +67,7 @@ class Config():
             self.config['APPSETTINGS'] = {
                 'allow_read_sram': 'False',
                 'response_time': '',
+                'tx_packet_size': '{}'.format(256*8)
             }
 
         return self.config
@@ -128,15 +128,31 @@ class ConfigWindow(QtGui.QWidget, Config):
     def close(self):
         QtGui.QWidget.close(self)
 
-    def add_entry_to_grid(self, option, value):
-        setattr(self, option, ConfigEntry(parent=self, option=option, value=value, grid=self.mainGrid, y_pos=self.__mainGrid_y_cnt))
+    def add_line_edit_entry_to_grid(self, option, value):
+        if option in ['tx_packet_size']:
+            qobject = self.packetsize_options(value)
+        else:
+            qobject = QtGui.QLineEdit()
+            qobject.setText(value)
+        setattr(self, option, ConfigEntry(parent=self, option=option, value=value, grid=self.mainGrid,
+                                          y_pos=self.__mainGrid_y_cnt, qobject=qobject))
         self.__mainGrid_y_cnt += 1
+
+    def packetsize_options(self, value):
+        qobject = QtGui.QComboBox()
+        allowed_values = ['{}'.format(256 * 2**i) for i in xrange(3, -1, -1)]
+        if value not in allowed_values:
+            value = '{}'.format(256*8)
+        qobject.addItems(allowed_values)
+        qobject.text = qobject.currentText
+        qobject.setCurrentIndex(allowed_values.index(value))
+        return qobject
 
     def read_config(self):
         self.config = Config.read_config(self)
         for config_section in self.config:
             for sub_key in self.config[config_section]:
-                self.add_entry_to_grid(option=sub_key, value=self.config[config_section][sub_key])
+                self.add_line_edit_entry_to_grid(option=sub_key, value=self.config[config_section][sub_key])
 
     def apply_slot(self):
         for config_section in self.config:

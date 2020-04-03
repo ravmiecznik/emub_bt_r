@@ -92,7 +92,7 @@ class BinFilePacketGenerator(BinFilePacketGeneratorAbstract, file):
     """
     Provides iteration protocol for binary file packets
     """
-    def __init__(self, bin_file, packet_size=256 * 8, expected_size=0x8000, crc_attach=False):
+    def __init__(self, bin_file, packet_size=256*8, expected_size=0x8000, crc_attach=False):
         file.__init__(self, bin_file, 'rb')
         self.bin_path = bin_file
         self.packet_size = packet_size
@@ -108,7 +108,7 @@ class BinFilePacketGeneratorBytesIO(BinFilePacketGeneratorAbstract, BytesIO):
     This is in memory container
     May be used to store nacked packets due to this each written packet size must be checked
     """
-    def __init__(self, bytes='', packet_size = 256*8, crc_attach = False):
+    def __init__(self, bytes='', packet_size=256*8, crc_attach=False):
         BytesIO.__init__(self, bytes)
         self.packet_size = packet_size
         self.packets_get = 0

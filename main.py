@@ -240,6 +240,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             allow_read_sram = True
         self.emulation_panel = EmulationPanel(self.centralwidget, read_sram_allowed=allow_read_sram)
 
+        self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
+        self.tx_packet_size = self.read_tx_packetsize()
+
         self.event_handler.add_event(to_signal(self.save_button_slot))
 
         if self.is_test == True:
@@ -430,7 +433,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def save_button_slot(self):
         bin_path = self.bin_file_panel.get_current_file()
         try:
-            bin_packets = BinFilePacketGenerator(bin_path)
+            bin_packets = BinFilePacketGenerator(bin_path, packet_size=self.tx_packet_size)
         except IOError as e:
             self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
             raise e
@@ -465,6 +468,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             rcv_chunk_size = self.read_emubt_rcv_chunk_size()
             self.emulator.set_rcv_chunk_size(rcv_chunk_size)
         self.__response_time = float(self.config_window.config['APPSETTINGS']['response_time'].replace(',','.'))
+        self.tx_packet_size = self.read_tx_packetsize()
 
 
 
@@ -712,6 +716,18 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         except KeyError:
             return False
 
+    def read_tx_packetsize(self):
+        tx_packet_size = "{}".format(258 * 8)
+        try:
+            _tx_packet_size = self.config_window.config['APPSETTINGS']['tx_packet_size']
+            allowed_values = ['{}'.format(256 * 2**i) for i in xrange(3, -1, -1)]
+            if _tx_packet_size in allowed_values:
+                return int(_tx_packet_size)
+        except KeyError:
+            self.config_window.config['APPSETTINGS']['tx_packet_size'] = tx_packet_size
+        return int(tx_packet_size)
+
+
     def reflash_button_slot(self):
         """
         handle_rx_message method will trigger reflasher window if bootloader3 txt repsonse received
@@ -892,7 +908,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.set_connection_status()
 
     def config_button_slot(self):
-        self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
         x_offset = -400
         y_offset = 100
         current_position_and_size = WindowGeometry(self)

@@ -100,7 +100,7 @@ class WritePackets:
 
         self.disable_objects_for_transmission_signal.emit()
         time.sleep(0.5)
-        max_timeout = 25
+        max_timeout = 60
         t_start = time.time()
         bank_name_full = os.path.basename(self.bin_packets.bin_path)
         bank_name = os.path.splitext(bank_name_full)[0]
@@ -109,6 +109,7 @@ class WritePackets:
 
         packet_num = 0
         packet = self.bin_packets.next()
+        debug("Sending bin with packetsize: {}".format(len(packet)))
         while self.progress_bar.isHidden(): time.sleep(0.1)
         while packet_num < self.bin_packets.packets_amount:
         #while True:
@@ -123,7 +124,7 @@ class WritePackets:
 
             if response == RxMessage.rx_id_tuple.index('ack'):
                 self.tx_stats.ack()
-                self.progress_bar.set_val_signal.emit(float(packet_num) / 16 * 100)
+                self.progress_bar.set_val_signal.emit(float(packet_num) / self.bin_packets.packets_amount * 100)
                 packet_num += 1
                 try:
                     packet = self.bin_packets.next()
