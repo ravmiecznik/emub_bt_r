@@ -121,7 +121,6 @@ class ConfigWindow(QtGui.QWidget, Config):
         self.mainGrid.addWidget(self.apply_button,   self.__mainGrid_y_cnt, 2, 1, 1)
         self.mainGrid.addWidget(self.cancel_button,  self.__mainGrid_y_cnt, 0, 1, 1)
         self.setLayout(self.mainGrid)
-        #self.line_edit.setText(line_edit_text)
         self.resize(self.x_siz, self.y_siz)
         self.apply_signal = apply_signal
 
@@ -131,7 +130,6 @@ class ConfigWindow(QtGui.QWidget, Config):
 
     def add_entry_to_grid(self, option, value):
         setattr(self, option, ConfigEntry(parent=self, option=option, value=value, grid=self.mainGrid, y_pos=self.__mainGrid_y_cnt))
-        #self.mainGrid.addWidget(getattr(self, option), self.__mainGrid_y_cnt, 0, 1, 2)
         self.__mainGrid_y_cnt += 1
 
     def read_config(self):
@@ -139,30 +137,6 @@ class ConfigWindow(QtGui.QWidget, Config):
         for config_section in self.config:
             for sub_key in self.config[config_section]:
                 self.add_entry_to_grid(option=sub_key, value=self.config[config_section][sub_key])
-
-    # def read_config(self):
-    #     if 'BLUETOOTH' not in self.config:
-    #         debug("Adding missing BLUETOOTH section to: {}".format(self.config_file_path))
-    #         self.config['BLUETOOTH'] = {
-    #             'bt_device_port': '',
-    #             'bt_device_address': ''
-    #         }
-    #     if 'EDITORS' not in self.config:
-    #         debug("Adding missing EDITORS section to: {}".format(self.config_file_path))
-    #         self.config['EDITORS'] = {
-    #             'bin_editor': '',
-    #         }
-    #     if 'APPSETTINGS' not in self.config:
-    #         debug("Adding missing APPSETTINGS section to: {}".format(self.config_file_path))
-    #         self.config['APPSETTINGS'] = {
-    #             'allow_read_sram': 'False',
-    #             'response_time': '',
-    #         }
-    #     for config_section in self.config:
-    #         for sub_key in self.config[config_section]:
-    #             self.add_entry_to_grid(option=sub_key, value=self.config[config_section][sub_key])
-    #
-    #     return self.config
 
     def apply_slot(self):
         for config_section in self.config:
@@ -174,27 +148,6 @@ class ConfigWindow(QtGui.QWidget, Config):
                 self.config.write(cf)
             self.close()
         self.apply_signal.emit()
-
-    # def updade_config_file(self, config_section, sub_key, value):
-    #     """
-    #     Updates config file according to config_section entry
-    #     :param config_section:
-    #     :param sub_key:
-    #     :param value:
-    #     :return:
-    #     """
-    #     if config_section not in self.config:
-    #         debug("Adding missing {} section to: {}".format(config_section, self.config_file_path))
-    #         self.config[config_section] = {}
-    #     self.config.set(config_section, sub_key, value)
-    #     if self.validate():
-    #         with open(self.config_file_path, 'w') as cf:
-    #             self.config.write(cf)
-    #
-    # def update_config_file_BLUETOOTH(self, **kwargs):
-    #     self.config['BLUETOOTH'] = kwargs
-    #     with open(self.config_file_path, 'w') as cf:
-    #         self.config.write(cf)
 
     def validate(self):
         bin_editor = self.config['EDITORS']['bin_editor']
@@ -214,7 +167,7 @@ class ConfigWindow(QtGui.QWidget, Config):
 if __name__ == "__main__":
     import sys
     app = QtGui.QApplication(sys.argv)
-    myapp = ConfigWindow('/home/rafal/EMU_BTR_FILES/emubt.cnf')
+    myapp = ConfigWindow('/home/rafal/EMU_BTR_FILES/emubt.cnf', lambda x:x)
     myapp.show()
     app.exec_()
     # myapp.safe_close()
