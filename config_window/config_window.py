@@ -140,7 +140,7 @@ class ConfigWindow(QtGui.QWidget, Config):
 
     def packetsize_options(self, value):
         qobject = QtGui.QComboBox()
-        allowed_values = ['{}'.format(256 * 2**i) for i in xrange(3, -1, -1)]
+        allowed_values = ['{}'.format(256 * i) for i in xrange(8, 0, -1)]
         if value not in allowed_values:
             value = '{}'.format(256*8)
         qobject.addItems(allowed_values)

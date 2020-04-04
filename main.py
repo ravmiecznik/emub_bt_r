@@ -720,7 +720,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         tx_packet_size = "{}".format(258 * 8)
         try:
             _tx_packet_size = self.config_window.config['APPSETTINGS']['tx_packet_size']
-            allowed_values = ['{}'.format(256 * 2**i) for i in xrange(3, -1, -1)]
+            allowed_values = ['{}'.format(256 * i) for i in xrange(8, 0, -1)]
             if _tx_packet_size in allowed_values:
                 return int(_tx_packet_size)
         except KeyError:

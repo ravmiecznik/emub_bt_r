@@ -7,6 +7,7 @@ import os
 from io import BytesIO
 from setup_emubt import error, warn, info, debug
 from message_handler.crc import crc
+from math import ceil
 import time, struct
 
 
@@ -52,6 +53,11 @@ def bin_repr(file_obj):
     return repr
 
 
+class BinPacket:
+    def __init__(self, b_address, payload):
+        self.payload = payload
+        self.b_address = b_address
+
 class BinFilePacketGeneratorAbstract():
     """
     Abstaract class to create target BinFilePacketGenerator
@@ -62,7 +68,7 @@ class BinFilePacketGeneratorAbstract():
         self.seek(0)
         l = len(self.read())
         self.seek(tell)
-        return l/self.packet_size
+        return l
 
     def __iter__(self):
         self.seek(0)
@@ -76,11 +82,11 @@ class BinFilePacketGeneratorAbstract():
         return itemget
 
     def next(self):
-        packet = self.read(self.packet_size)
-        if packet:
+        b_address = self.tell()
+        payload = self.read(self.packet_size)
+        if payload:
             self.packets_get += 1
-            ret = packet + crc(packet) if self.crc_attach else packet
-            return ret
+            return BinPacket(b_address, payload)
         else:
             raise StopIteration
 
@@ -99,8 +105,8 @@ class BinFilePacketGenerator(BinFilePacketGeneratorAbstract, file):
         self.crc_attach = crc_attach
         self.packets_get = 0
         self.packets_amount = len(self)
-        if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
-            raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
+        # if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
+        #     raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
 
 
 class BinFilePacketGeneratorBytesIO(BinFilePacketGeneratorAbstract, BytesIO):

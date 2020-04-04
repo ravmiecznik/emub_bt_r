@@ -8,7 +8,7 @@ import struct
 from event_handler import to_signal
 from gui_thread import GuiThread, thread_this_method
 from setup_emubt import warn, error, info, debug, BIN_PATH
-from bin_handler import BinReceiver
+from bin_handler import BinReceiver, bin_repr
 from message_box import message_box
 from bin_tracker import BinTracker
 from message_handler import TransmissionStats, MessageSender, MessageReceiver, RxMessage
@@ -70,8 +70,10 @@ class WritePackets:
             result = self.rx_message_buffer.pop(context).id  # gets message and returns id from buffer
         return result
 
-    def send_packet(self, packet, packet_num):
-        msg_body = struct.pack('B', packet_num) + packet
+    def send_packet(self, packet, b_address):
+        msg_body = struct.pack('H', b_address) + packet
+        print bin_repr(BytesIO(packet))
+        print "=========================================\n"
         _context = self.message_sender.send(MessageSender.ID.write_to_page, body=msg_body)
         return _context
 
@@ -107,25 +109,27 @@ class WritePackets:
         self.progress_bar.set_title("SENDING: {}".format(bank_name_full))
         to_signal(self.progress_bar.display).emit()
 
-        packet_num = 0
+        tot_tx_bytes = 0
         packet = self.bin_packets.next()
-        debug("Sending bin with packetsize: {}".format(len(packet)))
+        debug("Sending bin with packetsize: {}".format(len(packet.payload)))
+        print "packets", self.bin_packets.packets_amount
         while self.progress_bar.isHidden(): time.sleep(0.1)
-        while packet_num < self.bin_packets.packets_amount:
-        #while True:
+        while tot_tx_bytes < len(self.bin_packets):
+            print "packetsize", len(packet.payload)
             if self.progress_bar.isHidden():
                 self.gui_communication_signal.emit("Upload procedure terminated")
                 break
             self.check_resp_thr = GuiThread(self.check_repsonse, args=(MessageSender.context,))
+            print "context", MessageSender.context
             self.check_resp_thr.start()
-            self.send_packet(packet, packet_num=packet_num)
+            self.send_packet(packet.payload, b_address=tot_tx_bytes)
             while self.check_resp_thr.returned() is None: time.sleep(0.001)
             response = self.check_resp_thr.returned()
 
             if response == RxMessage.rx_id_tuple.index('ack'):
                 self.tx_stats.ack()
-                self.progress_bar.set_val_signal.emit(float(packet_num) / self.bin_packets.packets_amount * 100)
-                packet_num += 1
+                self.progress_bar.set_val_signal.emit(float(tot_tx_bytes) / self.bin_packets.packets_amount * 100)
+                tot_tx_bytes += packet.b_address
                 try:
                     packet = self.bin_packets.next()
                 except StopIteration:
