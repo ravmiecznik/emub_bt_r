@@ -387,7 +387,6 @@ class BankPropertyEditor(QtGui.QWidget, object):
 
     @bank_info.setter
     def bank_info(self, bank_info):
-        print "setting"
         self.__bank_info = BankInfo.from_instance(bank_info)
         self.bank_num = self.bank_info.bank_number
 
