@@ -50,25 +50,58 @@ class Config:
         self.read_config()
 
     def read_config(self):
+        """
+        Reads config file,
+        adds missing fields with default vaules if not present.
+        In case of some config upgrades add missing andres for given section in defaults dicts
+        :return:
+        """
+        ##BLUETOOTH SECTION##
+        bluetooth_defaults = {
+            'bt_device_port': '',
+            'bt_device_address': '',
+            'rcv_chunk_size': '258',
+        }
         if 'BLUETOOTH' not in self.config:
             debug("Adding missing BLUETOOTH section to: {}".format(self.config_file_path))
-            self.config['BLUETOOTH'] = {
-                'bt_device_port': '',
-                'bt_device_address': '',
-                'rcv_chunk_size': '258',
-            }
-        if 'EDITORS' not in self.config:
+            self.config['BLUETOOTH'] = bluetooth_defaults
+        else:
+            # check missing fileds
+            bluetooth_settings = self.config["BLUETOOTH"]
+            for k in bluetooth_defaults:
+                if k not in bluetooth_settings:
+                    bluetooth_settings[k] = bluetooth_defaults[k]
+
+        ##EDITORS SECTION##
+        editors_defaults = {
+            'bin_editor': '',
+        }
+        if "EDITORS" not in self.config:
             debug("Adding missing EDITORS section to: {}".format(self.config_file_path))
-            self.config['EDITORS'] = {
-                'bin_editor': '',
-            }
+            self.config['EDITORS'] = editors_defaults
+        else:
+            # check missing fileds
+            editors_settings = self.config["EDITORS"]
+            for k in editors_defaults:
+                if k not in editors_settings:
+                    editors_settings[k] = editors_defaults[k]
+
+        ##APPSETTINGS SECTION##
+        app_settings_defaults = {
+            'allow_read_sram': 'False',
+            'response_time': '',
+            'tx_packet_size': '{}'.format(256 * 8)
+        }
         if 'APPSETTINGS' not in self.config:
+
             debug("Adding missing APPSETTINGS section to: {}".format(self.config_file_path))
-            self.config['APPSETTINGS'] = {
-                'allow_read_sram': 'False',
-                'response_time': '',
-                'tx_packet_size': '{}'.format(256*8)
-            }
+            self.config['APPSETTINGS'] = app_settings_defaults
+        else:
+            # check missing fileds
+            app_settings = self.config["APPSETTINGS"]
+            for k in app_settings_defaults:
+                if k not in app_settings:
+                    app_settings[k] = app_settings_defaults[k]
 
         return self.config
 
