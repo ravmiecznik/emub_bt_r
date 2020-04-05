@@ -249,7 +249,7 @@ class TestQApplication(unittest.TestCase):
 
         digidag.reset_frames_buffer()   #cleans received frames
         digidag.reset_frames_count()
-        time.sleep(8)   #collect data from digidiag
+        time.sleep(10)   #collect data from digidiag
 
         # check if data is being transmitted
         rx_frames_count = digidag.get_frames_count()
@@ -258,7 +258,7 @@ class TestQApplication(unittest.TestCase):
         #check if data is being transmitted and appropriate amount of different frames received
         num_of_frames_id = len(digidag.frames)
         assert num_of_frames_id >= 6, \
-            "For 1 Map file there should be 10 different frames received, got: {}".format(num_of_frames_id)
+            "There should be 10 different frames received, got: {}".format(num_of_frames_id)
 
         #test first frame
         manifold_pressure = ord(digidag.frames[0xff][1])

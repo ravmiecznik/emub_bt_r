@@ -197,7 +197,7 @@ class TestInterface(MainWindow):
             (lambda arg: self.bin_file_panel.get_current_file())(self)
 
         to_signal(self.save_button_slot)()
-        wait_for(timeout=25, test=lambda text: "File transmitted in" in text)(
+        wait_for(timeout=60, test=lambda text: "File transmitted in" in text)(
             lambda arg: str(self.console.console_text_browser.toPlainText()))(self)
 
     @wait_for(test=lambda console_text: "Freemem" in console_text, timeout=2, sleep=1)
