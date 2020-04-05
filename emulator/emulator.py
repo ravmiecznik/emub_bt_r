@@ -98,10 +98,9 @@ class Emulator():
                 emu = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                 #emu.connect((self.address, int(self.port)))
                 emu.connect((self.address, int(self.port)))
-
-
                 self.bt_connection = emu
-                emu.settimeout((float(self.__rcv_chunk_size) * 9)/115200)
+                #emu.settimeout((float(self.__rcv_chunk_size) * 9)/115200)
+                emu.settimeout(0)
                 self.event_handler.message("connected to emu device")
                 self.connected = True
                 return
