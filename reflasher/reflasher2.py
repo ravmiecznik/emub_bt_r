@@ -100,11 +100,14 @@ class Reflasher(QtGui.QWidget):
         self.resize(self.x_siz, self.y_siz)
 
     def _find_version_of_hex_to_reflash(self, bin_file):
-        version_location_pos = bin_file.find("Version:R")
-        version_location_pos_end = bin_file.find("\n", version_location_pos)
-        if version_location_pos > 1:
-            new_version = bin_file[version_location_pos:version_location_pos_end-1]
-            return new_version
+        version_strings = ["Version:R", "Version:V"]    #support variety alternative version strings
+                                                        #returns first matching string
+        for s in version_strings:
+            version_location_pos = bin_file.find(s)
+            version_location_pos_end = bin_file.find("\n", version_location_pos)
+            if version_location_pos > 1:
+                new_version = bin_file[version_location_pos:version_location_pos_end-1]
+                return new_version
 
     def get_raw_rx_buffer_slot(self):
         """
