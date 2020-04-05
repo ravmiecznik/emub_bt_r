@@ -20,6 +20,10 @@ import struct
 stdout_log = create_logger("stdout")
 PACKET_SIZE = 256*8
 
+cwd = os.getcwd()
+BROWSE_ICON = os.path.join(cwd, 'spec', 'browse.png')
+print BROWSE_ICON
+
 class TextBrowserInSubWindow(QtGui.QTextBrowser):
     append_sig = pyqtSignal(object, object)
     def __init__(self):
@@ -70,7 +74,11 @@ class Reflasher(QtGui.QWidget):
         self.text_browser.append("You are going to upload new firmware to EMUBT\n")
 
         #BUTTONS
-        self.browse_button = QtGui.QPushButton("...")
+        self.browse_button = QtGui.QPushButton()
+        self.browse_button.setToolTip("Select file")
+        self.browse_button.setMinimumWidth(100)
+
+        self.browse_button.setIcon(QtGui.QIcon(BROWSE_ICON))
         self.reflash_button = QtGui.QPushButton("REFLASH")
         self.cancel_button = QtGui.QPushButton("Cancel")
         self.browse_button.setMaximumSize(25, 25)
@@ -83,20 +91,23 @@ class Reflasher(QtGui.QWidget):
         mainGrid.setSpacing(10)
         mainGrid.addWidget(self.line_edit,      0, 0, 1, 5)
         mainGrid.addWidget(self.browse_button,  0, 5)
-        mainGrid.addWidget(self.text_browser,   1, 0, 3, 5)
-        mainGrid.addWidget(self.progress_bar,   4, 0, 1, 5)
+        mainGrid.addWidget(self.text_browser,   1, 0, 3, 6)
+        mainGrid.addWidget(self.progress_bar,   4, 0, 1, 6)
         mainGrid.addWidget(self.cancel_button,  5, 0, 1, 1)
-        mainGrid.addWidget(self.reflash_button, 5, 4, 1, 1)
+        mainGrid.addWidget(self.reflash_button, 5, 5, 1, 1)
         self.setLayout(mainGrid)
         self.__expected_version = None
         self.resize(self.x_siz, self.y_siz)
 
     def _find_version_of_hex_to_reflash(self, bin_file):
-        version_location_pos = bin_file.find("Version:R")
-        version_location_pos_end = bin_file.find("\n", version_location_pos)
-        if version_location_pos > 1:
-            new_version = bin_file[version_location_pos:version_location_pos_end-1]
-            return new_version
+        version_strings = ["Version:R", "Version:V"]    #support variety alternative version strings
+                                                        #returns first matching string
+        for s in version_strings:
+            version_location_pos = bin_file.find(s)
+            version_location_pos_end = bin_file.find("\n", version_location_pos)
+            if version_location_pos > 1:
+                new_version = bin_file[version_location_pos:version_location_pos_end-1]
+                return new_version
 
     def get_raw_rx_buffer_slot(self):
         """

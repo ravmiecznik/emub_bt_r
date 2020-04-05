@@ -8,7 +8,7 @@ import struct
 from event_handler import to_signal
 from gui_thread import GuiThread, thread_this_method
 from setup_emubt import warn, error, info, debug, BIN_PATH
-from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize, ReceptionFail, BinReceiver
+from bin_handler import BinReceiver, bin_repr
 from message_box import message_box
 from bin_tracker import BinTracker
 from message_handler import TransmissionStats, MessageSender, MessageReceiver, RxMessage
@@ -70,8 +70,10 @@ class WritePackets:
             result = self.rx_message_buffer.pop(context).id  # gets message and returns id from buffer
         return result
 
-    def send_packet(self, packet, packet_num):
-        msg_body = struct.pack('B', packet_num) + packet
+    def send_packet(self, packet, b_address):
+        msg_body = struct.pack('H', b_address) + packet
+        # print bin_repr(BytesIO(packet))
+        # print "=========================================\n"
         _context = self.message_sender.send(MessageSender.ID.write_to_page, body=msg_body)
         return _context
 
@@ -80,38 +82,62 @@ class WritePackets:
         to_signal(self.progress_bar.hide).emit()
         self.enable_objects_after_transmission_signal.emit()
 
+    def send_rx_flush_req(self):
+        retx = 3
+        def rx_flush():
+            context = self.message_sender.send(m_id=MessageSender.ID.rxflush)
+            t0 = time.time()
+            while context not in self.rx_message_buffer:
+                if time.time() - t0 > 2:
+                    return
+                time.sleep(0.1)
+            return True
+
+        while retx:
+            if rx_flush():
+                break
+            retx -= 1
+            if retx == 0:
+                self.gui_communication_signal.emit("RX flush failed")
+                return
+
     def write_packets_procedure(self):
+        self.send_rx_flush_req()
         self.disable_objects_for_transmission_signal.emit()
-        self.message_sender.send(MessageSender.ID.rxflush)
         time.sleep(0.5)
-        max_timeout = 25
         t_start = time.time()
         bank_name_full = os.path.basename(self.bin_packets.bin_path)
         bank_name = os.path.splitext(bank_name_full)[0]
         self.progress_bar.set_title("SENDING: {}".format(bank_name_full))
         to_signal(self.progress_bar.display).emit()
-
-        packet_num = 0
-        packet = self.bin_packets.next()
+        tot_tx_bytes = 0
         while self.progress_bar.isHidden(): time.sleep(0.1)
-        while packet_num < 16:
+        packets = {p.b_address: p for p in self.bin_packets}
+        packet = packets.get(packets.keys()[0])
+        max_timeout = len(packets) * self.__retx_timeout * 4
+        print "max timeout", max_timeout/60
+        debug("Sending bin with packetsize: {}".format(len(packet.payload)))
+        while packets:
             if self.progress_bar.isHidden():
                 self.gui_communication_signal.emit("Upload procedure terminated")
                 break
             self.check_resp_thr = GuiThread(self.check_repsonse, args=(MessageSender.context,))
             self.check_resp_thr.start()
-            self.send_packet(packet, packet_num=packet_num)
+            self.send_packet(packet.payload, b_address=packet.b_address)
             while self.check_resp_thr.returned() is None: time.sleep(0.001)
             response = self.check_resp_thr.returned()
 
             if response == RxMessage.rx_id_tuple.index('ack'):
                 self.tx_stats.ack()
-                self.progress_bar.set_val_signal.emit(float(packet_num) / 16 * 100)
-                packet_num += 1
+                self.progress_bar.set_val_signal.emit(float(tot_tx_bytes) / self.bin_packets.packets_amount * 100)
+                tot_tx_bytes += len(packet.payload)
+                packets.pop(packet.b_address)
                 try:
-                    packet = self.bin_packets.next()
-                except StopIteration:
+                    packet = packets.get(packets.keys()[0])
+                except IndexError:
                     pass
+            elif response == RxMessage.rx_id_tuple.index('dtx'):
+                self.tx_stats.dtx()
             else:
                 self.tx_stats.nack()
             if time.time() - t_start > max_timeout:
@@ -138,7 +164,8 @@ class ReadPackets:
         self.progress_bar = parent.progress_bar
         self.tx_stats = TransmissionStats()
         self.read_thread = GuiThread(self.read_packets_procedure)
-        self.received = BytesIO()
+        self.context_to_packet_map = {}
+        self.receiver = BinReceiver(packet_size=256*8)
         self.get_bank_name = parent.banks_panel.get_bank_name_text
         self.update_file_list = parent.bin_file_panel.combo_box.moveOnTop
         self.disable_objects_for_transmission_signal = parent.disable_objects_for_transmission_signal
@@ -155,12 +182,15 @@ class ReadPackets:
         while context not in self.rx_message_buffer:
             time.sleep(0.1)
             if time.time() - t0 > retx_timeout:
-                return RxMessage.rx_id_tuple.index('dtx')
+                return RxMessage.RxId.dtx
         else:
             msg = self.rx_message_buffer.pop(context)  # gets message and returns id from buffer
-            self.received.write(msg.msg)
-            result = msg.id
-        return result
+            if msg.id == RxMessage.RxId.ack:
+                packet_num = self.context_to_packet_map[context]
+                self.context_to_packet_map.pop(context)
+                self.receiver[packet_num] = msg.msg
+                result = msg.id
+                return result
 
     def send_request(self, packet_num):
         msg_body = struct.pack('B', packet_num)
@@ -182,14 +212,16 @@ class ReadPackets:
         to_signal(self.progress_bar.display).emit()
         packet_num = 0
         while self.progress_bar.isHidden(): time.sleep(0.1)
-        while packet_num < 16:
+        while not self.receiver:
             if self.progress_bar.isHidden():
                 self.gui_communication_signal.emit("Read procedure terminated")
                 break
 
-            self.check_resp_thr = GuiThread(self.check_response, args=(MessageSender.context,))
+            context = self.send_request(packet_num=packet_num)
+            self.context_to_packet_map[context] = packet_num
+            self.check_resp_thr = GuiThread(self.check_response, args=(context,))
             self.check_resp_thr.start()
-            self.send_request(packet_num=packet_num)
+
             while self.check_resp_thr.returned() is None:
                 time.sleep(0.001)
             response = self.check_resp_thr.returned()
@@ -226,8 +258,7 @@ class ReadSramProcedure(ReadPackets):
         except:
             f_path_bin = os.path.join(BIN_PATH, '{}_sram.bin'.format('XXXX'))
         with open(f_path_bin, 'wb') as f:
-            self.received.seek(0)
-            f.write(self.received.read())
+            f.write(self.receiver.get())
         self.gui_communication_signal.emit("Saved as: {}".format(f_path_bin))
         self.update_file_list(f_path_bin)
 
@@ -240,7 +271,6 @@ class ReadBankProcedure(ReadPackets):
         rx_file_name = self.get_bank_name()
         f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(rx_file_name))
         with open(f_path_bin, 'wb') as f:
-            self.received.seek(0)
-            f.write(self.received.read())
+            f.write(self.receiver.get())
         self.gui_communication_signal.emit("Saved as: {}".format(f_path_bin))
         self.update_file_list(f_path_bin)

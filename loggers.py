@@ -20,7 +20,7 @@ import logging, time, os, sys
 # func – The name of the function or method from which the logging call was invoked.
 # sinfo – A text string representing stack information from the base of the stack in the current thread, up to the logging call.
 
-def tstamp():
+def tstamp(sep=':'):
     ts = time.localtime()
     ts_ms = time.time()%60
     ts_ms = "{:.3f}".format(ts_ms).zfill(6)

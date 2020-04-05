@@ -13,6 +13,7 @@ import inspect
 from main import MainWindow
 from message_handler import MessageSender
 from gui_thread import GuiThread
+from message_handler import RxMessage
 from event_handler import to_signal
 import queue
 import time
@@ -137,6 +138,8 @@ def apply_queue(timeout=2):
 class TestInterface(MainWindow):
     def __init__(self, *args, **kwargs):
         MainWindow.__init__(self, *args, **kwargs)
+        self.digiag_widget.show()
+        self.digidiag_window.show()
         self.queue = queue.Queue()
 
 
@@ -147,6 +150,10 @@ class TestInterface(MainWindow):
         else:
             self.queue.put(elem)    #put back not matching elem
 
+    def handle_rx_message(self, msg):
+        if msg.id == RxMessage.RxId.freemem:
+            self.gui_communication_signal.emit("Freemem: {}".format(msg.msg))
+        MainWindow.handle_rx_message(self, msg)
 
     def get_active_bank_button(self):
         try:
@@ -185,14 +192,28 @@ class TestInterface(MainWindow):
         return self.get_active_bank_button()
 
     def send_file_for_emulation(self, file_path):
-        to_signal(self.console.clear)()
         self.insert_new_file_signal.emit(file_path)
         wait_for(timeout=1, test=lambda path: os.path.isfile(path) if path else False)\
             (lambda arg: self.bin_file_panel.get_current_file())(self)
 
         to_signal(self.save_button_slot)()
-        wait_for(timeout=25, test=lambda text: "File transmitted in" in text)(
+        wait_for(timeout=60, test=lambda text: "File transmitted in" in text)(
             lambda arg: str(self.console.console_text_browser.toPlainText()))(self)
+
+    @wait_for(test=lambda console_text: "Freemem" in console_text, timeout=2, sleep=1)
+    def wait_for_freemem_print(self):
+        self.message_sender.send(m_id=MessageSender.ID.freemem)
+        return self.console.console_text_browser.toPlainText()
+
+    def get_console_text(self):
+        """
+        gets and clears console text
+        :return:
+        """
+        text = self.console.console_text_browser.toPlainText()
+        to_signal(self.console.clear)()
+        return text
+
 
     @wait_for(timeout=20, test=lambda text: "File received in:" in text)
     def wait_for_file_reception(self):
@@ -200,17 +221,13 @@ class TestInterface(MainWindow):
 
     def download_flash_bank(self):
         self.bin_file_panel.combo_box.clearEditText()
-        to_signal(self.console.clear)()
         self.read_bank_button_slot()
         return self.get_current_file().get()
 
-
-    #     path = self.get_key_from_queue('file_to_upload')
-    #     if path:
-    #         self.insert_new_file_signal.emit(path)
-    #
-    # def get_text_browser_to_queue(self):
-    #     self.queue.put({'text_browser': self.console.console_text_browser.toPlainText()})
+    def download_sram(self):
+        self.bin_file_panel.combo_box.clearEditText()
+        self.read_sram_button_slot()
+        return self.get_current_file().get()
 
     def disconnect(self):
         self.connect_button.clicked.emit(1)

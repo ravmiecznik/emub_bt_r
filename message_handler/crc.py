@@ -36,4 +36,6 @@ def crc_xmodem(crc, data):
 
 
 if __name__ == "__main__":
-    print hex(ord(crc('rafal')[0])), hex(ord(crc('rafal')[1]))
+    for i in crc('NULL'):
+        print hex(ord(i))
+    #print hex(ord(crc('rafal')[0])), hex(ord(crc('rafal')[1]))

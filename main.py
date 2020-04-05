@@ -15,6 +15,7 @@ platform = platform.system()
 from collections import namedtuple
 from io import BytesIO
 from bin_handler import bin_repr
+from random import randint
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
 from loggers import create_logger
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
@@ -37,7 +38,7 @@ from config_window import ConfigWindow, Config, ConfigSettings
 from procedures import WritePackets, ReadSramProcedure, ReadBankProcedure
 from test_module import TestInterface
 from digidiag import DigiDiag, DigidiagWindow
-from message_box import message_box
+import message_box
 from plotter import Plotter
 from bin_tracker import BinTracker
 from auxiliary_module import MeanCalculator, WindowGeometry
@@ -53,6 +54,7 @@ import traceback
 from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 from set_pin_form import SetPinWindow
 from banks_handler import BanksHandler
+from freemem import FreeMemPlotter
 
 print "PYQT: {}".format(PYQT_VERSION_STR)
 
@@ -145,7 +147,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.sent_message_container = SentMessageContainer()
         self.mutex = QMutex()
         self.__response_time = 5    #big overhead for initial value
-        self.__receive_data_period = 0.001
+        self.__receive_data_period = 0.0001
         self.bank_in_use = None
         self.is_test = is_test
         self.config_path = SETTINGS_PATH
@@ -238,6 +240,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             allow_read_sram = True
         self.emulation_panel = EmulationPanel(self.centralwidget, read_sram_allowed=allow_read_sram)
 
+        self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
+        self.tx_packet_size = self.read_tx_packetsize()
+
         self.event_handler.add_event(to_signal(self.save_button_slot))
 
         if self.is_test == True:
@@ -269,6 +274,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.read_sram_button_slot), 'read_sram_button_slot')
         self.emulation_panel.set_event_handler(self.event_handler)
 
+        self.freemem_plotter = FreeMemPlotter(self.message_sender)
 
         self.disable_objects_for_transmission_signal()
         self.load_last_status()
@@ -427,7 +433,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def save_button_slot(self):
         bin_path = self.bin_file_panel.get_current_file()
         try:
-            bin_packets = BinFilePacketGenerator(bin_path)
+            bin_packets = BinFilePacketGenerator(bin_path, packet_size=self.tx_packet_size)
         except IOError as e:
             self.gui_communication_signal.emit("{}: {}".format(e.strerror, e.filename))
             raise e
@@ -462,6 +468,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             rcv_chunk_size = self.read_emubt_rcv_chunk_size()
             self.emulator.set_rcv_chunk_size(rcv_chunk_size)
         self.__response_time = float(self.config_window.config['APPSETTINGS']['response_time'].replace(',','.'))
+        self.tx_packet_size = self.read_tx_packetsize()
 
 
 
@@ -494,6 +501,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
     def handle_rx_message(self, msg):
         while msg:
+            self.rx_message_buffer[msg.context] = msg
             banks = ['bank1set', 'bank2set', 'bank3set']
             if msg.id == RxMessage.RxId.txt:   #free text
                 self.handle_rx_txt_message(msg.msg)
@@ -520,7 +528,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.connect_button_slot()
             elif msg.id == RxMessage.RxId.banks_info:
                 self.banks_handler.update_bank_info(msg)
-            self.rx_message_buffer[msg.context] = msg
+            elif msg.id == RxMessage.RxId.freemem:
+                self.freemem_plotter.update_xy(int(msg.msg))
             msg = self.message_receiver.get_message()
 
 
@@ -640,6 +649,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.message_sender.send(MessageSender.ID.get_banks_info)
         elif cmd == "rstb":
             self.message_sender.send(MessageSender.ID.reset_banks_info)
+        elif cmd == "freemem":
+            self.freemem_plotter.show()
+            self.freemem_plotter.freemem_request_thread.start()
         else:
             self.gui_communication_signal.emit("unsuported command")
 
@@ -704,13 +716,34 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         except KeyError:
             return False
 
+    def read_tx_packetsize(self):
+        tx_packet_size = "{}".format(258 * 8)
+        try:
+            _tx_packet_size = self.config_window.config['APPSETTINGS']['tx_packet_size']
+            allowed_values = ['{}'.format(256 * i) for i in xrange(8, 0, -1)]
+            if _tx_packet_size in allowed_values:
+                return int(_tx_packet_size)
+        except KeyError:
+            self.config_window.config['APPSETTINGS']['tx_packet_size'] = tx_packet_size
+        return int(tx_packet_size)
+
+
     def reflash_button_slot(self):
         """
         handle_rx_message method will trigger reflasher window if bootloader3 txt repsonse received
         :return:
         """
-        self.message = self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
-        #self.send_message(MessageSender.ID.bootloader_safe, timeout=2, re_tx=0)
+        msg = "!!!WARNING!!!\n" \
+              "You are about to upload new firmware to EMUBT board.\n" \
+              "This is not about EEPROM emulation !!!\n" \
+              "Are you sure you want to update the board ?\n"
+        detailed_msg = "If you want to send binary file for emulation use UPLOAD button.\n" \
+                       "Option you chosen writes new version of firmware to EMUBT board.\n" \
+                       "You are going to upgrade EMUBT version."
+        decision = message_box.message_box(msg=msg, detailed_msg=detailed_msg,
+                                           buttons= message_box.Cancel | message_box.Yes, icon=message_box.Warning)
+        if decision=="Yes":
+            self.message = self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
 
     def console_msg_factory(self, msg):
         def wrapper(*args):
@@ -825,7 +858,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.refresh_digidiag_display()
         self.estimate_response_time()
 
-
     def set_connected(self):
         self.blink_connect_thread.terminate()
         self.connect_button.setText("disconnect")
@@ -876,7 +908,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.set_connection_status()
 
     def config_button_slot(self):
-        self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
         x_offset = -400
         y_offset = 100
         current_position_and_size = WindowGeometry(self)
@@ -1010,3 +1041,4 @@ def main(dev_version=False):
 
 if __name__ == "__main__":
     main(dev_version=True)
+    #compare_bin_files('/home/rafal/EMU_BTR_FILES/DOWNLOADED/3MAP.bin', '/home/rafal/git/emu_bt_r/test_suite/RESOURCE/3MAP.bin')

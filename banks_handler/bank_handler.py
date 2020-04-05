@@ -387,7 +387,6 @@ class BankPropertyEditor(QtGui.QWidget, object):
 
     @bank_info.setter
     def bank_info(self, bank_info):
-        print "setting"
         self.__bank_info = BankInfo.from_instance(bank_info)
         self.bank_num = self.bank_info.bank_number
 
@@ -426,13 +425,16 @@ class BankPropertyEditor(QtGui.QWidget, object):
             self.bank_info.frames_vector = raw_frames
             self.info_box.setText('')
             self.clean_values()
-            m_send_thread = self.message_sender(message_id=MessageSender.ID.rxflush, timeout=0.5, re_tx=1)
+            m_send_thread = self.message_sender(message_id=MessageSender.ID.rxflush, timeout=0.5, re_tx=0)
             self.info_box.setText("Updating data...")
             while m_send_thread.isRunning():
                 time.sleep(0.01)
-            self.message_sender(message_id=MessageSender.ID.update_bank_data, body=self.bank_info.raw_content,
-                                timeout=0.5, re_tx=5)
+            m_send_thread = self.message_sender(message_id=MessageSender.ID.update_bank_data, body=self.bank_info.raw_content,
+                                timeout=0.5, re_tx=0)
             self.info_box.setText("Waiting for ack...")
+            while m_send_thread.isRunning():
+                time.sleep(0.01)
+            self.message_sender(message_id=MessageSender.ID.get_banks_info, timeout=1, re_tx=3)
 
         except Exception as e:
             self.info_box.setText(e.message)

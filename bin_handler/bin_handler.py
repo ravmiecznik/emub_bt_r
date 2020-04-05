@@ -7,6 +7,7 @@ import os
 from io import BytesIO
 from setup_emubt import error, warn, info, debug
 from message_handler.crc import crc
+from math import ceil
 import time, struct
 
 
@@ -52,6 +53,11 @@ def bin_repr(file_obj):
     return repr
 
 
+class BinPacket:
+    def __init__(self, b_address, payload):
+        self.payload = payload
+        self.b_address = b_address
+
 class BinFilePacketGeneratorAbstract():
     """
     Abstaract class to create target BinFilePacketGenerator
@@ -62,7 +68,7 @@ class BinFilePacketGeneratorAbstract():
         self.seek(0)
         l = len(self.read())
         self.seek(tell)
-        return l/self.packet_size
+        return l
 
     def __iter__(self):
         self.seek(0)
@@ -76,11 +82,11 @@ class BinFilePacketGeneratorAbstract():
         return itemget
 
     def next(self):
-        packet = self.read(self.packet_size)
-        if packet:
+        b_address = self.tell()
+        payload = self.read(self.packet_size)
+        if payload:
             self.packets_get += 1
-            ret = packet + crc(packet) if self.crc_attach else packet
-            return ret
+            return BinPacket(b_address, payload)
         else:
             raise StopIteration
 
@@ -92,15 +98,15 @@ class BinFilePacketGenerator(BinFilePacketGeneratorAbstract, file):
     """
     Provides iteration protocol for binary file packets
     """
-    def __init__(self, bin_file, packet_size=256 * 8, expected_size = 0x8000, crc_attach = False):
+    def __init__(self, bin_file, packet_size=256*8, expected_size=0x8000, crc_attach=False):
         file.__init__(self, bin_file, 'rb')
         self.bin_path = bin_file
         self.packet_size = packet_size
         self.crc_attach = crc_attach
         self.packets_get = 0
-        self.tot_packests = len(self)
-        if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
-            raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
+        self.packets_amount = len(self)
+        # if expected_size/self.packet_size and len(self) != expected_size/self.packet_size:
+        #     raise BinSenderInvalidBinSize("Size not match 0x{:X} != 0x{:X}".format(len(self), expected_size/self.packet_size))
 
 
 class BinFilePacketGeneratorBytesIO(BinFilePacketGeneratorAbstract, BytesIO):
@@ -108,7 +114,7 @@ class BinFilePacketGeneratorBytesIO(BinFilePacketGeneratorAbstract, BytesIO):
     This is in memory container
     May be used to store nacked packets due to this each written packet size must be checked
     """
-    def __init__(self, bytes='', packet_size = 256*8, crc_attach = False):
+    def __init__(self, bytes='', packet_size=256*8, crc_attach=False):
         BytesIO.__init__(self, bytes)
         self.packet_size = packet_size
         self.packets_get = 0
@@ -120,72 +126,21 @@ class BinFilePacketGeneratorBytesIO(BinFilePacketGeneratorAbstract, BytesIO):
         self.write(bytes)
 
 
-class BinReceiver(bytearray):
-    """
-    rx_buffer must have size at least 0x8000/SPMPAGESIZE/8
-    """
-    def __init__(self, rx_buffer, timeout=1):
-        bytearray.__init__(self)
-        self.__rx_buffer = rx_buffer
-        self.__timeout = timeout
-        self.__is_image_complete = False
-        self.__timeout = 1
-        self.__packet_size = 256 * 8 + 2 #plus CRC
-        self.__expected_packets_amount = 0x8000/self.__packet_size
-        self.__packets_received = 0
+class BinReceiver(dict):
+    def __init__(self, packet_size=256*8, expected_size=0x8000):
+        self.__packets_num = expected_size/packet_size
+        dict.__init__(self, {k: None for k in range(self.__packets_num)})
 
-    def wait_for_packet(self):
-        t0 = time.time()
-        while self.__rx_buffer.available() < self.__packet_size:
-            time.sleep(0.0001)
-            if time.time() - t0 > self.__timeout:
-                self.__rx_buffer.flush()
-                return False
-        return True
+    def get(self):
+        bin_content = ''
+        packets = sorted(self.keys())
+        for p in packets:
+            bin_content += self[p]
+        return bin_content
 
-    def expected_packets_amount(self):
-        return self.__expected_packets_amount
+    def __nonzero__(self):
+        return all(self.values())
 
-    def packets_received(self):
-        return self.__packets_received
-
-    def receive_packet(self):
-        if self.wait_for_packet():
-            data_received = self.__rx_buffer.read(self.__packet_size)
-            _crc = data_received[-2:]
-            data_received = data_received[0:-2]
-            crc_result = _crc == crc(data_received)
-            if not crc_result:
-                debug("CRC check fail")
-                self.__append = False
-                raise ReceptionFail
-            else:
-                self += data_received
-                self.__packets_received += 1
-                if len(self) >= self.__expected_packets_amount:
-                    return False
-                return True
-        else:
-            debug("Wait for packet timeout")
-            raise ReceptionFail
-        self.__rx_buffer.flush()
-
-    def __len__(self):
-        return self.__packets_received
-
-    def __str__(self):
-        return bin_repr(BytesIO(self))
-
-    def save_bin(self, file_path):
-        with open(file_path, 'wb') as f:
-            f.write(self)
-
-    def save_hex(self, file_path):
-        with open(file_path, 'wb') as f:
-            f.write(str(self))
-
-    def reset(self):
-        self.__init__(self.__rx_buffer, self.__timeout)
 
 
 if __name__ == "__main__":
