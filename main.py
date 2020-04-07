@@ -426,7 +426,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.read_sram.read_thread.start()
 
     def read_bank_button_slot(self):
-        self.message_sender.send(MessageSender.ID.rxflush)
+        #self.message_sender.send(MessageSender.ID.rxflush)
         self.read_bank = ReadBankProcedure(self, retx_timeout=self.__response_time)
         self.read_bank.read_thread.start()
 
@@ -508,10 +508,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             elif msg.id == RxMessage.RxId.dbg:
                 debug("Emulator: {}".format(msg.msg))
                 emu_dbg.debug("emulator debug: {}".format(msg.msg))
-            elif msg.id == RxMessage.RxId.ack and msg.msg in banks:
+            elif msg.id == RxMessage.RxId.bank_name and 'bankname:' in msg.msg:
+                bank_name = msg.msg.split(':')[1]
+                self.set_banks_panel_bank_name_signal.emit(bank_name)
+            elif msg.id == RxMessage.RxId.bank_in_use and msg.msg in banks:
                 self.set_bank_in_use(banks.index(msg.msg))
-            elif msg.id == RxMessage.RxId.ack and 'bankname:' in msg.msg:
-                self.set_banks_panel_bank_name_signal.emit(msg.msg.split(':')[1])
             elif msg.id == RxMessage.RxId.dgframe:
                 self.feed_digidiag(msg.msg)
             elif msg.id == RxMessage.RxId.pin_change_pending:
@@ -531,6 +532,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             elif msg.id == RxMessage.RxId.freemem:
                 self.freemem_plotter.update_xy(int(msg.msg))
             msg = self.message_receiver.get_message()
+
 
 
     def handle_rx_txt_message(self, txt_message):
