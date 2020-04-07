@@ -355,7 +355,7 @@ class BankPropertyEditor(QtGui.QWidget, object):
         self.info_box = QLabel(" ")
 
         self.apply_button.clicked.connect(self.apply_button_slot)
-        self.cancel_button.clicked.connect(self.display_values)
+        self.cancel_button.clicked.connect(self.cancel_button_slot)
 
         #GRID
         mainGrid = QtGui.QGridLayout()
@@ -399,6 +399,10 @@ class BankPropertyEditor(QtGui.QWidget, object):
         self.setWindowTitle("Customize: {}".format(self.name))
         self.enable_digidiag_check_box.update_tip_msg("Enable Digifant diagnostic feedback for bank \"{}\"".format(self.name))
 
+    def cancel_button_slot(self):
+        self.display_values()
+        self.close()
+
     def display_values(self):
         if self.bank_info.enable_digidiag:
             self.enable_digidiag_check_box.setChecked(True)
@@ -425,7 +429,7 @@ class BankPropertyEditor(QtGui.QWidget, object):
             self.bank_info.frames_vector = raw_frames
             self.info_box.setText('')
             self.clean_values()
-            m_send_thread = self.message_sender(message_id=MessageSender.ID.rxflush, timeout=0.5, re_tx=0)
+            m_send_thread = self.message_sender(message_id=MessageSender.ID.rxflush, timeout=0.5, re_tx=1)
             self.info_box.setText("Updating data...")
             while m_send_thread.isRunning():
                 time.sleep(0.01)
@@ -454,28 +458,28 @@ class BanksHandler():
         self.banks_panel.bank3_settings_btn.clicked.connect(self.update_bank_editor_b3)
 
 
-    def update_bank_editor_b1(self):
-        #self.editor.hide()
-        self.editor.update(self.banks_info[0])
+    def  __disp_bank_editor_widnow(self, bnum):
+        self.editor.hide()
+        self.editor.update(self.banks_info[bnum])
         self.editor.show()
+
+    def update_bank_editor_b1(self):
+        self.__disp_bank_editor_widnow(0)
 
     def update_bank_editor_b2(self):
-        #self.editor.hide()
-        self.editor.update(self.banks_info[1])
-        self.editor.show()
+        self.__disp_bank_editor_widnow(1)
 
     def update_bank_editor_b3(self):
-        #self.editor.hide()
-        self.editor.update(self.banks_info[2])
-        self.editor.show()
+        self.__disp_bank_editor_widnow(2)
 
     def update_bank_info(self, msg):
         if msg.len == BankInfo.bank_info_size:
             raw_data = msg.msg
             binfo = BankInfo(raw_data)
+            bank_name = binfo.bank_name
             bank_num = binfo.bank_number
             self.banks_info[bank_num] = binfo
-            self.banks_panel.update_tip_msg_for_bank(bank_num, binfo.get_tip_msg())
+            self.banks_panel.update_tip_msg_for_bank(bank_num, bank_name, binfo.get_tip_msg())
             try:
                 if self.editor.bank_num == bank_num and self.editor.isVisible():
                     self.editor.update(binfo)
