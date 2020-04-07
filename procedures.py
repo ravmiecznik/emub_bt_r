@@ -268,8 +268,8 @@ class ReadBankProcedure(ReadPackets):
         ReadPackets.__init__(self, parent, message_id=MessageSender.ID.get_bank_packet, retx_timeout=retx_timeout)
 
     def extra_teardown(self):
-        rx_file_name = self.get_bank_name()
-        f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(rx_file_name))
+        file_name = self.get_bank_name()
+        f_path_bin = os.path.join(BIN_PATH, '{}.bin'.format(file_name))
         with open(f_path_bin, 'wb') as f:
             f.write(self.receiver.get())
         self.gui_communication_signal.emit("Saved as: {}".format(f_path_bin))
