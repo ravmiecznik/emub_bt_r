@@ -203,7 +203,8 @@ class RxMessage(object):
         nak_feedback,
     };
     """
-    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dbg', 'dgframe', 'pin_change_pending', 'banks_info', 'freemem')
+    rx_id_tuple = ('ack', 'nack', 'dtx', 'txt', 'dbg', 'dgframe', 'pin_change_pending', 'banks_info', 'freemem',
+                   'bank_name', 'bank_in_use')
     rx_id = RxId(rx_id_tuple)
 
     class RxId():
@@ -216,6 +217,8 @@ class RxMessage(object):
         pin_change_pending  = 6
         banks_info          = 7
         freemem             = 8
+        bank_name           = 9
+        bank_in_use         = 10
 
     def __init__(self, msg_id, context, crc_check, body, length):
         self.__id = msg_id
