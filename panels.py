@@ -226,20 +226,25 @@ class BanksPanel(QtGui.QGroupBox):
         #self.bank_name_line_edit.editingFinished.connect(self.bank_name_line_edit_slot)
         self.bank_name_line_edit.returnPressed.connect(self.bank_name_line_edit_slot)
 
-    def update_tip_msg_for_bank(self, bank_button_no, msg):
+    def update_tip_msg_for_bank(self, bank_button_no, bank_name, msg):
         """
         Update tip message for button {1, 2, 3}
         :param bank_button_no:
         :param msg:
         :return:
         """
-        [self.bank1pushButton, self.bank2pushButton, self.bank3pushButton][bank_button_no].update_tip_msg(msg, wrap=False)
+        bank_button = [self.bank1pushButton, self.bank2pushButton, self.bank3pushButton][bank_button_no]
+        bank_button.update_tip_msg(msg, wrap=False)
+        if len(bank_name) > 14:
+            bank_name = bank_name[0:11] + '...'
+        bank_button.setText(bank_name)
 
     def put_bank_name(self, name):
         self.bank_name_line_edit.setText(name[0:self.bank_name_max_len])
 
     def get_bank_name_text(self):
-        return self.bank_name_line_edit.text()[0:self.bank_name_max_len]
+        bank_name = str(self.bank_name_line_edit.text())
+        return bank_name[0:self.bank_name_max_len]
 
 
     def set_default_style_sheet_for_buttons(self):
