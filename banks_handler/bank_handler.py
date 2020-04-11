@@ -434,7 +434,7 @@ class BankPropertyEditor(QtGui.QWidget, object):
             while m_send_thread.isRunning():
                 time.sleep(0.01)
             m_send_thread = self.message_sender(message_id=MessageSender.ID.update_bank_data, body=self.bank_info.raw_content,
-                                timeout=0.5, re_tx=0)
+                                timeout=0.5, re_tx=1)
             self.info_box.setText("Waiting for ack...")
             while m_send_thread.isRunning():
                 time.sleep(0.01)
