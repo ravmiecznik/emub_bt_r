@@ -1,6 +1,6 @@
 # emub_bt_r
 
-## EMU_BT_R V2.3
+## EMU_BT_R V2.6
 
 https://www.youtube.com/watch?v=0i5L0DQhbt8
 
@@ -9,6 +9,7 @@ https://www.youtube.com/watch?v=bxWkzQrnqo4
 https://github.com/ravmiecznik/atm128_bootloader_v3
 ```
 !!! DON'T USE WITH VERSION EMU_BT_R V2.2 OR OLDER, BOOTLOADER INCOMPATIBLE !!!
+    01.05.2020: Read process stall fixed
     05.04.2020: Adjustable transmit packetsize, automatic update of config file in case of missing fields/sections
                 EMBUT board hex version: V2.5_05042020 or higher
     15.03.2020: Customizable digidiag frames added	
