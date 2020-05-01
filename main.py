@@ -203,7 +203,6 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.set_pin_button_slot))
 
         self.set_pin_signal.connect(self.set_pin_slot)
-
         ConfigSettings.__init__(self)
 
         self.control_panel = ControlPanel(self.centralwidget, event_handler=self.event_handler)
