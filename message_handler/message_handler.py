@@ -125,6 +125,8 @@ class MessageSender:
         reset_banks_info    = 27
         update_bank_data    = 28
         freemem             = 29
+        get_digi_frame      = 30
+        keep_sending_dframes= 31
         run_main_app_btl    = 254
 
         @classmethod
@@ -170,7 +172,8 @@ class MessageSender:
 
     def __send(self, m_id=None, body='NULL'):
         msg = create_message(msg_id=m_id, body=body, context=MessageSender.context) if m_id is not None else body
-
+        #print "mid", m_id
+        #print ' '.join("{:02X}".format(ord(i)) for i in msg)
         self.mutex.lock()
         context = self.__send_m(msg, m_id)
         self.mutex.unlock()

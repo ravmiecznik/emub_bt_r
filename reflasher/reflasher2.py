@@ -147,7 +147,6 @@ class Reflasher(QtGui.QWidget):
         QtGui.QWidget.close(self)
         event.accept()
 
-
     def select_file(self):
         print 'select'
         start_dir = os.path.dirname(self.last_hex_path)
@@ -161,7 +160,6 @@ class Reflasher(QtGui.QWidget):
                 config.write(cf)
             self.last_hex_path = self.get_last_hex_file_path()
             self.line_edit.setText(self.last_hex_path)
-
 
     def check_selected_file(self):
         try:
@@ -200,7 +198,7 @@ class Reflasher(QtGui.QWidget):
             context_to_packet_index_map[context] = packet_index
             _t0 = time.time()
             while context not in self.rx_message_buffer:
-                time.sleep(0.1)
+                time.sleep(0.01)
                 if time.time() - _t0 > rxtimeout:
                     break
             else:

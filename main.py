@@ -553,6 +553,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def bank_set_slot(self, bank_num):
         msg_id = [MessageSender.ID.bank1_set,MessageSender.ID.bank2_set, MessageSender.ID.bank3_set][bank_num]
         self.send_message(message_id=msg_id)
+        self.send_message(message_id=MessageSender.ID.keep_sending_dframes)
 
     def set_bank_in_use(self, bank_no):
         self.banks_panel.set_active_button(bank_no)
@@ -653,6 +654,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif cmd == "freemem":
             self.freemem_plotter.show()
             self.freemem_plotter.freemem_request_thread.start()
+        elif cmd == "aldl":
+            self.message_sender.send(m_id=MessageSender.ID.keep_sending_dframes, body=chr(20))
         else:
             self.gui_communication_signal.emit("unsuported command")
 
