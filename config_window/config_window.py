@@ -144,8 +144,9 @@ class ConfigWindow(QtGui.QWidget, Config):
         self.mainGrid = QtGui.QGridLayout()
         self.mainGrid.setSpacing(1)
         self.__mainGrid_y_cnt = 0
+        self.__config_file = config_file
 
-        Config.__init__(self, config_file)
+        Config.__init__(self, self.__config_file)
 
         self.apply_button = QtGui.QPushButton("APPLY")
         self.cancel_button = QtGui.QPushButton("Cancel")
@@ -157,6 +158,9 @@ class ConfigWindow(QtGui.QWidget, Config):
         self.resize(self.x_siz, self.y_siz)
         self.apply_signal = apply_signal
 
+    def update(self):
+        self.__mainGrid_y_cnt = 0
+        Config.__init__(self, self.__config_file)
 
     def close(self):
         QtGui.QWidget.close(self)
