@@ -16,6 +16,7 @@ from collections import namedtuple
 from io import BytesIO
 from bin_handler import bin_repr
 from random import randint
+import sys
 from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
 from loggers import create_logger
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
@@ -63,10 +64,6 @@ GREEN_STYLE_SHEET = BACKGROUND.format(154, 252, 41)
 GREY_STYLE_SHEET = BACKGROUND.format(48, 53, 58)
 
 SETTINGS_PATH = EMU_BT_PATH
-
-emu_dbg = create_logger('emubt_dbg')
-
-
 
 
 def compare_bin_files(file1, file2):
@@ -146,7 +143,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         print 'PATH', EMU_BT_PATH
         self.sent_message_container = SentMessageContainer()
         self.mutex = QMutex()
-        self.__response_time = 5    #big overhead for initial value
+        self.__response_time = 1    #big overhead for initial value
         self.__receive_data_period = 0.0001
         self.bank_in_use = None
         self.is_test = is_test
@@ -224,7 +221,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
         self.digidiag_window = DigidiagWindow()
 
-
+        self.gui_communication_signal.connect(self.console_communication_pipe_slot)
         self.setup_emulator()
 
         self.banks_handler = BanksHandler(self, self.general_signal_args_kwargs, message_sender=self.send_message,
@@ -282,6 +279,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.connect_button_slot()
         self.digidiag_slot()
         self.resize(x_siz, y_siz)
+        self.show()
 
 
     def resizeEvent(self, event):
@@ -320,7 +318,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.disable_objects_for_transmission_signal()
         self.progress_bar.set_title("CHECKING RESPONSE TIME")
         to_signal(self.progress_bar.display).emit()
-        timeout = 5     #maximum allowed timeout, if it is exceeded there must be something wrong about bluetooth connection
+        timeout = 15     #maximum allowed timeout, if it is exceeded there must be something wrong about bluetooth connection
         mean = MeanCalculator()
         for i in xrange(num_of_checks):
             t0 = time.time()
@@ -466,7 +464,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         else:
             rcv_chunk_size = self.read_emubt_rcv_chunk_size()
             self.emulator.set_rcv_chunk_size(rcv_chunk_size)
-        self.__response_time = float(self.config_window.config['APPSETTINGS']['response_time'].replace(',','.'))
+        self.__response_time = float(self.config_window.config['APPSETTINGS']['response_time'].replace(',', '.'))
         self.tx_packet_size = self.read_tx_packetsize()
 
 
@@ -697,14 +695,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def read_calculated_response_time_config(self):
         config = configparser.ConfigParser()
         config.read(self.config_file_path)
-        response_time = None
+        default_resp_time = 1
         try:
-            response_time = float(config['APPSETTINGS']['response_time'].replace(',','.'))
+            response_time = float(config['APPSETTINGS']['response_time'].replace(',', '.'))
         except (KeyError, ValueError) as e:
-            print e
-            self.estimate_response_time.start()
-        if response_time >= 5:
-            self.estimate_response_time.start()
+            response_time = default_resp_time
         return response_time
 
 
@@ -743,7 +738,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                        "You are going to upgrade EMUBT version."
         decision = message_box.message_box(msg=msg, detailed_msg=detailed_msg,
                                            buttons= message_box.Cancel | message_box.Yes, icon=message_box.Warning)
-        if decision=="Yes":
+        if decision == "Yes":
             self.message = self.send_message(MessageSender.ID.bootloader, timeout=2, re_tx=0)
 
     def console_msg_factory(self, msg):
@@ -802,16 +797,17 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.console.help_button.setDisabled(False)
 
     def update_config_file(self, kwargs):
-        self.gui_communication_signal.emit("Updating:")
+        self.gui_communication_signal.emit("Updating config file:")
         for k in kwargs:
             self.gui_communication_signal.emit("{} {}".format(k, kwargs[k])),
         ConfigWindow(self.config_file_path,
                      apply_signal=self.config_window_apply_signal).update_config_file_BLUETOOTH(**kwargs)
+        self.config_window = ConfigWindow(self.config_file_path,
+                                          apply_signal=self.config_window_apply_signal)
         self.port, self.address = self.read_emubt_port_address_config()
 
     def connect_signals(self):
         self.help_tip_signal.connect(self.help_text.setText)
-        self.gui_communication_signal.connect(self.console_communication_pipe_slot)
         self.general_signal.connect(self.general_signal_slot)
         self.general_signal_args_kwargs.connect(self.general_signal_slot_args_kwargs)
         self.disable_objects_for_transmission_signal = to_signal(self.__disable_objects_for_transmission)
@@ -890,6 +886,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
     def connect_button_slot(self):
         if self.port is None and self.address is None:
             self.gui_communication_signal.emit("There is no configuration for EMUBT")
+            self.gui_communication_signal.emit("Generating config file...")
             return
 
         if not self.emulator.connected:
@@ -1035,7 +1032,7 @@ def main(dev_version=False):
     window_icon = os.path.join('spec', 'icon.png')
     myapp.setWindowIcon(QtGui.QIcon(window_icon))
     app.setWindowIcon(QtGui.QIcon((window_icon)))
-    myapp.show()
+    #myapp.show()
     app.exec_()
     sys.exit()
 
