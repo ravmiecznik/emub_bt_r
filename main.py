@@ -623,7 +623,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         elif cmd == "frames":
             self.digiag_widget.show()
         elif cmd == 'hsk':
-            self.message_sender.send(id=MessageSender.ID.handshake)
+            self.send_message(MessageSender.ID.handshake)
         elif cmd == 'd':
             self.message_sender.send(m_id=MessageSender.ID.disable_btlrd)
         elif cmd == 's':
