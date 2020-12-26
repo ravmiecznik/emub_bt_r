@@ -109,6 +109,9 @@ class GuiThread(QThread):
         self.__is_terminated = False
         self.__trace = trace
 
+    def action_when_done(self, action_when_done):
+        self.__action_when_done = action_when_done
+
     def set_delay(self, value):
         self.__delay = value
 

@@ -17,7 +17,8 @@ from io import BytesIO
 from bin_handler import bin_repr
 from random import randint
 import sys
-from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH
+import filecmp
+from setup_emubt import logger, info, debug, error, warn, EMU_BT_PATH, LOG_PATH, BIN_PATH
 from loggers import create_logger
 from panels import ControlPanel, EmulationPanel, BanksPanel, BinFilePanel
 from emulator import Emulator
@@ -27,7 +28,7 @@ from PyQt4.QtCore import QMutex
 from PyQt4.QtGui import QLabel
 from PyQt4.QtCore import pyqtSignal, QEvent
 from main_window import ColorProgressBar
-from objects_with_help import HelpTip, GREEN_BACKGROUND_PUSHBUTTON
+from objects_with_help import HelpTip, GREEN_BACKGROUND_PUSHBUTTON, CheckBox
 from gui_thread import thread_this_method, GuiThread, SignalThread
 from bt_discover import bt_search
 from console import Console
@@ -56,6 +57,7 @@ from bin_handler import BinFilePacketGenerator, BinSenderInvalidBinSize
 from set_pin_form import SetPinWindow
 from banks_handler import BanksHandler
 from freemem import FreeMemPlotter
+from test_panel.test_panel import TestPanel
 
 print "PYQT: {}".format(PYQT_VERSION_STR)
 
@@ -66,17 +68,35 @@ GREY_STYLE_SHEET = BACKGROUND.format(48, 53, 58)
 SETTINGS_PATH = EMU_BT_PATH
 
 
-def compare_bin_files(file1, file2):
+def compare_bin_files(file1, file2, out=sys.stdout):
     with open(file1, 'rb') as f1, open(file2, 'rb') as f2:
-        cnt = 0
-        for a in f1.read():
-            b = f2.read(1)
-            if a != b:
-                print "DIFF at {:X}: {:2X} - {:2X}".format(cnt, ord(a), ord(b))
-                raw_input('any key')
-            else:
-                print "{:2X} - {:2X}".format(ord(a), ord(b))
-            cnt += 1
+        addr = 0
+        f1_c, f2_c = f1.read(1), f2.read(1)
+        while len(f1_c) and len(f2_c):
+            if f1_c != f2_c:
+                print >>out, "DIFF: ${:08X}: {:2X} != {:2X}".format(addr, ord(f1_c), ord(f2_c))
+            f1_c, f2_c = f1.read(1), f2.read(1)
+            addr += 1
+
+
+class BinCompare:
+    def __init__(self, file_1, file_2=None):
+        self.__file_1 = file_1
+        self.__file_2 = file_2
+
+    def compare(self, file_2=None):
+        if file_2 is not None:
+            self.__file_2 = file_2
+        if self.__file_2 is None:
+            raise Exception("file_2 not provided")
+        are_equal = filecmp.cmp(self.__file_1, self.__file_2, shallow=False)
+        if not are_equal:
+            diff = BytesIO()
+            compare_bin_files(self.__file_1, self.__file_2, out=diff)
+            diff.seek(0)
+            return diff.read()
+        else:
+            return "Files are the same\n{}\n{}".format(self.__file_1, self.__file_2)
 
 
 class QLabel(QLabel):
@@ -130,6 +150,7 @@ class SentMessageContainer():
 class MainWindow(QtGui.QMainWindow, ConfigSettings):
     help_tip_signal = pyqtSignal(object)
     gui_communication_signal = pyqtSignal(object)
+    test_panel_text_append_signal = pyqtSignal(object)
     update_config_file_signal = pyqtSignal(object)
     insert_new_file_signal = pyqtSignal(object)
     set_banks_panel_bank_name_signal = pyqtSignal(object)
@@ -155,8 +176,8 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         x_siz, y_siz = 600, 700
 
         #self.horizontalLayout = QtGui.QHBoxLayout()
-        main_grid = QtGui.QGridLayout()
-        main_grid.setSpacing(10)
+        self.main_grid = QtGui.QGridLayout()
+        self.main_grid.setSpacing(10)
         self.centralwidget = QtGui.QWidget(self)
         self.event_handler = EventHandler()
         general_signal_factory.signal = self.general_signal_args_kwargs
@@ -198,6 +219,9 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.event_handler.add_event(to_signal(self.emulation_diffs_present_slot))
         self.event_handler.add_event(to_signal(self.open_bin_file))
         self.event_handler.add_event(to_signal(self.set_pin_button_slot))
+        self.event_handler.add_event(to_signal(self.digidiag_show_event))
+        self.event_handler.add_event(to_signal(self.digidiag_hide_event))
+        self.event_handler.add_event(to_signal(self.test_sram_chip_slot))
 
         self.set_pin_signal.connect(self.set_pin_slot)
         ConfigSettings.__init__(self)
@@ -231,10 +255,11 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
 
         self.progress_bar = ColorProgressBar(parent=self)
 
-        allow_read_sram = self.read_allow_read_sram_option()
+        # allow_read_sram = self.read_allow_read_sram_option()
         if is_test:
             allow_read_sram = True
-        self.emulation_panel = EmulationPanel(self.centralwidget, read_sram_allowed=allow_read_sram)
+        # self.emulation_panel = EmulationPanel(self.centralwidget, read_sram_allowed=allow_read_sram)
+        self.emulation_panel = EmulationPanel(self.centralwidget)
 
         self.config_window = ConfigWindow(self.config_file_path, self.config_window_apply_signal)
         self.tx_packet_size = self.read_tx_packetsize()
@@ -254,14 +279,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         HelpTip.set_static_help_tip_slot_signal(self.help_tip_signal)
         #self.horizontalLayout.addWidget(self.bin_file_panel)
 
-        main_grid.addWidget(self.control_panel,   0, 0, 2, 1)
-        main_grid.addWidget(self.emulation_panel, 0, 2, 2, 1)
-        main_grid.addWidget(self.banks_panel,     0, 4, 2, 1)
-        main_grid.addWidget(self.bin_file_panel,  5, 0, 1, 6)
-        #main_grid.addLayout(self.horizontalLayout, 5, 0, 1, 6)
-        main_grid.addWidget(self.console,         6, 0, 4, 6)
-        main_grid.addWidget(self.help_text,      13, 0, 1, 6)
-        self.centralwidget.setLayout(main_grid)
+        self.main_grid.addWidget(self.control_panel,   0, 0, 2, 1)
+        self.main_grid.addWidget(self.emulation_panel, 0, 2, 2, 1)
+        self.main_grid.addWidget(self.banks_panel,     0, 4, 2, 1)
+        self.main_grid.addWidget(self.bin_file_panel,  5, 0, 1, 6)
+        self.main_grid.addWidget(self.console,         6, 0, 4, 6)
+        self.main_grid.addWidget(self.help_text,      13, 0, 1, 6)
+        self.centralwidget.setLayout(self.main_grid)
 
         self.raw_rx_buffer = self.emulator.raw_buffer
         self.rx_buffer = self.emulator.raw_buffer
@@ -277,10 +301,12 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.__restore_digidiag = True
         if self.control_panel.autoconnect_checkbox.isChecked():
             self.connect_button_slot()
+        self.enable_test_panel_checkbox = CheckBox("enable test panel", tip_msg="Enable test panel")
+        self.enable_test_panel_checkbox.clicked.connect(self.enable_test_panel_checkbox_clicked_slot)
+        self.enable_test_panel_checkbox.setStyleSheet(QtCore.QString("QCheckBox{color: red;}"))
         self.digidiag_slot()
         self.resize(x_siz, y_siz)
         self.show()
-
 
     def resizeEvent(self, event):
         self.bin_file_panel.combo_box.setFixedWidth(event.size().width()*0.7)
@@ -421,6 +447,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.message_sender.send(MessageSender.ID.rxflush)
         self.read_sram = ReadSramProcedure(self, retx_timeout=self.__response_time)
         self.read_sram.read_thread.start()
+        return self.read_sram.read_thread
 
     def read_bank_button_slot(self):
         #self.message_sender.send(MessageSender.ID.rxflush)
@@ -442,6 +469,54 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             raise e
         self.write_packets = WritePackets(self, bin_packets, retx_timeout=self.__response_time)
         self.write_packets.write_thread.start()
+        return self.write_packets.write_thread
+
+    def generate_random_bin(self):
+        self.gui_communication_signal.emit("Generating random file")
+        eeprom_size = 0x8000
+        random_sram_image_path = os.path.join(BIN_PATH, "random.bin")
+        with open(random_sram_image_path, 'wb') as f:
+            for _ in range(eeprom_size):
+                f.write(chr(randint(0, 255)))
+        return random_sram_image_path
+
+    def watch_thread(self, thread):
+        while thread.isRunning():
+            time.sleep(1)
+            print thread.isRunning()
+            print thread
+
+    def test_sram_chip_slot(self):
+        """
+        Generate random bin file,
+        Initiate bin compare object,
+        upload random bin,
+        trigger read_and_compare_random_sram_files
+        :return:
+        """
+        random_image_path = self.generate_random_bin()
+        self.bin_compare = BinCompare(random_image_path)
+        self.bin_file_panel.insert_new_file(random_image_path)
+        self.thread = self.save_button_slot()
+        self.thread.action_when_done(self.read_and_compare_random_sram_files)
+
+    def read_and_compare_random_sram_files(self):
+        """
+        trigger compare_random_sram_files
+        bin_compare object was initialized before in test_sram_chip_slot
+        trigger compare_random_sram_files
+        :return:
+        """
+        time.sleep(0.5)
+        self.read_thread = self.read_sram_button_slot()
+        self.read_thread.action_when_done(self.compare_random_sram_files)
+
+    def compare_random_sram_files(self):
+        received_sram_file = self.bin_file_panel.get_current_file()
+        diff = self.bin_compare.compare(received_sram_file)
+        to_signal(self.test_panel.text_browser.clear)()
+        self.general_signal_args_kwargs.emit(self.test_panel.text_browser.append, ("SRAM random test", ), {})
+        self.test_panel_text_append_signal.emit(diff)
 
     def setup_emulator(self):
         self.port, self.address = self.read_emubt_port_address_config()
@@ -504,7 +579,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
                 self.handle_rx_txt_message(msg.msg)
             elif msg.id == RxMessage.RxId.dbg:
                 debug("Emulator: {}".format(msg.msg))
-                emu_dbg.debug("emulator debug: {}".format(msg.msg))
+                debug("emulator debug: {}".format(msg.msg))
             elif msg.id == RxMessage.RxId.bank_name and 'bankname:' in msg.msg:
                 bank_name = msg.msg.split(':')[1]
                 self.set_banks_panel_bank_name_signal.emit(bank_name)
@@ -536,7 +611,32 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.gui_communication_signal.emit("E: {}".format(txt_message))
         if txt_message == "bootloader3":
             self.reflash_app_slot()
+        elif '!!!DEBUG VERSION!!!' in txt_message:
+            self.show_enable_test_panel_checkbox()
 
+    def digidiag_show_event(self):
+        self.digiag_widget.show()
+        self.digidiag_window.show()
+
+    def digidiag_hide_event(self):
+        self.digiag_widget.hide()
+        self.digidiag_window.hide()
+
+    def show_enable_test_panel_checkbox(self):
+        config = configparser.ConfigParser()
+        config.read(self.app_status_file)
+        self.main_grid.addWidget(self.enable_test_panel_checkbox, 14, 0, 1, 6)
+        if config[self.buttons_status_tag]['enable_test_panel'] == 'True':
+            self.enable_test_panel_checkbox.setChecked(True)
+            self.enable_test_panel_checkbox_clicked_slot()
+
+    def enable_test_panel_checkbox_clicked_slot(self):
+        if self.enable_test_panel_checkbox.isChecked():
+            self.test_panel = TestPanel(self.event_handler, self.app_status_file)
+            self.test_panel.show()
+            self.test_panel_text_append_signal.connect(self.test_panel.text_append)
+        elif hasattr(self, "test_panel") and self.test_panel.isVisible() and not self.enable_test_panel_checkbox.isChecked():
+            self.test_panel.close()
 
     # BANKS PROCEDURES
     def bank1set_slot(self):
@@ -616,8 +716,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
             self.recevive_emulator_data_thread.start()
             self.console.console_text_browser.clear()
         elif cmd == 'digidiag_on':
-            self.digiag_widget.show()
-            self.digidiag_window.show()
+            self.event_handler.digidiag_show_event()
         elif cmd == "frames":
             self.digiag_widget.show()
         elif cmd == 'hsk':
@@ -703,14 +802,14 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         return response_time
 
 
-    def read_allow_read_sram_option(self):
-        config = configparser.ConfigParser()
-        config.read(self.config_file_path)
-        try:
-            allow = config['APPSETTINGS']['allow_read_sram'].upper()
-            return allow == 'TRUE'
-        except KeyError:
-            return False
+    # def read_allow_read_sram_option(self):
+    #     config = configparser.ConfigParser()
+    #     config.read(self.config_file_path)
+    #     try:
+    #         allow = config['APPSETTINGS']['allow_read_sram'].upper()
+    #         return allow == 'TRUE'
+    #     except KeyError:
+    #         return False
 
     def read_tx_packetsize(self):
         tx_packet_size = "{}".format(258 * 8)
@@ -866,6 +965,7 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         self.send_message(message_id=MessageSender.ID.get_bank_in_use)
         self.message_sender.send(MessageSender.ID.get_banks_info)
         self.__response_time = self.read_calculated_response_time_config()
+        self.send_help_cmd_slot()
 
     def set_disconnected(self):
         self.disable_objects_for_transmission_signal()
@@ -998,15 +1098,13 @@ class MainWindow(QtGui.QMainWindow, ConfigSettings):
         last_files_list = self.bin_file_panel.combo_box.getItems()
         config = configparser.ConfigParser()
         config.read(self.app_status_file)
-        config[self.last_bin_files_tag] = {
-            'files': last_files_list,
-            'browse_hist': self.bin_file_panel.last_browse_location
-        }
-        config[self.buttons_status_tag] = {
-            'reload sram checkbox': self.emulation_panel.reload_sram_checkbox.isChecked(),
-            'auto open': self.emulation_panel.auto_open_checkbox.isChecked(),
-            'autoconnect': self.control_panel.autoconnect_checkbox.isChecked(),
-        }
+        config[self.last_bin_files_tag]['files'] = str(last_files_list)
+        config[self.last_bin_files_tag]['browse_hist'] = self.bin_file_panel.last_browse_location
+
+        config[self.buttons_status_tag]['reload sram checkbox'] = str(self.emulation_panel.reload_sram_checkbox.isChecked())
+        config[self.buttons_status_tag]['auto open'] = str(self.emulation_panel.auto_open_checkbox.isChecked())
+        config[self.buttons_status_tag]['autoconnect'] = str(self.control_panel.autoconnect_checkbox.isChecked())
+        config[self.buttons_status_tag]['enable_test_panel'] = str(self.enable_test_panel_checkbox.isChecked())
         with open(self.app_status_file, 'w') as cf:
            config.write(cf)
 

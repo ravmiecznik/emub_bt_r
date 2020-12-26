@@ -89,16 +89,14 @@ class ControlPanel(QtGui.QGroupBox):
 
 EMULATION_BTN_TIP           = "Track selected file for changes. If file is modified all changed bytes will be send to EMUBT SRAM memory"
 STORE_FLASH_BANK_BTN_TIP    = "This button commits selected binary file to permanent memory in currently selected bank"
-READ_SRAM_BTN_TIP           = "SRAM: this memory is visible to your ECU. This button will get its content." \
-                            "\nBut beware that during read process Emulator is not accessible to ECU" \
-                            "\nEmulation will stop"
+
 READ_BANK_BTN_TIP           = "Read and save to file content of currently selected bank, which is stored in internal flash"
 AUTO_OPEN_CHECK_BOX_TIP     = "If checked it will automatically open a saved file with new binary image downloaded from BT emulator\n"
 OVERWRITE_CHECK_BOX_TIP     = "If checked it will overwrte current file without asking\n"
 RELOAD_SRAM_CHECK_BOX_TIP   = "If checked it will reload FLASH bank to sram\n"
 
 class EmulationPanel(QtGui.QGroupBox):
-    def __init__(self, parent, event_handler=DummyEventHandler(), read_sram_allowed=False):
+    def __init__(self, parent, event_handler=DummyEventHandler()):
         super(EmulationPanel, self).__init__(parent)
         #self.parent = parent
         self.setTitle("Emulation")
@@ -106,18 +104,19 @@ class EmulationPanel(QtGui.QGroupBox):
         emulation_frame_FrameGrid = QtGui.QGridLayout()
         emulation_frame_FrameGrid.setSpacing(0.5)
 
-        self.read_sram_allowed = read_sram_allowed
+        # self.read_sram_allowed = read_sram_allowed
 
-        if read_sram_allowed == False:
-            _PushButton = SmallPushButton
-        else:
-            _PushButton = PushButton
+        # if read_sram_allowed == False:
+        #     _PushButton = SmallPushButton
+        # else:
+        #     _PushButton = PushButton
+        _PushButton = PushButton
 
 
         self.emulate_button = _PushButton("LIVE", tip_msg=EMULATION_BTN_TIP)
-        if self.read_sram_allowed:
-            self.read_sram_button = _PushButton("READ SRAM", tip_msg=READ_SRAM_BTN_TIP)
-            self.read_sram_button.raise_()
+        # if self.read_sram_allowed:
+        #     self.read_sram_button = _PushButton("READ SRAM", tip_msg=READ_SRAM_BTN_TIP)
+        #     self.read_sram_button.raise_()
         self.read_bank_button = _PushButton("READ", tip_msg=READ_BANK_BTN_TIP)
         self.save_button = _PushButton("UPLOAD", tip_msg=STORE_FLASH_BANK_BTN_TIP)
         self.auto_open_checkbox = CheckBox("auto open", tip_msg=AUTO_OPEN_CHECK_BOX_TIP)
@@ -128,23 +127,23 @@ class EmulationPanel(QtGui.QGroupBox):
         self.save_button.raise_()
         self.raise_()
 
-        if read_sram_allowed == True:
-            widgets_layout = [
-                (self.emulate_button, 0, 0),
-                (self.read_bank_button, 1, 0),
-                (self.read_sram_button, 1, 1),
-                (self.save_button, 0, 1),
-                (self.auto_open_checkbox, 3, 0, 1, 2),
-                (self.reload_sram_checkbox, 4, 0, 1, 2),
-            ]
-        else:
-            widgets_layout = [
-                (self.emulate_button, 0, 0),
-                (self.read_bank_button, 0, 1),
-                (self.save_button, 0, 2),
-                (self.auto_open_checkbox, 2, 0, 1, 2),
-                (self.reload_sram_checkbox, 3, 0, 1, 2),
-            ]
+        # if read_sram_allowed == True:
+        #     widgets_layout = [
+        #         (self.emulate_button, 0, 0),
+        #         (self.read_bank_button, 1, 0),
+        #         (self.read_sram_button, 1, 1),
+        #         (self.save_button, 0, 1),
+        #         (self.auto_open_checkbox, 3, 0, 1, 2),
+        #         (self.reload_sram_checkbox, 4, 0, 1, 2),
+        #     ]
+        # else:
+        widgets_layout = [
+            (self.emulate_button, 0, 0),
+            (self.read_bank_button, 0, 1),
+            (self.save_button, 0, 2),
+            (self.auto_open_checkbox, 2, 0, 1, 2),
+            (self.reload_sram_checkbox, 3, 0, 1, 2),
+        ]
 
         for wl in widgets_layout:
             emulation_frame_FrameGrid.addWidget(*wl)
@@ -153,16 +152,16 @@ class EmulationPanel(QtGui.QGroupBox):
 
         self.save_button.clicked.connect(event_handler.save_button_slot)
         self.emulate_button.clicked.connect(event_handler.emulate_button_slot)
-        if self.read_sram_allowed:
-            self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
+        # if self.read_sram_allowed:
+        #     self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
         self.read_bank_button.clicked.connect(event_handler.read_bank_button_slot)
 
     def set_event_handler(self, event_handler):
         self.event_handler = event_handler
         self.save_button.clicked.connect(event_handler.save_button_slot)
         self.emulate_button.clicked.connect(event_handler.emulate_button_slot)
-        if self.read_sram_allowed:
-            self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
+        # if self.read_sram_allowed:
+        #     self.read_sram_button.clicked.connect(event_handler.read_sram_button_slot)
         self.read_bank_button.clicked.connect(event_handler.read_bank_button_slot)
 
 
@@ -304,7 +303,7 @@ class BinFilePanel(QtGui.QGroupBox):
         self.browse_btn.clicked.connect(self.browse_for_file)
         self.open_btn.clicked.connect(event_handler.open_bin_file)
         self.combo_box.setDuplicatesEnabled(False)
-        self.combo_box.setMaxCount(10)
+        self.combo_box.setMaxCount(30)
         self.combo_box.setEditable(True)
 
         self.event_handler = event_handler
