@@ -231,8 +231,29 @@ class TestQApplication(unittest.TestCase):
                         diff_map += '.'
                     addr += 1
                 bin_diff_map(diff_map)
-        assert are_identical, "Downloaded SRAM file is not the same as transmitted one: {} != {}".format(new_file,
-                                                                                                    downloaded_file_path)
+        assert are_identical, "Downloaded SRAM file is not the same as transmitted one: {} != {}".format(new_file, downloaded_file_path)
+
+    def test_upload_sqeunce_sram(self):
+        to_signal(self.main_window.bin_file_panel.combo_box.clearEditText)()
+        new_file = os.path.join(RESOURCE, 'sequence.bin')
+        self.main_window.send_file_for_emulation(new_file)
+        downloaded_file_path = self.main_window.download_sram()
+        are_identical = filecmp.cmp(new_file, downloaded_file_path, shallow=False)
+        if not are_identical:
+            diff_map = ''
+            with open(new_file) as n, open(downloaded_file_path) as d:
+                nfile = n.read()
+                dfile = d.read()
+                addr = 0
+                for pair in zip(nfile, dfile):
+                    if pair[0] != pair[1]:
+                        diff_map += 'X'
+                        print "Diff @0x{:08X}: n0x{:02X} != d0x{:02X}".format(addr, ord(pair[0]), ord(pair[1]))
+                    else:
+                        diff_map += '.'
+                    addr += 1
+                bin_diff_map(diff_map)
+        assert are_identical, "Downloaded SRAM file is not the same as transmitted one: {} != {}".format(new_file, downloaded_file_path)
 
     def __test_digdiag_transmission(self, source_file):
         """
@@ -269,7 +290,7 @@ class TestQApplication(unittest.TestCase):
         rpm_h = ord(digidag.frames[0xFB][7])
         rpm_l = ord(digidag.frames[0xFB][6])
         rpm = (rpm_h << 8) + rpm_l
-        assert rpm == 0x5300, "Wrong RPM value: {}".format(rpm)
+        assert rpm == 0x5300 or rpm == 0x3f00, "Wrong RPM value: 0x{04X}".format(rpm)
 
         #test of retard, gain, knoc
         ignition_frame = [0x00, 0x00, 0x11, 0x18, 0x00, 0x00, 0x11, 0x18]
@@ -312,15 +333,15 @@ if __name__ == "__main__":
 
     TestQApplication.main_window = main_window
 
-    test_strategy = "full"  # full or suite
+    test_strategy = "suite"  # full or suite
     if test_strategy == "suite":
         suite = unittest.TestSuite()
         # Select test for test suite here
         for test_case in [
+            TestQApplication.test_digdiag_transmission_8vG60,
+            TestQApplication.test_digdiag_transmission_16vG60,
+            #TestQApplication.test_upload_bank,
             #TestQApplication.test_digdiag_transmission_8vG60,
-            #TestQApplication.test_digdiag_transmission_16vG60,
-            TestQApplication.test_upload_bank,
-            #TestQApplication.test_upload_random_sram,
         ]:
             suite.addTest(TestQApplication(test_case.__name__))
         runner = unittest.TextTestRunner(verbosity=2)
