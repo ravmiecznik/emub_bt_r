@@ -90,7 +90,8 @@ class Config:
         app_settings_defaults = {
             'allow_read_sram': 'False',
             'response_time': '',
-            'tx_packet_size': '{}'.format(256 * 8)
+            'tx_packet_size': '{}'.format(256 * 8),
+            'response_time': 1,
         }
         if 'APPSETTINGS' not in self.config:
 
